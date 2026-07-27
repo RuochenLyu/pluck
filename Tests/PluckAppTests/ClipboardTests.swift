@@ -21,6 +21,7 @@ private func processed(_ bytes: [UInt8]) -> ProcessedImage {
     ProcessedImage(
         pngData: Data(bytes),
         thumbnailPNG: Data(bytes),
+        originalPNG: Data(bytes),
         width: 2,
         height: 2,
         suggestedName: "cut"

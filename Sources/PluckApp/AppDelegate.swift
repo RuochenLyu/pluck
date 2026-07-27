@@ -11,21 +11,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var popover: NSPopover?
     private var dropView: StatusItemDropView?
     private var pluckSignalSource: (any DispatchSourceSignal)?
+    private var pasteMonitor: Any?
+    private let preview = PreviewPanelController()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
         installStatusItem()
         installPopover()
+        installPasteMonitor()
         model.onFeedbackChange = { [weak self] feedback in self?.apply(feedback) }
-        HotKeyCenter.shared.register(.pluckClipboard) { [weak self] in
-            self?.model.pluckClipboard()
+        model.onPreviewRequest = { [weak self] item in
+            guard let self else { return }
+            preview.show(item: item, model: model)
         }
         installPluckSignal()
     }
 
-    /// SIGUSR1 triggers the same clipboard pluck as the global hot key. Exists so the
-    /// full pipeline is drivable without Accessibility permission (headless QA, and
-    /// `pkill -USR1 PluckApp` as a scripting hook).
+    /// SIGUSR1 triggers the same clipboard pluck as ⌘V in the popover. Exists so the full
+    /// pipeline is drivable without a GUI (headless QA, and `pkill -USR1 PluckApp` as a
+    /// scripting hook).
     private func installPluckSignal() {
         signal(SIGUSR1, SIG_IGN)
         let source = DispatchSource.makeSignalSource(signal: SIGUSR1, queue: .main)
@@ -36,8 +40,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         pluckSignalSource = source
     }
 
+    /// ⌘V is scoped to the open popover rather than being a global hot key (decisions.md
+    /// 2026-07-27). A local monitor sees the event before the responder chain turns it into
+    /// a key equivalent, so it fires whatever SwiftUI happens to have focused; the guards
+    /// keep it from stealing ⌘V from any other window of ours (the save panel, say).
+    private func installPasteMonitor() {
+        pasteMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            // `NSEvent` is not Sendable, so the isolated hop returns a verdict, not the event.
+            let handled = MainActor.assumeIsolated { self?.handlePaste(event) ?? false }
+            return handled ? nil : event
+        }
+    }
+
+    private func handlePaste(_ event: NSEvent) -> Bool {
+        guard let popover, popover.isShown,
+              event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command,
+              event.charactersIgnoringModifiers?.lowercased() == "v",
+              event.window === popover.contentViewController?.view.window
+        else { return false }
+        model.pluckClipboard()
+        return true
+    }
+
     func applicationWillTerminate(_ notification: Notification) {
-        HotKeyCenter.shared.unregister()
+        if let pasteMonitor {
+            NSEvent.removeMonitor(pasteMonitor)
+            self.pasteMonitor = nil
+        }
     }
 
     private func installStatusItem() {

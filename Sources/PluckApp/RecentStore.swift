@@ -2,13 +2,15 @@ import Foundation
 import Observation
 
 /// One finished cutout. Pure data so the store stays testable without AppKit:
-/// `pngData` is the export, `thumbnailPNG` is what the grid decodes, `fileURL`
-/// is the on-disk copy handed to `NSItemProvider` when the user drags a cell out.
+/// `pngData` is the export, `thumbnailPNG` is what the grid decodes, `originalPNG` is the
+/// downsampled input the preview slider wipes between, `fileURL` is the on-disk copy
+/// handed to `NSItemProvider` when the user drags a cell out.
 struct RecentItem: Identifiable, Equatable, Sendable {
     let id: UUID
     let fingerprint: String
     let pngData: Data
     let thumbnailPNG: Data
+    let originalPNG: Data
     let fileURL: URL
     let suggestedName: String
     let createdAt: Date
@@ -18,6 +20,7 @@ struct RecentItem: Identifiable, Equatable, Sendable {
         fingerprint: String,
         pngData: Data,
         thumbnailPNG: Data,
+        originalPNG: Data,
         fileURL: URL,
         suggestedName: String,
         createdAt: Date = Date()
@@ -26,6 +29,7 @@ struct RecentItem: Identifiable, Equatable, Sendable {
         self.fingerprint = fingerprint
         self.pngData = pngData
         self.thumbnailPNG = thumbnailPNG
+        self.originalPNG = originalPNG
         self.fileURL = fileURL
         self.suggestedName = suggestedName
         self.createdAt = createdAt
@@ -37,7 +41,9 @@ struct RecentItem: Identifiable, Equatable, Sendable {
 @MainActor
 @Observable
 final class RecentStore {
-    static let defaultCapacity = 9
+    /// Twelve = four full rows of the 3-column grid, which is what the compact drop strip
+    /// leaves room for.
+    static let defaultCapacity = 12
 
     private(set) var items: [RecentItem] = []
 

@@ -9,38 +9,47 @@ struct PopoverView: View {
     var onQuit: () -> Void
     var onSettings: () -> Void
 
+    @State private var dropTargeted = false
+
     var body: some View {
         VStack(spacing: 0) {
-            dropZone
-                .padding(12)
+            dropHint
             Divider()
             recentSection
             Divider()
             bottomBar
         }
         .frame(width: Self.size.width, height: Self.size.height)
+        // The whole popover is the drop target, not just the strip: aiming a dragged file
+        // at a 40pt bar is a worse deal than dropping on the surface already under it.
+        .contentShape(Rectangle())
+        .onDrop(of: [.fileURL, .image], isTargeted: $dropTargeted) { providers in
+            load(providers)
+            return true
+        }
+        .overlay {
+            if dropTargeted {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .strokeBorder(Color.accentColor, lineWidth: 2)
+                    .background(Color.accentColor.opacity(0.08))
+                    .allowsHitTesting(false)
+            }
+        }
     }
 
-    private var dropZone: some View {
-        RoundedRectangle(cornerRadius: 14, style: .continuous)
-            .fill(.quaternary)
-            .frame(height: 108)
-            .overlay {
-                HStack(spacing: 14) {
-                    Image(systemName: "photo")
-                        .font(.system(size: 34, weight: .light))
-                        .foregroundStyle(.secondary)
-                    Text(L.s("Drop image or ⌥⌘B to pluck clipboard"))
-                        .font(.body)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                .padding(.horizontal, 18)
-            }
-            .onDrop(of: [.fileURL, .image], isTargeted: nil) { providers in
-                load(providers)
-                return true
-            }
+    /// One line, ≤44pt: the drop affordance is a hint, not an empty state — the empty
+    /// state belongs to the Recent grid below.
+    private var dropHint: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "square.and.arrow.down.on.square")
+                .font(.system(size: 13, weight: .regular))
+            Text(L.s("Drop or paste images here"))
+                .font(.callout)
+            Spacer(minLength: 0)
+        }
+        .foregroundStyle(.secondary)
+        .padding(.horizontal, 14)
+        .frame(height: 40)
     }
 
     private var recentSection: some View {
@@ -138,7 +147,10 @@ private struct RecentCell: View {
         }
         .onHover { hovering = $0 }
         .onAppear { thumbnail = NSImage(data: item.thumbnailPNG) }
+        .onTapGesture { model.preview(item) }
         .onDrag { NSItemProvider(contentsOf: item.fileURL) ?? NSItemProvider() }
+        .accessibilityAddTraits(.isButton)
+        .accessibilityLabel(L.s("Preview cutout"))
     }
 
     private func cellButton(_ symbol: String, label: String, action: @escaping () -> Void) -> some View {
@@ -150,33 +162,5 @@ private struct RecentCell: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(label)
-    }
-}
-
-/// Transparency is the product; the checkerboard is content, not chrome, so it is drawn
-/// flat with no material behind it (product-plan §4.7).
-private struct Checkerboard: View {
-    var square: CGFloat = 8
-
-    var body: some View {
-        Canvas { context, size in
-            context.fill(Path(CGRect(origin: .zero, size: size)), with: .color(.white))
-            let dark = Color(white: 0.87)
-            var y: CGFloat = 0
-            var row = 0
-            while y < size.height {
-                var x: CGFloat = (row % 2 == 0) ? 0 : square
-                while x < size.width {
-                    context.fill(
-                        Path(CGRect(x: x, y: y, width: square, height: square).intersection(CGRect(origin: .zero, size: size))),
-                        with: .color(dark)
-                    )
-                    x += square * 2
-                }
-                y += square
-                row += 1
-            }
-        }
-        .drawingGroup()
     }
 }

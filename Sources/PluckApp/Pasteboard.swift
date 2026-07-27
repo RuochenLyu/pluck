@@ -3,7 +3,7 @@ import Foundation
 import PluckKit
 import UniformTypeIdentifiers
 
-/// Narrow seam over `NSPasteboard` so the ⌥⌘B round trip can be tested headlessly.
+/// Narrow seam over `NSPasteboard` so the clipboard round trip can be tested headlessly.
 protocol ImagePasteboard: Sendable {
     /// Raw encoded image bytes plus a name hint, or nil when the clipboard holds no image.
     func readImage() -> (data: Data, name: String)?
@@ -52,8 +52,9 @@ enum ClipboardOutcome: Equatable, Sendable {
     case failed
 }
 
-/// ⌘C → ⌥⌘B → ⌘V, with no dialogs on any path: failures are reported through the
-/// status item, never a modal that steals focus from whatever the user was doing.
+/// ⌘C → ⌘V in the popover → ⌘V wherever you were going: the cutout is written straight
+/// back to the clipboard, so nothing touches disk. No dialogs on any path — failures are
+/// reported through the status item, never a modal that steals focus.
 struct ClipboardPlucker: Sendable {
     let pasteboard: any ImagePasteboard
     let process: @Sendable (Data, String) async throws -> ProcessedImage

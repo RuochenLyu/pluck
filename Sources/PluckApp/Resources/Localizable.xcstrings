@@ -34,13 +34,35 @@
         }
       }
     },
-    "Drop image or ⌥⌘B to pluck clipboard" : {
+    "Before / after" : {
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Drop image or ⌥⌘B to pluck clipboard"
+            "value" : "Before / after"
+          }
+        }
+      }
+    },
+    "Drop or paste images here" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Drop or paste images here"
+          }
+        }
+      }
+    },
+    "Preview cutout" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Preview cutout"
           }
         }
       }

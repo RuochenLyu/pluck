@@ -35,3 +35,9 @@
 - **决策**：BiRefNet_lite 等扩展模型由我们转换为 Core ML 后作为 Pluck GitHub Releases 资产分发；`models/manifest.json` 打包在签名 app bundle 内，含 pinned URL + SHA256 + license；下载后强制校验哈希，失败即删。manifest 只随 app 版本更新，不做远程 manifest。
 - **排除**：让用户自行下载原始权重（官方无 mlpackage，下了也用不了）；独立远程 manifest（引入第二信任通道，需额外签名机制，违背零网络默认）。
 - **理由**："不托管"的真实诉求是不运维服务器，GitHub Releases 满足；信任链锚定在 Developer ID 签名上，URL 被劫持也过不了哈希校验。详见 [product-plan.md](product-plan.md) §4.8。
+
+## 2026-07-27 — 移除全局快捷键，剪贴板入口改为 popover 内 ⌘V
+
+- **决策**：删除 ⌥⌘B 全局快捷键（Carbon 注册整体移除）。剪贴板流程改为：点菜单栏图标 → popover 内 ⌘V → 抠图 → **结果自动写回剪贴板** → 到目标 app ⌘V。SIGUSR1 触发器保留（headless QA + 脚本钩子）。
+- **背景**：v0.1 实测反馈（用户）：全局快捷键记忆负担大、不直觉；popover 粘贴更符合"看着界面操作"的心智。
+- **理由**：全局热键还有冲突与"装完即被占用一个组合键"的打扰成本；自动写回剪贴板保住了"不落盘闭环"（卖点 3），交互步数不变。

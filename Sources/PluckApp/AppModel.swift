@@ -24,6 +24,10 @@ final class AppModel {
     /// the delegate subscribes to the one owned here.
     var onFeedbackChange: (@MainActor (StatusFeedback) -> Void)?
 
+    /// Same shape, same reason: the preview panel is an `NSPanel` owned by the delegate,
+    /// so the grid asks for it rather than reaching into AppKit itself.
+    var onPreviewRequest: (@MainActor (RecentItem) -> Void)?
+
     private let pasteboard: any ImagePasteboard
     private var inFlight = 0
     private var feedbackToken = 0
@@ -65,6 +69,10 @@ final class AppModel {
         }
     }
 
+    func preview(_ item: RecentItem) {
+        onPreviewRequest?(item)
+    }
+
     func copy(_ item: RecentItem) {
         pasteboard.writePNG(item.pngData)
         flash(.success)
@@ -103,6 +111,7 @@ final class AppModel {
                     fingerprint: PluckService.fingerprint(processed.pngData),
                     pngData: processed.pngData,
                     thumbnailPNG: processed.thumbnailPNG,
+                    originalPNG: processed.originalPNG,
                     fileURL: url,
                     suggestedName: processed.suggestedName
                 )

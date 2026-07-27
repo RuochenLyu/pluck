@@ -11,6 +11,7 @@ final class RecentStoreTests: XCTestCase {
             fingerprint: PluckService.fingerprint(data),
             pngData: data,
             thumbnailPNG: data,
+            originalPNG: Data([marker, 0xFF]),
             fileURL: URL(fileURLWithPath: "/tmp/\(marker).png"),
             suggestedName: name
         )
@@ -30,10 +31,22 @@ final class RecentStoreTests: XCTestCase {
         XCTAssertEqual(store.items.map(\.fingerprint), [5, 4, 3].map { item(UInt8($0)).fingerprint })
     }
 
-    func testDefaultCapacityIsNine() {
+    /// Twelve, not nine: the compact drop strip freed a fourth grid row.
+    func testDefaultCapacityIsTwelve() {
+        XCTAssertEqual(RecentStore.defaultCapacity, 12)
         let store = RecentStore()
         for i in 1...20 { store.insert(item(UInt8(i))) }
-        XCTAssertEqual(store.items.count, RecentStore.defaultCapacity)
+        XCTAssertEqual(store.items.count, 12)
+        XCTAssertEqual(store.items.first?.fingerprint, item(20).fingerprint)
+        XCTAssertEqual(store.items.last?.fingerprint, item(9).fingerprint)
+    }
+
+    /// The preview slider's "before" half lives on the item; losing it on insert would
+    /// silently degrade the panel to a cutout-only view.
+    func testOriginalIsCarriedThroughTheStore() {
+        let store = RecentStore()
+        store.insert(item(7))
+        XCTAssertEqual(store.items.first?.originalPNG, Data([7, 0xFF]))
     }
 
     func testDuplicateFingerprintPromotesInsteadOfDuplicating() {

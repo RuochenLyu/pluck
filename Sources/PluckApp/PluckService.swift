@@ -6,6 +6,10 @@ import PluckKit
 struct ProcessedImage: Sendable, Equatable {
     var pngData: Data
     var thumbnailPNG: Data
+    /// The *input* image, downsampled — the "before" half of the preview slider. Kept
+    /// small on purpose: a session of 12 full-resolution originals in RAM is not worth a
+    /// 480pt panel.
+    var originalPNG: Data
     var width: Int
     var height: Int
     var suggestedName: String
@@ -16,6 +20,7 @@ struct ProcessedImage: Sendable, Equatable {
 /// forced off the main actor.
 enum PluckService {
     static let thumbnailMaxEdge = 320
+    static let previewMaxEdge = 1200
 
     private static let engine = VisionEngine()
 
@@ -34,10 +39,12 @@ enum PluckService {
         let mask = try await engine.mask(for: image)
         let cutout = try Compositor.cutout(image: image, mask: mask)
         let png = try Compositor.pngData(for: cutout)
-        let thumb = try Compositor.pngData(for: thumbnail(of: cutout))
+        let thumb = try Compositor.pngData(for: downsampled(cutout, maxEdge: thumbnailMaxEdge))
+        let original = try Compositor.pngData(for: downsampled(image, maxEdge: previewMaxEdge))
         return ProcessedImage(
             pngData: png,
             thumbnailPNG: thumb,
+            originalPNG: original,
             width: cutout.width,
             height: cutout.height,
             suggestedName: name.isEmpty ? L.s("Cutout") : name
@@ -61,10 +68,10 @@ enum PluckService {
         return url
     }
 
-    private static func thumbnail(of image: CGImage) throws -> CGImage {
+    private static func downsampled(_ image: CGImage, maxEdge: Int) throws -> CGImage {
         let longest = max(image.width, image.height)
-        guard longest > thumbnailMaxEdge else { return image }
-        let scale = Double(thumbnailMaxEdge) / Double(longest)
+        guard longest > maxEdge else { return image }
+        let scale = Double(maxEdge) / Double(longest)
         let width = max(1, Int((Double(image.width) * scale).rounded()))
         let height = max(1, Int((Double(image.height) * scale).rounded()))
         guard let context = CGContext(
