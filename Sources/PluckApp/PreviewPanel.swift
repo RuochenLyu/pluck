@@ -15,6 +15,9 @@ final class PreviewPanelController {
     static let maxLongEdge: CGFloat = 560
     static let minShortEdge: CGFloat = 320
     private static let cornerRadius: CGFloat = 16
+    /// Distance to the shelf, and to the edges of the usable screen.
+    private static let gap: CGFloat = 10
+    private static let margin: CGFloat = 8
 
     private var panel: PreviewPanel?
     private var host: NSHostingView<CutoutPreviewView>?
@@ -40,16 +43,58 @@ final class PreviewPanelController {
         )
     }
 
-    func show(item: RecentItem, model: AppModel) {
+    /// `shelf` is the frame to stay clear of, or nil when the shelf is closed.
+    func show(item: RecentItem, model: AppModel, beside shelf: NSRect?) {
         let size = Self.contentSize(for: item)
         let root = CutoutPreviewView(item: item, model: model, onClose: { [weak self] in self?.close() })
 
         let panel = self.panel ?? makePanel(root: root, size: size)
         host?.rootView = root
         panel.setContentSize(size)
-        panel.center()
+        panel.setFrameOrigin(origin(for: panel.frame.size, beside: shelf))
         panel.makeKeyAndOrderFront(nil)
         NSApp.activate()
+    }
+
+    /// Beside the shelf, not on top of it. Stacking two glass panels reads as clutter even
+    /// with the z-order right, and the shelf is where the next thumbnail gets clicked —
+    /// covering it costs a click. Top edges align so the pair reads as one composition,
+    /// and the gap stays small: "out of the way" must not become "across the screen".
+    ///
+    /// Centre of the screen when the shelf is closed, which is the only time nothing has
+    /// to be avoided.
+    private func origin(for size: CGSize, beside shelf: NSRect?) -> NSPoint {
+        let screen = shelf.flatMap { rect in NSScreen.screens.first { $0.frame.intersects(rect) } }
+            ?? NSScreen.main
+        guard let visible = screen?.visibleFrame else { return .zero }
+        return Self.origin(for: size, beside: shelf, in: visible)
+    }
+
+    /// Split out from the screen lookup so the geometry — which is where the second-display
+    /// and narrow-screen mistakes live — can be tested without a display attached.
+    static func origin(for size: CGSize, beside shelf: NSRect?, in visible: NSRect) -> NSPoint {
+        guard let shelf else {
+            return NSPoint(
+                x: (visible.midX - size.width / 2).rounded(),
+                y: (visible.midY - size.height / 2).rounded()
+            )
+        }
+
+        // Whichever side the shelf leaves more room on. The status item is usually near the
+        // right edge, so this is usually the left — but "usually" is not a layout rule.
+        let x = (shelf.minX - visible.minX) >= (visible.maxX - shelf.maxX)
+            ? shelf.minX - Self.gap - size.width
+            : shelf.maxX + Self.gap
+
+        return NSPoint(
+            x: clamp(x, size.width, visible.minX, visible.maxX).rounded(),
+            y: clamp(shelf.maxY - size.height, size.height, visible.minY, visible.maxY).rounded()
+        )
+    }
+
+    private static func clamp(_ value: CGFloat, _ extent: CGFloat, _ low: CGFloat, _ high: CGFloat) -> CGFloat {
+        let m = Self.margin
+        return min(max(value, low + m), max(low + m, high - extent - m))
     }
 
     func close() {
@@ -66,8 +111,11 @@ final class PreviewPanelController {
         panel.isOpaque = false
         panel.backgroundColor = .clear
         panel.hasShadow = true
+        // `isFloatingPanel` is deliberately never touched: its setter *writes* `level`
+        // (false → `.normal`), so a `panel.isFloatingPanel = false` line below this one
+        // silently threw the level away — which is how the preview kept coming up under
+        // the shelf even after the level was set.
         panel.level = .pluckPreview
-        panel.isFloatingPanel = false
         panel.isReleasedWhenClosed = false
         panel.hidesOnDeactivate = false
         panel.onCancel = { [weak self] in self?.close() }

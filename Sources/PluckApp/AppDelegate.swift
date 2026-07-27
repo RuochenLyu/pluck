@@ -30,7 +30,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         model.onFeedbackChange = { [weak self] feedback in self?.apply(feedback) }
         model.onPreviewRequest = { [weak self] item in
             guard let self else { return }
-            preview.show(item: item, model: model)
+            preview.show(item: item, model: model, beside: shelf.isVisible ? shelf.panel?.frame : nil)
         }
         installPluckSignal()
     }
