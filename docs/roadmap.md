@@ -5,7 +5,8 @@
 
 ## 当前状态（2026-07-27 深夜）
 
-- 阶段：**v0.1 功能代码完成并过完三轮用户实测反馈**（⌘V 入口 → 拖到图标即入口的 shelf 面板重做 → 浮层层级/摆位/拖动/关闭按钮）。PluckKit（VisionEngine/Compositor/ImageLoader/**PluckPipeline**）、`pluck` CLI、PluckApp 菜单栏 MVP、CC0 测试图片集全部落地，**92 测试全绿**，Swift 6 零 warning。
+- 阶段：**v0.1 全部完成、发布链路跑通；v0.2 第一批已落地**（磁盘化 + 历史持久化 + 偏好存储 + Settings 窗口）。PluckKit（VisionEngine/Compositor/ImageLoader/**PluckPipeline**）、`pluck` CLI、PluckApp 菜单栏 MVP、CC0 测试图片集全部落地，**129 测试全绿**，Swift 6 零 warning。
+- **v0.2 第一批未经人眼验收**：Settings 窗口的实际外观、开机自启开关在真实签名包上的行为，以及拖出到别的 app（自动化驱不动 macOS 拖放），都要维护者本机确认。历史持久化本身已实测：重启后格子里的 cutout 原样回来，`index.json` 与三文件目录都在。
 - 交互现状：状态项本身是拖放目标 → 落下即开 shelf 面板（非激活 borderless NSPanel，网格内占位卡原地变结果卡）；预览面板贴 shelf 旁开、层级在其之上、顶部 44pt 条带可拖、关闭按钮常驻。
 - 打包：`./Scripts/bundle.sh` 产出可运行的 `Pluck.app`（Info.plist / 编译后的 String Catalog / icns / ad-hoc 签名），1.9 MB。
 - **发布链路已全程跑通（2026-07-27）**：`./Scripts/release.sh` 一次通过——Developer ID 签名（hardened runtime + timestamp）→ notarytool `Accepted`（提交 `7f7651b9`）→ stapler → 重新打包 → `spctl` 判定 `accepted / source=Notarized Developer ID`。zip 解压到别处二次判定同样通过，`stapler validate` 通过（票据已内嵌，用户首次启动不需要网络），启动 + SIGUSR1 实测存活。产物 `.build/Pluck.zip`，1.9 MB。
@@ -16,7 +17,7 @@
 ## 里程碑
 
 - **v0.1（MVP，目标 1–2 周业余时间）**：PluckKit(VisionEngine) + CLI + 菜单栏拖放 + popover ⌘V 剪贴板闭环 + 结果预览滑块。签名 + notarize + GitHub Release + tap。
-- **v0.2**：主窗口批量队列、结果浮层、Finder Quick Action、Sparkle。
+- **v0.2**：~~历史持久化 + Settings~~ ✅、主窗口批量队列、结果浮层、Finder Quick Action、Sparkle。
 - **v0.3**：CoreMLEngine + BiRefNet_lite 转换与按需下载、对比滑块、SKILL.md 定稿。
 - **v1.0**：边缘 decontamination 打磨、发丝 before/after 营销图、README/官网、发 HN + 少数派/V2EX。
 
@@ -26,7 +27,7 @@
 - ~~**缩略图/降采样 helper 公开**~~ ✅ 2026-07-27：公开 `Thumbnail.fit/pngData`（按长边）；`ImageBuffers` 维持 internal。
 - ~~**String Catalog 在纯 SwiftPM 下不编译**~~ ✅ 2026-07-27：`Scripts/bundle.sh` 跑 xcstringstool 编进 `Contents/Resources/<lang>.lproj`，实测新增 zh-Hans 生效。结论是**不建 Xcode 工程**（decisions.md 同日），Xcode 壳推迟到真正需要它的 Finder 扩展。
 - ~~**PluckError 文案硬编码英文**~~ ✅ 2026-07-27：解法不是给 PluckKit 加本地化，而是 App 侧 `PluckFailure` 把 `PluckError.Kind` 映射成自己的 Catalog 文案；库保持机器可读，app 决定怎么说（decisions.md 同日）。
-- **历史记录持久化**（v0.1 反馈）：当前 session 内存 12 条；v0.2 改为默认持久化最近 20 条到 Application Support（本地磁盘不违背"不上网"承诺），设置可关 + 一键 Clear。**预览面板位置**（当前只活到进程结束）和**开机自启**一并挂在这条下面——三者都要落到同一份偏好存储上，v0.2 有第一个真正的 Settings 界面时一起做。
+- ~~**历史记录持久化**~~ ✅ 2026-07-27（v0.2 第一批）：最近 20 条默认持久化到 `Application Support/Pluck/History/`，设置可关 + 一键 Clear。做法是把条目**反过来以文件为准**——cutout/original/thumbnail 三个文件一目录，内存只留缩略图字节，拖出用的临时文件与历史文件合并成同一份产物（decisions.md 同日）。**预览面板位置**与**开机自启**随同一份 `UserDefaults` 一起落地，齿轮按钮随之请回。
 - ~~**预览面板每次打开都贴回 shelf 旁**~~ ✅ 2026-07-27：面板复用导致每次 `show` 都重新摆位，用户拖走的位置下一次点击就被吃掉。改为记住用户拖过之后的**左上角**（面板按图逐张 resize，从左下往上长，记下边缘会让顶边跳），仍然 clamp 回当前屏幕；`origin(for:keeping:in:)` 抽成纯函数并覆盖测试。
 - ~~**临时文件跨 session 堆积**~~ ✅ 2026-07-27：每张 cutout 为了支持拖出会落一份 PNG 到 `<tmp>/Pluck/<uuid>/`，Clear 会删，退出/崩溃不删。改为启动时同步清空整个 `<tmp>/Pluck/`（decisions.md 同日）。
 - ~~**齿轮按钮名不副实**~~ ✅ 2026-07-27：`gearshape`／"Settings" 一直打开的是 About 面板，而 v0.1 四项设置（引擎/模型/格式/快捷键）一项都不存在。改标签为 `info.circle`／"About Pluck"，不为凑齐齿轮而临时发明设置项（decisions.md 同日）。

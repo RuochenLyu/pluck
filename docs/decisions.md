@@ -182,3 +182,22 @@
 - **为什么这是隐私问题而不是清洁问题**：这些是用户照片的明文副本，而这个 app 唯一的承诺就是"照片不离开这台 Mac"。"不离开"不该顺带意味着"堆在一个你不知道的目录里"。grid 是 session 作用域的，所以启动那一刻目录里的东西一定没人再指向它。
 - **同步而不是 detached**：detached 的清扫可能落在第一次 drop 已经写完之后，把 grid 正指着的文件删掉。这一行的位置在任何输入通道装好之前，不存在竞争。
 - **`discardOrphanedTemporaryFiles(at:)` 带默认参数**：测试指向自己的目录，否则跑一次测试就会把开发者正在跑的那份 app 的临时文件删掉。
+
+## 2026-07-27 — 条目就是那个文件：cutout 落盘，内存只留缩略图
+
+- **决策**：一条 recent 条目对应磁盘上一个以 id 命名的目录，里面三个文件——`<原图名>.png`（cutout）、`original.png`（降采样后的输入）、`thumbnail.png`。内存里的 `RecentItem` 只留 `thumbnailPNG` 的字节和另外两个 URL，cutout 与 original 在需要时（Copy/Save/预览滑块）现读。
+- **背景**：原先一条条目在内存里是同一张图的三份副本，磁盘上还有第四份——那份只是为了 `NSItemProvider(contentsOf:)` 能拖出去。20 条约 60 MB 常驻，而且这恰恰是历史记录持久化做不了的原因：每次变更把这么多状态写回磁盘，不是能在 main actor 上做的事。反过来之后，拖出用的临时文件和历史文件合并成了同一份产物，持久化的代价降到一个小 `index.json`。
+- **两个根，各有各的性格**：`<tmp>/Pluck/` **不写 index**——"不要记住"就该意味着字节随 session 一起死；`~/Library/Application Support/Pluck/History/` 写 index。启动时 `<tmp>/Pluck/` 一律清空，History 只在偏好关闭时清空。
+- **index 说顺序，目录说存在，冲突时目录赢**：load 时 PNG 已不在的记录被丢掉，没有任何存活记录指向的目录被删掉。这就是"写完文件、还没写 index 就崩溃"这一窗口的自清理方式——不需要事务，因为目录本身就是真相。
+- **写失败现在是任务失败**（`.notWritten`）。内存里不再有副本，所以一个 Copy/Save/预览/拖出全都静悄悄什么也不做的格子，比一句"检查磁盘空间"糟得多。
+- **关掉历史是写一个空 index，不是删文件**：格子里已有的条目正靠这些文件活着。它们在下一次启动被扫掉（偏好为关时两个根都扫）。
+- **`CutoutArchive.discard` 有一道护栏**：只删「父目录的父目录正好是两个已知根之一」的条目目录。手工构造的 URL、或者未来版本写下的 index，删不掉任何东西。
+
+## 2026-07-27 — 有了三项真设置，于是有了 Settings 窗口（并把齿轮请回来）
+
+- **决策**：新建 `SettingsWindowController`／`SettingsView`（`Form` + `.grouped`，标准系统标题栏），shelf 底栏在 ⓘ 旁边重新放上 `gearshape`。**这条推翻同日早些时候「齿轮改成 About」那条**——推翻的理由正是那条自己写的："等有第二项、第三项设置时一起做一个真的 Settings。"现在有三项：保留历史、开机自启、清空历史。
+- **为什么它长得像系统窗口而不像 §4.7 的玻璃面板**：§4.7 那套无边框规则是给挂在菜单栏下、站在用户工作前面的面板定的。Settings 是用户主动去找、开一次、关掉的窗口，它应该和这台机器上别的 Settings 窗口长得一样。
+- **一栏而非分页**：product-plan §设置 要的 tab 工具栏等 v0.3 模型面板到位再说；一页内容配一排 tab 是为了 chrome 而 chrome。
+- **偏好存哪**：`UserDefaults`。预览面板位置存成两个 double 而不是归档的 `CGPoint`——一个 `defaults read` 读不出来的偏好是一个没人能调试的偏好。
+- **开机自启用 `SMAppService.mainApp`，并且以「自己确实是个 .app」为前提**（`Bundle.main.bundleIdentifier != nil && bundleURL.pathExtension == "app"`）。裸 `swift build` 出来的可执行文件上调它，会注册一个指向 `.build` 目录的登录项。够不到时开关置灰并说明，而不是假装成功。
+- **离线声明放进 Settings 最后一段**：不是自夸，是这个产品全部立足的那一条承诺，而怀疑它的用户第一个会去翻的地方就是设置。
