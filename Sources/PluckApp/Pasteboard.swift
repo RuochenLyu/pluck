@@ -45,16 +45,10 @@ struct SystemPasteboard: ImagePasteboard {
     }
 }
 
-enum ClipboardOutcome: Equatable, Sendable {
-    case success
-    case noImage
-    case noSubject
-    case failed
-}
-
 /// ⌘C → ⌘V in the popover → ⌘V wherever you were going: the cutout is written straight
 /// back to the clipboard, so nothing touches disk. No dialogs on any path — failures are
-/// reported through the status item, never a modal that steals focus.
+/// reported through the status item and the shelf's status line, never a modal that steals
+/// focus.
 struct ClipboardPlucker: Sendable {
     let pasteboard: any ImagePasteboard
     let process: @Sendable (Data, String) async throws -> ProcessedImage
@@ -69,19 +63,15 @@ struct ClipboardPlucker: Sendable {
 
     /// `onInput` fires with the raw clipboard bytes before matting starts, so the caller
     /// can put a placeholder on screen that shows *which* picture is being worked on.
-    func run(onInput: @Sendable (Data) async -> Void = { _ in }) async -> (outcome: ClipboardOutcome, result: ProcessedImage?) {
-        guard let input = pasteboard.readImage() else { return (.noImage, nil) }
+    func run(onInput: @Sendable (Data) async -> Void = { _ in }) async -> (outcome: PluckOutcome, result: ProcessedImage?) {
+        guard let input = pasteboard.readImage() else { return (.failure(.noInput), nil) }
         await onInput(input.data)
         do {
             let processed = try await process(input.data, input.name)
             pasteboard.writePNG(processed.pngData)
             return (.success, processed)
-        } catch PluckError.noSubjectDetected {
-            return (.noSubject, nil)
-        } catch let error as PluckError where error.kind == .imageLoadFailed {
-            return (.noImage, nil)
         } catch {
-            return (.failed, nil)
+            return (.failure(PluckFailure(error)), nil)
         }
     }
 }

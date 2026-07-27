@@ -43,20 +43,28 @@ struct ShelfView: View {
 
     /// One card, ≤64pt: the drop affordance is a hint, not an empty state — the empty
     /// state belongs to the Recent grid below.
+    ///
+    /// It doubles as the status line. A failure needs a sentence and this is the only strip
+    /// wide enough for one; borrowing it costs nothing, because the hint it replaces is
+    /// advice the user has visibly just finished taking.
     private var dropHint: some View {
         HStack(spacing: 10) {
-            Image(systemName: "square.and.arrow.down.on.square")
+            Image(systemName: model.statusMessage == nil ? "square.and.arrow.down.on.square" : "exclamationmark.triangle.fill")
                 .font(.system(size: 15, weight: .regular))
-            Text(L.s("Drop or paste images here"))
+                .foregroundStyle(model.statusMessage == nil ? AnyShapeStyle(.secondary) : AnyShapeStyle(.red))
+            Text(model.statusMessage ?? L.s("Drop or paste images here"))
                 .font(.callout)
+                .foregroundStyle(.secondary)
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
         }
-        .foregroundStyle(.secondary)
         .padding(.horizontal, 14)
         .frame(height: 52)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
         .padding(.horizontal, 12)
         .padding(.top, 12)
+        .accessibilityElement(children: .combine)
     }
 
     private var recentHeader: some View {
@@ -243,13 +251,23 @@ private struct PendingCell: View {
                         .transition(.opacity)
                 }
             }
+            // The rim says "this one"; the glyph says "this failed". Without it the cell is
+            // only distinguishable from the de-duplication flash by its colour, and the two
+            // are three grid slots and 900ms apart.
+            if item.failure != nil {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(.red)
+                    .shadow(color: .black.opacity(0.35), radius: 3, y: 1)
+                    .transition(.opacity)
+            }
         }
         .frame(height: height)
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .strokeBorder(.red, lineWidth: 2)
-                .opacity(item.state == .failed ? 1 : 0)
+                .opacity(item.failure == nil ? 0 : 1)
         }
         .animation(.easeInOut(duration: 0.15), value: item.state)
         .task(id: item.thumbnail) {
@@ -260,7 +278,7 @@ private struct PendingCell: View {
             guard !Task.isCancelled else { return }
             withAnimation(.easeIn(duration: 0.15)) { showsSpinner = true }
         }
-        .accessibilityLabel(item.state == .failed ? L.s("Could not pluck this image") : L.s("Plucking…"))
+        .accessibilityLabel(item.failure?.message ?? L.s("Plucking…"))
     }
 
     private var sweepLight: some View {

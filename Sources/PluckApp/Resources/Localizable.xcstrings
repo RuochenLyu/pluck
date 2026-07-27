@@ -1,6 +1,17 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Background removal isn’t available on this Mac.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Background removal isn’t available on this Mac."
+          }
+        }
+      }
+    },
     "Clear": {
       "extractionState": "manual",
       "localizations": {
@@ -34,17 +45,6 @@
         }
       }
     },
-    "Could not pluck this image": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Could not pluck this image"
-          }
-        }
-      }
-    },
     "Cutout": {
       "extractionState": "manual",
       "localizations": {
@@ -74,6 +74,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "Drop or paste images here"
+          }
+        }
+      }
+    },
+    "No image found — copy or drop a picture first.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No image found — copy or drop a picture first."
+          }
+        }
+      }
+    },
+    "No subject found in this image.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No subject found in this image."
           }
         }
       }
@@ -173,6 +195,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "Settings"
+          }
+        }
+      }
+    },
+    "Something went wrong plucking this image.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Something went wrong plucking this image."
+          }
+        }
+      }
+    },
+    "That file isn’t an image Pluck can read.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "That file isn’t an image Pluck can read."
           }
         }
       }

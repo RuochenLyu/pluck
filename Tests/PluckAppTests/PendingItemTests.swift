@@ -97,11 +97,11 @@ final class PendingItemTests: XCTestCase {
     func testFailureMarksThePlaceholderThenRetiresIt() async {
         let model = model { _, _ in throw PluckError.noSubjectDetected }
         model.pluckClipboard()
-        await waitUntil("the placeholder to turn red") { model.pendingItems.first?.state == .failed }
+        await waitUntil("the placeholder to turn red") { model.pendingItems.first?.failure != nil }
         XCTAssertTrue(model.recents.items.isEmpty)
         // Held for a beat, then dropped: a cell that vanished instantly would be
         // indistinguishable from the drop never having registered.
-        await waitUntil("the placeholder to fade out", timeout: 6) { model.pendingItems.isEmpty }
+        await waitUntil("the placeholder to fade out", timeout: 8) { model.pendingItems.isEmpty }
     }
 
     /// An empty clipboard never reaches the engine, but it did claim a cell — that cell
@@ -113,7 +113,49 @@ final class PendingItemTests: XCTestCase {
         }
         model.pluckClipboard()
         XCTAssertEqual(model.pendingItems.count, 1)
-        await waitUntil("the placeholder to turn red") { model.pendingItems.first?.state == .failed }
+        await waitUntil("the placeholder to turn red") { model.pendingItems.first?.failure != nil }
+    }
+
+    /// The whole point of the unit: a red rim is not a reason. What the cell carries and
+    /// what the status line says have to be the same failure, or the user reads one and
+    /// acts on the other.
+    func testTheReasonReachesBothTheCellAndTheStatusLine() async {
+        let model = model { _, _ in throw PluckError.imageLoadFailed(reason: "not a png") }
+        model.pluckClipboard()
+        await waitUntil("the failure to land") { model.pendingItems.first?.failure != nil }
+        XCTAssertEqual(model.pendingItems.first?.failure, .unreadable)
+        XCTAssertEqual(model.statusMessage, PluckFailure.unreadable.message)
+    }
+
+    /// "No subject" and "that isn't an image" send the user to different fixes. Collapsing
+    /// them into one apology is the behaviour this unit replaced.
+    func testDifferentCausesProduceDifferentMessages() async {
+        let noSubject = model { _, _ in throw PluckError.noSubjectDetected }
+        noSubject.pluckClipboard()
+        await waitUntil("the first failure") { noSubject.statusMessage != nil }
+
+        let unreadable = model { _, _ in throw PluckError.imageLoadFailed(reason: "x") }
+        unreadable.pluckClipboard()
+        await waitUntil("the second failure") { unreadable.statusMessage != nil }
+
+        XCTAssertNotEqual(noSubject.statusMessage, unreadable.statusMessage)
+    }
+
+    /// A stale complaint sitting over a drop that is going fine is worse than no status
+    /// line at all — the user stops believing the strip.
+    func testStartingNewWorkClearsTheOldComplaint() async {
+        let pasteboard = MockPasteboard()
+        let model = AppModel(pasteboard: pasteboard) { _, _ in processed([1]) }
+
+        model.pluckClipboard()
+        await waitUntil("the failure") { model.statusMessage != nil }
+
+        pasteboard.stored = (Data([9]), "cat")
+        model.pluckClipboard()
+        // Synchronous: the clear belongs to accepting the work, not to finishing it.
+        XCTAssertNil(model.statusMessage)
+        await waitUntil("the result to land") { model.recents.items.count == 1 }
+        scratch = model.recents.items.map(\.fileURL)
     }
 
     /// The bug users reported as "dragging a cutout back in does nothing": identical

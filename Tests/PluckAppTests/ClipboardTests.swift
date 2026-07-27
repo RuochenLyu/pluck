@@ -36,7 +36,7 @@ final class ClipboardTests: XCTestCase {
             return processed([0])
         }
         let (outcome, result) = await plucker.run()
-        XCTAssertEqual(outcome, .noImage)
+        XCTAssertEqual(outcome, .failure(.noInput))
         XCTAssertNil(result)
         XCTAssertTrue(pasteboard.written.isEmpty)
     }
@@ -60,17 +60,17 @@ final class ClipboardTests: XCTestCase {
             throw PluckError.noSubjectDetected
         }
         let (outcome, _) = await plucker.run()
-        XCTAssertEqual(outcome, .noSubject)
+        XCTAssertEqual(outcome, .failure(.noSubject))
         XCTAssertTrue(pasteboard.written.isEmpty)
     }
 
-    func testUndecodableDataIsReportedAsNoImage() async {
+    func testUndecodableDataBlamesTheFileNotTheClipboard() async {
         let pasteboard = MockPasteboard(stored: (Data([9]), "cat"))
         let plucker = ClipboardPlucker(pasteboard: pasteboard) { _, _ in
             throw PluckError.imageLoadFailed(reason: "garbage")
         }
         let (outcome, _) = await plucker.run()
-        XCTAssertEqual(outcome, .noImage)
+        XCTAssertEqual(outcome, .failure(.unreadable))
     }
 
     func testOtherFailuresAreGeneric() async {
@@ -79,6 +79,6 @@ final class ClipboardTests: XCTestCase {
             throw PluckError.processingFailed(underlying: nil)
         }
         let (outcome, _) = await plucker.run()
-        XCTAssertEqual(outcome, .failed)
+        XCTAssertEqual(outcome, .failure(.unknown))
     }
 }

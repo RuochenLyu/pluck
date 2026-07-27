@@ -19,7 +19,9 @@ enum StatusFeedback: Equatable, Sendable {
 struct PendingItem: Identifiable, Equatable, Sendable {
     enum State: Equatable, Sendable {
         case running
-        case failed
+        /// The reason travels with the cell so the grid and the status line cannot
+        /// disagree about what went wrong.
+        case failed(PluckFailure)
     }
 
     let id: UUID
@@ -27,6 +29,11 @@ struct PendingItem: Identifiable, Equatable, Sendable {
     /// few frames, and permanently nil if the bytes were not an image at all.
     var thumbnail: Data?
     var state: State = .running
+
+    var failure: PluckFailure? {
+        guard case .failed(let reason) = state else { return nil }
+        return reason
+    }
 }
 
 @MainActor
@@ -40,6 +47,12 @@ final class AppModel {
     /// The entry a duplicate pluck was folded into. Non-nil for ~900ms so the grid can
     /// flash its border — de-duplication has to be visible or it looks like a failure.
     private(set) var highlightedItemID: UUID?
+
+    /// The shelf's status line, or nil for the standing drop hint. A failed cell can carry
+    /// a red rim and nothing more; the reason needs a sentence, and the hint strip is the
+    /// only place in v0.1 wide enough to hold one — it is also where the eye already is
+    /// after a drop.
+    private(set) var statusMessage: String?
 
     private(set) var feedback: StatusFeedback = .idle {
         didSet { onFeedbackChange?(feedback) }
@@ -62,6 +75,7 @@ final class AppModel {
     private var inFlight = 0
     private var feedbackToken = 0
     private var highlightToken = 0
+    private var statusToken = 0
 
     init(
         pasteboard: any ImagePasteboard = SystemPasteboard(),
@@ -104,10 +118,8 @@ final class AppModel {
                         processed = try await process(data, L.s("Cutout"))
                     }
                     await self?.finish(ticket: ticket, outcome: .success, processed: processed)
-                } catch PluckError.noSubjectDetected {
-                    await self?.finish(ticket: ticket, outcome: .noSubject, processed: nil)
                 } catch {
-                    await self?.finish(ticket: ticket, outcome: .failed, processed: nil)
+                    await self?.finish(ticket: ticket, outcome: .failure(PluckFailure(error)), processed: nil)
                 }
             }
         }
@@ -169,6 +181,9 @@ final class AppModel {
     private func beginWork() -> UUID {
         inFlight += 1
         feedback = .busy
+        // A new attempt supersedes the last complaint. Leaving it up would let a stale
+        // "no subject found" sit over a drop that is going perfectly well.
+        clearStatus()
         let pending = PendingItem(id: UUID())
         withAnimation(.easeOut(duration: 0.18)) {
             pendingItems.insert(pending, at: 0)
@@ -181,58 +196,86 @@ final class AppModel {
         pendingItems[index].thumbnail = thumbnail
     }
 
-    private func finish(ticket: UUID, outcome: ClipboardOutcome, processed: ProcessedImage?) {
+    private func finish(ticket: UUID, outcome: PluckOutcome, processed: ProcessedImage?) {
         inFlight = max(0, inFlight - 1)
-        if let processed {
-            // The result inherits the ticket's identity rather than minting a new one. The
-            // grid renders placeholders and results in one list keyed by this id, so
-            // carrying it across is what makes completion a content change on the cell the
-            // user is already watching instead of a removal plus an unrelated insertion.
-            let id = ticket
-            let url = (try? PluckService.writeTemporaryFile(processed, id: id))
-                ?? URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("\(id).png")
-            let item = RecentItem(
-                id: id,
-                fingerprint: PluckService.fingerprint(processed.pngData),
-                pngData: processed.pngData,
-                thumbnailPNG: processed.thumbnailPNG,
-                originalPNG: processed.originalPNG,
-                fileURL: url,
-                suggestedName: processed.suggestedName,
-                pixelWidth: processed.width,
-                pixelHeight: processed.height
-            )
-            // Both mutations inside one animation so the placeholder and the result
-            // cross-fade in the same grid slot instead of the row jumping.
-            let result = withAnimation(.easeInOut(duration: 0.25)) { () -> InsertResult in
-                pendingItems.removeAll { $0.id == ticket }
-                return recents.insert(item)
-            }
-            // A promotion keeps the entry that is already in the grid, which leaves the
-            // copy just written to /tmp with nothing pointing at it — and `clearRecents`
-            // only knows about files the store holds. Re-plucking the same picture must
-            // not quietly grow a pile of orphans.
-            if case .promoted(let existing) = result {
-                highlight(existing)
-                discardTemporaryFile(at: url)
-            }
-        } else {
-            fail(ticket)
+        // A `.success` with no image is a bug, not a user-facing state; treat it as the
+        // generic failure rather than silently dropping the placeholder on the floor.
+        guard case .success = outcome, let processed else {
+            fail(ticket, reason: outcome.failureReason ?? .unknown)
+            flash(.failure)
+            return
         }
-        flash(outcome == .success ? .success : .failure)
+        // The result inherits the ticket's identity rather than minting a new one. The grid
+        // renders placeholders and results in one list keyed by this id, so carrying it
+        // across is what makes completion a content change on the cell the user is already
+        // watching instead of a removal plus an unrelated insertion.
+        let id = ticket
+        let url = (try? PluckService.writeTemporaryFile(processed, id: id))
+            ?? URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("\(id).png")
+        let item = RecentItem(
+            id: id,
+            fingerprint: PluckService.fingerprint(processed.pngData),
+            pngData: processed.pngData,
+            thumbnailPNG: processed.thumbnailPNG,
+            originalPNG: processed.originalPNG,
+            fileURL: url,
+            suggestedName: processed.suggestedName,
+            pixelWidth: processed.width,
+            pixelHeight: processed.height
+        )
+        // Both mutations inside one animation so the placeholder and the result cross-fade
+        // in the same grid slot instead of the row jumping.
+        let result = withAnimation(.easeInOut(duration: 0.25)) { () -> InsertResult in
+            pendingItems.removeAll { $0.id == ticket }
+            return recents.insert(item)
+        }
+        // A promotion keeps the entry that is already in the grid, which leaves the copy
+        // just written to /tmp with nothing pointing at it — and `clearRecents` only knows
+        // about files the store holds. Re-plucking the same picture must not quietly grow
+        // a pile of orphans.
+        if case .promoted(let existing) = result {
+            highlight(existing)
+            discardTemporaryFile(at: url)
+        }
+        flash(.success)
     }
 
-    /// A failed job keeps its cell for a beat with a red rim: vanishing instantly is
-    /// indistinguishable from the drop never having registered.
-    private func fail(_ ticket: UUID) {
+    /// A failed job keeps its cell for a beat with a red rim and puts its reason in the
+    /// status line. The cell vanishing instantly would be indistinguishable from the drop
+    /// never having registered; the rim alone would be indistinguishable from any other
+    /// failure.
+    private func fail(_ ticket: UUID, reason: PluckFailure) {
+        report(reason.message)
         guard let index = pendingItems.firstIndex(where: { $0.id == ticket }) else { return }
-        pendingItems[index].state = .failed
+        pendingItems[index].state = .failed(reason)
         Task { @MainActor in
-            try? await Task.sleep(nanoseconds: 1_200_000_000)
+            // Longer than the old 1.2s: the cell and the sentence explaining it should be
+            // on screen together long enough to be connected.
+            try? await Task.sleep(nanoseconds: 2_200_000_000)
             withAnimation(.easeOut(duration: 0.2)) {
                 self.pendingItems.removeAll { $0.id == ticket }
             }
         }
+    }
+
+    /// Shown until superseded or until it has had time to be read. Not sticky: an error
+    /// that outlives the situation that produced it is worse than none, because the user
+    /// starts distrusting the line it sits in.
+    private func report(_ message: String) {
+        statusToken += 1
+        let token = statusToken
+        withAnimation(.easeOut(duration: 0.18)) { statusMessage = message }
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 6_000_000_000)
+            guard token == self.statusToken else { return }
+            withAnimation(.easeOut(duration: 0.25)) { self.statusMessage = nil }
+        }
+    }
+
+    private func clearStatus() {
+        statusToken += 1
+        guard statusMessage != nil else { return }
+        withAnimation(.easeOut(duration: 0.18)) { statusMessage = nil }
     }
 
     private func highlight(_ id: UUID) {
