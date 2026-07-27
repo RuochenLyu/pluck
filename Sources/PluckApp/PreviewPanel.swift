@@ -164,7 +164,6 @@ struct CutoutPreviewView: View {
     @State private var fraction: CGFloat = 0.5
     @State private var before: NSImage?
     @State private var after: NSImage?
-    @State private var hovering = false
 
     var body: some View {
         comparison
@@ -175,9 +174,6 @@ struct CutoutPreviewView: View {
             .overlay(alignment: .topLeading) { titleCapsule.padding(10).allowsHitTesting(false) }
             .overlay(alignment: .topTrailing) { closeButton.padding(10) }
             .overlay(alignment: .bottom) { toolbar }
-            .onHover { on in
-                withAnimation(.easeOut(duration: 0.12)) { hovering = on }
-            }
             .task(id: item.id) {
                 before = NSImage(data: item.originalPNG)
                 after = NSImage(data: item.pngData)
@@ -257,9 +253,11 @@ struct CutoutPreviewView: View {
         }
     }
 
+    /// Always drawn, never revealed on hover. A borderless window has no other visible way
+    /// out — Esc works but nothing on screen says so, and a control that appears only once
+    /// the pointer is already in the right place cannot teach anyone where that is.
     private var closeButton: some View {
         GlassCircleButton(symbol: "xmark", diameter: 24, label: L.s("Close"), action: onClose)
-            .opacity(hovering ? 1 : 0)
     }
 
     private var toolbar: some View {

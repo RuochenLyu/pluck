@@ -68,6 +68,19 @@ struct WindowDragHandle: NSViewRepresentable {
 
     private final class DragRegion: NSView {
         override var mouseDownCanMoveWindow: Bool { true }
+
+        /// `mouseDownCanMoveWindow` alone is not enough inside SwiftUI. AppKit consults it
+        /// on whatever `hitTest` hands back, and SwiftUI wraps a representable in a host
+        /// view of its own whose answer is the default — no, unless the window is movable
+        /// by its background, which this one deliberately is not. When that happens the
+        /// event is delivered here instead, and dragging the window is then our job.
+        override func mouseDown(with event: NSEvent) {
+            window?.performDrag(with: event)
+        }
+
+        /// The preview is opened from the shelf, so the first click after it appears may
+        /// well be the one meant to move it.
+        override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
     }
 }
 

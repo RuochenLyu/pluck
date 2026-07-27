@@ -104,4 +104,6 @@
 - **决策**：预览面板顶部 44pt（宽度止于关闭按钮前 44pt）是窗口拖动区，由一个 `mouseDownCanMoveWindow` 返回 true 的 `NSView`（`WindowDragHandle`）实现；标题胶囊设 `allowsHitTesting(false)`，让点击落到下面的条带上。图片区域仍然整块归 before/after 擦除手势。
 - **排除**：`isMovableByWindowBackground`（图片区被 SwiftUI 的 `DragGesture` 全部吃掉，等于没有可拖区）；把擦除限制到滑块把手上换取整图可拖（牺牲的是这个面板存在的理由）；`WindowDragGesture`（macOS 15，部署目标是 14）。
 - **背景**：§4.7 规则 ④ 拿掉了系统标题栏，但没有把标题栏**能拖**这件事还回来（用户实测：预览窗口不能拖拽移动）。
+- **补记（同日）**：只重写 `mouseDownCanMoveWindow` 不够——AppKit 是在 `hitTest` 返回的那个 view 上问这个问题，而 SwiftUI 会把 representable 再包一层它自己的宿主 view，那一层的答案是默认值（否，除非窗口 movable by background，而我们刻意不开）。改为同时重写 `mouseDown` 调 `window?.performDrag(with:)`：两条路径任一走通即可。
+- **同批**：关闭按钮改为**常驻显示**，不再 hover 才出现。无边框窗口没有别的可见出口，Esc 能用但屏幕上没有任何东西这么说；而"指针已经移到正确位置才现身"的控件教不会任何人那个位置在哪。
 - **理由**：自绘 chrome 要连同它的行为一起自绘。条带避开关闭按钮是因为拖动区与控件重叠时谁接到 mouseDown 是掷硬币，输的一方是一个画得出来、亮得起来、但永远不触发的按钮；这条几何约束有测试（`PreviewDragRegionTests`，断言的是区域 frame 而非 hit-test——`NSHostingView.hitTest` 需要真实窗口才会去查 SwiftUI 自己的命中树）。
