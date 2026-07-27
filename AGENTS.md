@@ -44,4 +44,5 @@ models/manifest.json 可下载模型清单
 - 提交信息用英文，正文说明 why；一个 PR/提交是一个自洽可评审的单位。
 - 注释密度低：只写代码本身表达不了的约束。
 - 面向用户的文案：英文为主（README、app 内文案），中文文档放 docs/。
+- **多语言**：app 内所有用户可见字符串一律走 String Catalog（`Localizable.xcstrings`），英文为源语言（v0.1 只发英文，但禁止硬编码字符串，为后续语言留门）；CLI 输出暂固定英文。
 

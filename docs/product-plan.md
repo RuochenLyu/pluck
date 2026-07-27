@@ -78,7 +78,8 @@ protocol MattingEngine {
 - **VisionEngine（默认）**：`VNGenerateForegroundInstanceMaskRequest`，macOS 14+，零体积。处理三个已知边界：空 mask（报"未检测到主体"而非崩溃）、>50MP 先降采样再抠、多主体合并 mask 照常输出。
 - **CoreMLEngine（扩展）**：通用 mlpackage 推理壳（前处理 resize/归一化 + 后处理 mask 放大回原尺寸）。模型扩展 = 往 manifest 加一条记录，不改代码。
 - **首发扩展模型**：BiRefNet_lite（MIT）自转 Core ML，INT8 量化目标 <150MB；托管在 GitHub Releases 或 Hugging Face，下载后 SHA256 校验，存 `~/Library/Application Support/Pluck/Models/`。
-- 合成输出：透明 PNG（默认）、纯色/自定义背景、仅 mask。边缘做轻量 decontamination（去背景色渗透）——这是 Pixelmator 口碑最好的点，值得在 Compositor 里做。
+- 合成输出：透明 PNG（默认）、纯色/自定义背景、仅 mask。边缘做轻量 decontamination（去背景色渗透）——这是 Pixelmator 口碑最好的点，值得在 Compositor 里做（v1.0 项）。
+- 实现注（2026-07-27）：背景类型用自定义 `PluckBackground`（`.transparent`/`.solid(PluckColor)`）而非 `CGColor`，保证 `Sendable` 与 sRGB 语义明确；合成走显式逐像素预乘 alpha 循环而非 `CGImage.masking`（后者语义不可测试到字节级）。
 
 ### 4.3 App 交互（全部走 PluckKit）
 
