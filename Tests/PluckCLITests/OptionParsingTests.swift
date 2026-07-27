@@ -64,6 +64,27 @@ final class OutputPlanTests: XCTestCase {
     func testIdentityNormalizesEquivalentSpellings() {
         XCTAssertEqual(OutputPlan.identity(of: "out/./a.png"), OutputPlan.identity(of: "out/a.png"))
     }
+
+    /// `-o out.png` used to make a *directory* named `out.png` and exit 0 with the file
+    /// hidden inside it. Anything driving this CLI without eyes on the filesystem — which
+    /// is the audience it was designed for — would have believed it.
+    func testAPngOutputIsAFileNotAFolderToPutItIn() {
+        XCTAssertTrue(OutputPlan.namesAFile("out.png"))
+        XCTAssertTrue(OutputPlan.namesAFile("/tmp/deep/cut.PNG"))
+        XCTAssertFalse(OutputPlan.namesAFile("out"))
+        XCTAssertFalse(OutputPlan.namesAFile("out/"))
+        XCTAssertFalse(OutputPlan.namesAFile("cutouts.d"))
+    }
+
+    /// A directory that is really there outranks the suffix: someone with a folder called
+    /// `renders.png` means the folder.
+    func testAnExistingDirectoryWinsOverTheSuffix() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("pluck-out-\(UUID().uuidString).png", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        XCTAssertFalse(OutputPlan.namesAFile(directory.path))
+    }
 }
 
 final class RunPlanTests: XCTestCase {
@@ -99,6 +120,21 @@ final class RunPlanTests: XCTestCase {
         ])
         XCTAssertFalse(plan.writesImageToStandardOutput)
         XCTAssertEqual(plan.background, .transparent)
+    }
+
+    func testASinglePngOutputIsTheDestinationItself() throws {
+        let plan = try plan(["photos/a.jpg"], output: "cutouts/hero.png")
+        XCTAssertEqual(plan.items, [
+            WorkItem(source: .file(path: "photos/a.jpg"), destination: .file(path: "cutouts/hero.png"))
+        ])
+    }
+
+    /// Two inputs and one filename cannot both be honoured, and picking a winner silently
+    /// is how one of them disappears.
+    func testManyInputsIntoOneFileIsRefused() throws {
+        let error = try setupError { try plan(["a.jpg", "b.jpg"], output: "hero.png") }
+        XCTAssertEqual(error.exitCode, 1)
+        XCTAssertTrue(error.message.contains("directory"), error.message)
     }
 
     func testStdinGoesToStdout() throws {

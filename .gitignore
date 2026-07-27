@@ -15,3 +15,6 @@ dist/
 # Core ML model artifacts (distributed as Release assets per docs/product-plan.md §4.8)
 *.mlpackage
 *.mlmodelc
+
+# Third-party QA images fetched by Scripts/qa-benchmark.sh — not ours to mirror
+qa/

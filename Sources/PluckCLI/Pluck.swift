@@ -37,7 +37,10 @@ struct Pluck: AsyncParsableCommand {
 
     @Option(
         name: [.customShort("o"), .customLong("output")],
-        help: ArgumentHelp("Directory for the results; created if missing.", valueName: "dir")
+        help: ArgumentHelp(
+            "Directory for the results, created if missing; or a single .png path when there is one input.",
+            valueName: "dir|file.png"
+        )
     )
     var output: String?
 

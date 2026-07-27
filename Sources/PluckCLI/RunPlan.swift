@@ -71,6 +71,22 @@ struct RunPlan: Equatable {
             )
         }
 
+        if let output = outputDirectory, OutputPlan.namesAFile(output) {
+            guard inputs.count == 1 else {
+                throw SetupError(
+                    message: "--output “\(output)” names a single file, but \(inputs.count) inputs were given. Pass a directory instead.",
+                    exitCode: 1
+                )
+            }
+            return RunPlan(
+                items: [WorkItem(source: .file(path: inputs[0]), destination: .file(path: output))],
+                engineID: model,
+                background: composited,
+                force: force,
+                json: json
+            )
+        }
+
         let items = inputs.map { input in
             WorkItem(
                 source: .file(path: input),

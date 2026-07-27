@@ -31,6 +31,23 @@ struct WorkItem: Equatable {
 }
 
 enum OutputPlan {
+    /// Whether `-o` names the file to write rather than the directory to write into.
+    ///
+    /// `-o` was a directory and nothing else, which made `pluck a.jpg -o out.png` create a
+    /// *directory* called `out.png` and exit 0 with the PNG inside it. For a CLI whose
+    /// whole point is being driven by something that cannot see the filesystem, a wrong
+    /// path that reports success is worse than a refusal.
+    ///
+    /// An existing directory always wins, so `-o out` keeps working even if something
+    /// named `out.png` is what the user meant; otherwise a `.png` suffix means a file.
+    static func namesAFile(_ output: String) -> Bool {
+        var isDirectory: ObjCBool = false
+        if FileManager.default.fileExists(atPath: output, isDirectory: &isDirectory), isDirectory.boolValue {
+            return false
+        }
+        return (output as NSString).pathExtension.lowercased() == "png"
+    }
+
     /// `dir/photo.jpg` → `dir/photo.png`; with `-o out/` → `out/photo.png`.
     /// Path math stays on the raw argument strings so relative inputs keep producing
     /// relative outputs in logs and JSON.

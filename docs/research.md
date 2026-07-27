@@ -154,3 +154,45 @@ macOS 原生开源抠图项目普遍只有个位数到几十 star——细分空
 ### 5.4 第二轮原型的设计预设修订（据此改写 prototypes/prompts.md）
 
 第一轮图（暖奶油底 + 大面积珊瑚橙 + 自绘控件）被判定为"2023 Web 风"，与 macOS 26 脱节。修订：**布局保留，皮肤换掉**——中性底色 + 真实玻璃材质透出壁纸、珊瑚橙用量砍到单点强调、控件回归系统形态、抠图结果（棋盘格上的主体）作为视觉主角。
+
+---
+
+## 附录 A：拿别人的题考自己（2026-07-28）
+
+自己攒的 CC0 测试图有一个结构性问题：**是我们挑的**。挑图的人和写引擎的人是同一个人，就没有人在替失败的情况说话。所以补一套由别人挑、别人也公开了答案的图。
+
+### A.1 能拿来即用的：rembg 官方样例（13 张）
+
+[danielgatis/rembg](https://github.com/danielgatis/rembg)（MIT，★24k，开源侧事实标准）在 `examples/` 里放了 13 张输入 + 各自的 `.out.png` 输出，正是它 README 里用来展示自己的那批图：人像 3、动物 3、汽车 3、动漫 4、多肉植物架 1。`Scripts/qa-benchmark.sh` 拉图、跑我们的 CLI、拼三联对比图（原图 | rembg | pluck，洋红背景）、并算两边 alpha 二值化后的 IoU。图落在 gitignore 掉的 `qa/`——别人的图不该被我们的仓库镜像一份。
+
+**注意 rembg 的输出不是 ground truth，只是第二种意见。** IoU 低只说明两个引擎不同意，谁对是眼睛的问题不是脚本的问题。
+
+首次结果（Apple Vision，`VNGenerateForegroundInstanceMaskRequest`）：
+
+| 分组 | IoU vs rembg |
+|---|---|
+| 人像 girl-1/2/3 | 96.6% / 98.7% / 99.1% |
+| 动物 animal-1/2/3 | 95.3% / 98.6% / 97.5% |
+| 汽车 car-1/2/3 | 98.5% / 99.0% / 98.5% |
+| 动漫 anime-girl-1/2/3 | 94.1% / 93.3% / **81.9%** |
+| 植物 plants-1 | **2.3%** |
+
+结论三条：
+
+1. **照片类基本打平**。人像/动物/汽车九张里七张 IoU > 97%，4× 放大看 girl-2 的金发边缘，Vision 甚至比 u2net 多留了右肩那一缕。"系统引擎凑合用"这个先入之见在这批图上不成立。
+2. **plants-1 是 Vision 赢，而且赢得离谱**：rembg 只抠出画面中一个小盆栽（前景占比 0.8%），Vision 把整个两层花架连植物一起抠了出来（34.0%）。这是 `VNGenerateForegroundInstanceMask` **多实例**的结构性优势——它找的是"所有前景实例"，u2net 找的是"最显著的那一个"。
+3. **动漫是唯一真实弱项**：anime-girl-3 只有 81.9%，我们多出 2.7 个百分点的前景。这类图是 v0.3 高质量模型的第一批目标场景，也是 before/after 营销图应该避开的题材。
+
+### A.2 真要有 ground truth，得下这些（都不进仓库）
+
+| 数据集 | 内容 | 体积 | 拿法 |
+|---|---|---|---|
+| **DIS-VD** | 470 张 2K–4K，GT 精细到镂空结构；BiRefNet/IS-Net 论文都报这个 | 456 MB（parquet） | HF `nobg/DIS5K`，split `DIS_VD` |
+| **DIS-TE4** | 500 张，结构复杂度最高的一档，专治发丝/网格 | 643 MB | 同上，split `DIS_TE4` |
+| **P3M-500-NP** | 人像 matting，非隐私保护版，有真 alpha 而非二值 mask | 266 MB | HF `nobg/P3M-10K`（MIT），split `P3M_500_NP` |
+
+`DIS5K` 附 Terms of Use（研究用途），所以它只适合本机 QA，**不能**成为仓库里的 fixture，也不能出现在营销图里。P3M-10K 标的是 MIT，但人像数据的肖像权和 license 是两件事，同样只本机用。
+
+### A.3 remove.bg 那边没有东西可拿
+
+[github.com/remove-bg](https://github.com/remove-bg) 整个组织都是**商业 API 的客户端**（ruby gem / go CLI / serverless demo），没有模型也没有测试集——它们的模型是 BRIA 的 RMBG 系，CC BY-NC，早已因 license 排除在外（§2.2）。这条路是死的，不用再查。
