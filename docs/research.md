@@ -196,3 +196,25 @@ macOS 原生开源抠图项目普遍只有个位数到几十 star——细分空
 ### A.3 remove.bg 那边没有东西可拿
 
 [github.com/remove-bg](https://github.com/remove-bg) 整个组织都是**商业 API 的客户端**（ruby gem / go CLI / serverless demo），没有模型也没有测试集——它们的模型是 BRIA 的 RMBG 系，CC BY-NC，早已因 license 排除在外（§2.2）。这条路是死的，不用再查。
+
+### A.4 权重下载坐标（2026-07-28 逐个核实）
+
+§2.2 的候选表列的是"有哪些模型"，没列"从哪儿拿、多少字节"。做 Core ML 转换 spike 和跑 DIS-VD 对比都需要本机有权重，于是把每个候选的真实下载地址和大小对着 Hugging Face / GitHub API 核了一遍，写成 `Scripts/fetch-models.sh`。
+
+| 模型 | 权重文件 | 实测体积 | License | 用途 |
+|---|---|---|---|---|
+| **BiRefNet_lite** | `ZhengPeng7/BiRefNet_lite` → `model.safetensors` | 169.4 MB（44.4M 参数） | MIT | **v0.3 首选** |
+| BiRefNet_lite ONNX | `onnx-community/BiRefNet_lite-ONNX` → `onnx/model.onnx` | 213.6 MB（fp16 版 109.2 MB） | MIT | 转换结果的交叉验证 |
+| BiRefNet_lite-2K | `ZhengPeng7/BiRefNet_lite-2K` | 169.4 MB，输入 2560×1440 | MIT | 大图备选 |
+| BiRefNet 完整版 | `ZhengPeng7/BiRefNet` | 423.9 MB（ONNX 927.6 MB） | MIT | 太大，不考虑 |
+| InSPyReNet | `plemeri/InSPyReNet` | ~367 MB | MIT | 备胎；**GitHub 无 release asset**，权重走 Google Drive 或 `transparent-background` pypi |
+| U²Net / U²Net-p | `u2net.onnx` / `u2netp.onnx` | 167.8 MB / 4.4 MB | Apache-2.0 | 只做基线 |
+| IS-Net (DIS) | `isnet-general-use.onnx` | 170.4 MB | Apache-2.0 | 只做基线 |
+| Silueta | `silueta.onnx` | 42.1 MB | Apache-2.0 | 只做基线（U²Net 瘦身版） |
+| MODNet | — | ~26 MB | Apache-2.0 | 纯人像，场景太窄 |
+| ~~RMBG-1.4~~ | `briaai/RMBG-1.4` | 168 MB | OpenRAIL-M ⚠️ | 排除 |
+| ~~RMBG-2.0~~ | `briaai/RMBG-2.0` | 976.9 MB（INT8 CoreML 233 MB） | CC BY-NC ❌ | 排除，硬红线 |
+
+四个 Apache-2.0 基线全部挂在 rembg 的 `v0.0.0` release（该 release 共 38 个 asset），路径规律是 `https://github.com/danielgatis/rembg/releases/download/v0.0.0/<name>.onnx`——这正是 A.1 里那些 `.out.png` 的出处，本机有了它们才可能在 DIS-VD 上跑整套对比，而不是只对着 13 张截图说话。
+
+权重落在 `models/weights/`（已 gitignore，共 801 MB），下载后记 `SHA256SUMS`；v0.3 app 内的 manifest 会复用同一批摘要。**License 是闸门，不是体积**：BRIA 系两个模型在脚本里是刻意缺席的，且必须保持缺席。

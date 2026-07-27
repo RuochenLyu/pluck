@@ -18,3 +18,6 @@ dist/
 
 # Third-party QA images fetched by Scripts/qa-benchmark.sh — not ours to mirror
 qa/
+
+# Model weights fetched by Scripts/fetch-models.sh — Release assets, never committed
+models/weights/
