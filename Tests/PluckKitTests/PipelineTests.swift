@@ -104,6 +104,20 @@ final class PipelineTests: XCTestCase {
         }
     }
 
+    /// Same kind, same exit code, different sentence: a path that is not there is a caller
+    /// mistake, and saying "unsupported file" about it sends the caller after the wrong fix.
+    func testAMissingPathSaysSoRatherThanBlamingTheFormat() throws {
+        let missing = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("pluck-not-here-\(UUID().uuidString).png")
+        XCTAssertThrowsError(try ImageLoader.load(contentsOf: missing)) { error in
+            XCTAssertEqual((error as? PluckError)?.kind, .imageLoadFailed)
+            XCTAssertTrue(
+                error.localizedDescription.contains("no such file"),
+                "got: \(error.localizedDescription)"
+            )
+        }
+    }
+
     /// Only a file source has a name of its own. Naming the others is the shell's policy
     /// call — the app says "Cutout", the CLI would say something else.
     func testOnlyFilesSuggestAName() {

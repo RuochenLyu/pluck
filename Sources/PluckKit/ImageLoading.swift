@@ -8,7 +8,14 @@ import ImageIO
 public enum ImageLoader {
     public static func load(contentsOf url: URL) throws -> CGImage {
         guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else {
-            throw PluckError.imageLoadFailed(reason: "unsupported or unreadable file")
+            // ImageIO gives one nil for both "no such path" and "not an image", and an agent
+            // that reads "unsupported or unreadable file" for a typo'd path goes looking for a
+            // converter instead of fixing the path. The kind and the exit code stay put; only
+            // the sentence gets more useful.
+            let reason = FileManager.default.fileExists(atPath: url.path)
+                ? "unsupported or unreadable file"
+                : "no such file"
+            throw PluckError.imageLoadFailed(reason: reason)
         }
         return try decode(source)
     }
