@@ -3,6 +3,7 @@ import PackageDescription
 
 let package = Package(
     name: "Pluck",
+    defaultLocalization: "en",
     platforms: [.macOS(.v14)],
     products: [
         .library(name: "PluckKit", targets: ["PluckKit"]),
@@ -20,7 +21,13 @@ let package = Package(
                 .product(name: "ArgumentParser", package: "swift-argument-parser")
             ]
         ),
+        .executableTarget(
+            name: "PluckApp",
+            dependencies: ["PluckKit"],
+            resources: [.process("Resources")]
+        ),
         .testTarget(name: "PluckKitTests", dependencies: ["PluckKit"]),
+        .testTarget(name: "PluckAppTests", dependencies: ["PluckApp"]),
         .testTarget(name: "PluckCLITests", dependencies: ["PluckCLI"])
     ]
 )
