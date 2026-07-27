@@ -273,7 +273,11 @@ private struct ResultRow: View {
                     .font(.body)
                     .lineLimit(1)
                     .truncationMode(.middle)
-                Text("\(item.pixelWidth) × \(item.pixelHeight)")
+                // Verbatim, or SwiftUI reads the literal as a `LocalizedStringKey`: it
+                // looks the whole thing up in the catalog (where it can never be) and
+                // grouping-formats the numbers on the way, so a 1024px image reports
+                // itself as "1,024". Pixel counts are not prose.
+                Text(verbatim: "\(item.pixelWidth) × \(item.pixelHeight)")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .monospacedDigit()
