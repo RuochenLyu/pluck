@@ -148,6 +148,9 @@ final class AppModel {
         guard panel.runModal() == .OK, let url = panel.url else { return }
         do {
             try item.pngData.write(to: url, options: .atomic)
+            // Same confirmation Copy gives. The panel closing means "the dialog is done", not
+            // "the bytes are on disk", and those are not the same event.
+            flash(.success)
         } catch {
             flash(.failure)
         }
@@ -240,6 +243,10 @@ final class AppModel {
         // across is what makes completion a content change on the cell the user is already
         // watching instead of a removal plus an unrelated insertion.
         let id = ticket
+        // If the temp copy could not be written, this URL names a file that does not exist —
+        // deliberately. `NSItemProvider(contentsOf:)` returns nil for it, so the drag simply
+        // does nothing, while Copy, Save and the preview all keep working off `pngData`.
+        // Losing one of four ways out beats losing the result.
         let url = (try? PluckService.writeTemporaryFile(processed, id: id))
             ?? URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("\(id).png")
         let item = RecentItem(
