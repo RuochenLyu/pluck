@@ -70,16 +70,33 @@ enum PluckService {
         SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
     }
 
+    /// `<tmp>/Pluck/` — this app's, exclusively. Neither PluckKit nor the CLI writes here.
+    static var temporaryRoot: URL {
+        URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("Pluck", isDirectory: true)
+    }
+
     /// Persisting the PNG is what makes a grid cell draggable into other apps:
     /// `NSItemProvider(contentsOf:)` needs a real file, and receivers expect a
     /// sensible filename rather than "image.png".
     static func writeTemporaryFile(_ processed: ProcessedImage, id: UUID) throws -> URL {
-        let directory = URL(fileURLWithPath: NSTemporaryDirectory())
-            .appendingPathComponent("Pluck", isDirectory: true)
-            .appendingPathComponent(id.uuidString, isDirectory: true)
+        let directory = temporaryRoot.appendingPathComponent(id.uuidString, isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         let url = directory.appendingPathComponent(processed.suggestedName).appendingPathExtension("png")
         try processed.pngData.write(to: url, options: .atomic)
         return url
+    }
+
+    /// Everything under `<tmp>/Pluck/` at launch belongs to a run that is already over: the
+    /// grid is session-scoped, so nothing on screen can still be pointing at it.
+    ///
+    /// Quitting drops those files on the floor — Clear deletes the session's, and a crash or
+    /// a plain ⌘Q deletes nothing at all. They are cutouts of the user's photos, in the
+    /// clear, accumulating for as long as the system leaves the temp directory alone. An app
+    /// whose one promise is "your photos stay on this Mac" should not also mean "and pile up
+    /// in a directory you were never told about".
+    /// `root` is a parameter so the test can point it somewhere harmless: the default is a
+    /// directory the developer's own running copy of the app is using.
+    static func discardOrphanedTemporaryFiles(at root: URL = temporaryRoot) {
+        try? FileManager.default.removeItem(at: root)
     }
 }

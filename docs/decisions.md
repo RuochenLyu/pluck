@@ -174,3 +174,11 @@
 - **决策**：shelf 底栏那颗 `gearshape`／`L.s("Settings")` 改为 `info.circle`／`L.s("About Pluck")`。行为一直就是 `orderFrontStandardAboutPanel`，改的是标签而不是行为。
 - **理由**：product-plan.md §设置 定义的四项——默认引擎、模型管理、输出格式、快捷键——在 v0.1 一项都不存在（引擎固定 Vision、输出固定 PNG、全局快捷键已明确移除、模型是 v0.3）。所以摆在这里的齿轮是一个说谎的控件：它承诺了一个 app 还没有的界面。
 - **不为了让齿轮名副其实而临时发明设置项**（例如开机自启）：那是拿"控件已经画在那儿了"倒推功能范围。开机自启记进 roadmap 当 v0.2 候选，等有第二项、第三项设置时一起做一个真的 Settings。
+
+## 2026-07-27 — 启动时清空 `<tmp>/Pluck/`
+
+- **决策**：`applicationDidFinishLaunching` 的第一行（同步）删掉整个 `<tmp>/Pluck/`。这个目录只有 App 在用，PluckKit 和 CLI 都不碰。
+- **背景**：每张抠好的图都会落一份 PNG 到 `<tmp>/Pluck/<uuid>/`，因为 `NSItemProvider(contentsOf:)` 要一个真文件才能把格子拖进别的 app。Clear 会连临时文件一起删，但**退出不会**——⌘Q 和崩溃都什么也不删。实测这台机器上躺着十几张历史 session 的 cutout。
+- **为什么这是隐私问题而不是清洁问题**：这些是用户照片的明文副本，而这个 app 唯一的承诺就是"照片不离开这台 Mac"。"不离开"不该顺带意味着"堆在一个你不知道的目录里"。grid 是 session 作用域的，所以启动那一刻目录里的东西一定没人再指向它。
+- **同步而不是 detached**：detached 的清扫可能落在第一次 drop 已经写完之后，把 grid 正指着的文件删掉。这一行的位置在任何输入通道装好之前，不存在竞争。
+- **`discardOrphanedTemporaryFiles(at:)` 带默认参数**：测试指向自己的目录，否则跑一次测试就会把开发者正在跑的那份 app 的临时文件删掉。

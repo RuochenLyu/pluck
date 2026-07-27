@@ -28,6 +28,7 @@
 - ~~**PluckError 文案硬编码英文**~~ ✅ 2026-07-27：解法不是给 PluckKit 加本地化，而是 App 侧 `PluckFailure` 把 `PluckError.Kind` 映射成自己的 Catalog 文案；库保持机器可读，app 决定怎么说（decisions.md 同日）。
 - **历史记录持久化**（v0.1 反馈）：当前 session 内存 12 条；v0.2 改为默认持久化最近 20 条到 Application Support（本地磁盘不违背"不上网"承诺），设置可关 + 一键 Clear。**预览面板位置**（当前只活到进程结束）和**开机自启**一并挂在这条下面——三者都要落到同一份偏好存储上，v0.2 有第一个真正的 Settings 界面时一起做。
 - ~~**预览面板每次打开都贴回 shelf 旁**~~ ✅ 2026-07-27：面板复用导致每次 `show` 都重新摆位，用户拖走的位置下一次点击就被吃掉。改为记住用户拖过之后的**左上角**（面板按图逐张 resize，从左下往上长，记下边缘会让顶边跳），仍然 clamp 回当前屏幕；`origin(for:keeping:in:)` 抽成纯函数并覆盖测试。
+- ~~**临时文件跨 session 堆积**~~ ✅ 2026-07-27：每张 cutout 为了支持拖出会落一份 PNG 到 `<tmp>/Pluck/<uuid>/`，Clear 会删，退出/崩溃不删。改为启动时同步清空整个 `<tmp>/Pluck/`（decisions.md 同日）。
 - ~~**齿轮按钮名不副实**~~ ✅ 2026-07-27：`gearshape`／"Settings" 一直打开的是 About 面板，而 v0.1 四项设置（引擎/模型/格式/快捷键）一项都不存在。改标签为 `info.circle`／"About Pluck"，不为凑齐齿轮而临时发明设置项（decisions.md 同日）。
 - ~~**菜单栏图标可达性兜底**~~ ✅ 2026-07-27（提前到 v0.1，因为它挡住了我自己的 UI 验收）：`statusAnchor()` 判定图标是否真的够得着（刘海 `auxiliaryTopLeftArea/RightArea`、零宽按钮、找不到所在屏），够不着时 shelf 从可用区顶部中央落下；`applicationShouldHandleReopen` 让"再点一次 app"成为逃生通道；启动 700ms 后若仍不可达则自动开一次 shelf。安置逻辑抽成纯函数 `ShelfPanelController.origin(for:under:in:)` 并覆盖测试。
 - ~~**抠图对自身输出不幂等**~~ ✅ 2026-07-27（QA 发现并当场修掉）：结果会写回剪贴板，于是连按两次 ⌘V 抠的是上一次的输出；每过一遍边缘 alpha 再削一点、字节全变，指纹去重因此永远不触发。改为**进引擎前**先拿输入字节比对已有结果的指纹，命中即提升 + 高亮（新 outcome `.superseded`），实测连抠三次仍只有一格。

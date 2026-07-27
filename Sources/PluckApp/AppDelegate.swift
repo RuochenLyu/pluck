@@ -23,6 +23,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
+        // First, and synchronously: whatever the last run left behind is dead weight, and it
+        // is dead weight made of the user's photographs. Synchronous because the alternative
+        // races — a detached sweep can land after the first drop has already written into
+        // the same directory, and then it deletes a file the grid is pointing at. Nothing
+        // that can create one has been installed yet at this line.
+        PluckService.discardOrphanedTemporaryFiles()
         installStatusItem()
         installShelf()
         installKeyMonitor()
