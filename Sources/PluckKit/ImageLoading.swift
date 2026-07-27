@@ -1,22 +1,21 @@
 import CoreGraphics
 import Foundation
 import ImageIO
-import PluckKit
 
 /// Decoding is ImageIO-only: whatever the system can read (jpg/png/heic/tiff/webp/…)
-/// the CLI can read, with no AppKit anywhere near the process.
-enum ImageLoader {
-    static func load(contentsOf path: String) throws -> CGImage {
-        let url = URL(fileURLWithPath: path)
+/// PluckKit can read, with no AppKit anywhere near the process — so the same loader
+/// serves the CLI, the app and the extensions.
+public enum ImageLoader {
+    public static func load(contentsOf url: URL) throws -> CGImage {
         guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else {
             throw PluckError.imageLoadFailed(reason: "unsupported or unreadable file")
         }
         return try decode(source)
     }
 
-    static func load(data: Data) throws -> CGImage {
+    public static func load(data: Data) throws -> CGImage {
         guard !data.isEmpty else {
-            throw PluckError.imageLoadFailed(reason: "no data on stdin")
+            throw PluckError.imageLoadFailed(reason: "no image data")
         }
         guard let source = CGImageSourceCreateWithData(data as CFData, nil) else {
             throw PluckError.imageLoadFailed(reason: "unrecognized image data")

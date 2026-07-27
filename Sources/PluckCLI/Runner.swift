@@ -56,8 +56,12 @@ struct Runner {
 
             let image: CGImage
             switch item.source {
-            case .file(let path): image = try ImageLoader.load(contentsOf: path)
-            case .standardInput: image = try ImageLoader.load(data: FileHandle.standardInput.readDataToEndOfFile())
+            case .file(let path):
+                image = try ImageLoader.load(contentsOf: URL(fileURLWithPath: path))
+            case .standardInput:
+                let data = FileHandle.standardInput.readDataToEndOfFile()
+                guard !data.isEmpty else { throw PluckError.imageLoadFailed(reason: "no data on stdin") }
+                image = try ImageLoader.load(data: data)
             }
 
             let mask = try await engine.mask(for: image)

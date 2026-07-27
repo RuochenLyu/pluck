@@ -2,25 +2,25 @@ import Foundation
 import PluckKit
 
 /// The stable machine-facing failure vocabulary. Slugs are part of the CLI contract:
-/// agents branch on them, so they change only with a version bump.
+/// agents branch on them, so they change only with a version bump. Everything the engine
+/// itself can fail at lives in `PluckError.Kind`; only the two file-handling failures
+/// below are the CLI's own, because they happen around the engine, never inside it.
 enum FailureKind: Equatable {
-    case noSubject
-    case modelMissing
-    case engineUnavailable
-    case imageLoadFailed
+    case library(PluckError.Kind)
     case outputExists
     case writeFailed
-    case processingFailed
+
+    static let noSubject = FailureKind.library(.noSubject)
+    static let modelMissing = FailureKind.library(.modelMissing)
+    static let engineUnavailable = FailureKind.library(.engineUnavailable)
+    static let imageLoadFailed = FailureKind.library(.imageLoadFailed)
+    static let processingFailed = FailureKind.library(.processingFailed)
 
     var slug: String {
         switch self {
-        case .noSubject: return "no_subject"
-        case .modelMissing: return "model_missing"
-        case .engineUnavailable: return "engine_unavailable"
-        case .imageLoadFailed: return "image_load_failed"
+        case .library(let kind): return kind.rawValue
         case .outputExists: return "output_exists"
         case .writeFailed: return "write_failed"
-        case .processingFailed: return "processing_failed"
         }
     }
 }
@@ -61,10 +61,7 @@ extension ItemFailure {
     static func from(_ error: any Error, context: String) -> ItemFailure {
         let kind: FailureKind
         switch error {
-        case PluckError.noSubjectDetected: kind = .noSubject
-        case PluckError.modelMissing: kind = .modelMissing
-        case PluckError.engineUnavailable: kind = .engineUnavailable
-        case PluckError.imageLoadFailed: kind = .imageLoadFailed
+        case let error as PluckError: kind = .library(error.kind)
         case is CocoaError: kind = .writeFailed
         default: kind = .processingFailed
         }

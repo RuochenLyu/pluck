@@ -11,6 +11,26 @@ public enum PluckError: Error, LocalizedError, Sendable {
     case modelMissing(id: String)
     case processingFailed(underlying: (any Error)?)
 
+    /// The stable machine-facing vocabulary. Raw values are a public contract — agents
+    /// branch on them in `--json` output — so they change only with a version bump.
+    public enum Kind: String, Sendable {
+        case noSubject = "no_subject"
+        case imageLoadFailed = "image_load_failed"
+        case engineUnavailable = "engine_unavailable"
+        case modelMissing = "model_missing"
+        case processingFailed = "processing_failed"
+    }
+
+    public var kind: Kind {
+        switch self {
+        case .noSubjectDetected: return .noSubject
+        case .imageLoadFailed: return .imageLoadFailed
+        case .engineUnavailable: return .engineUnavailable
+        case .modelMissing: return .modelMissing
+        case .processingFailed: return .processingFailed
+        }
+    }
+
     public var errorDescription: String? {
         switch self {
         case .noSubjectDetected:

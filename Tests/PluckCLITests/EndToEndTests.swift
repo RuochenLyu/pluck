@@ -71,7 +71,7 @@ final class EndToEndTests: XCTestCase {
         XCTAssertTrue(FileManager.default.fileExists(atPath: expected))
         XCTAssertEqual(ExitStatus.resolve(outcomes), 0)
 
-        let written = try ImageLoader.load(contentsOf: expected)
+        let written = try ImageLoader.load(contentsOf: URL(fileURLWithPath: expected))
         XCTAssertEqual(written.width, 480)
         XCTAssertTrue(written.alphaInfo != .none, "cutout must carry alpha")
     }
