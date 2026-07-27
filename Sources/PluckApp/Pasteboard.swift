@@ -61,11 +61,15 @@ struct ClipboardPlucker: Sendable {
         self.process = process
     }
 
-    /// `onInput` fires with the raw clipboard bytes before matting starts, so the caller
-    /// can put a placeholder on screen that shows *which* picture is being worked on.
-    func run(onInput: @Sendable (Data) async -> Void = { _ in }) async -> (outcome: PluckOutcome, result: ProcessedImage?) {
+    /// `onInput` fires with the raw clipboard bytes before matting starts, so the caller can
+    /// put a placeholder on screen that shows *which* picture is being worked on — and can
+    /// refuse the job by returning false. Refusing has to be possible *here*, before the
+    /// engine runs: this type writes its result back to the clipboard, so a job that turns
+    /// out to be redundant has already overwritten the user's clipboard by the time anyone
+    /// downstream could throw the result away.
+    func run(onInput: @Sendable (Data) async -> Bool = { _ in true }) async -> (outcome: PluckOutcome, result: ProcessedImage?) {
         guard let input = pasteboard.readImage() else { return (.failure(.noInput), nil) }
-        await onInput(input.data)
+        guard await onInput(input.data) else { return (.superseded, nil) }
         do {
             let processed = try await process(input.data, input.name)
             pasteboard.writePNG(processed.pngData)

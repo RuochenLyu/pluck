@@ -67,6 +67,16 @@ enum DroppedPayload: Sendable, Equatable {
     case file(URL)
     case data(Data)
 
+    /// The bytes exactly as they exist outside this app. `.file` re-reads from disk rather
+    /// than handing back something re-encoded, because these bytes get fingerprinted and the
+    /// hash only means anything if every path hashes the same thing.
+    var bytes: Data? {
+        switch self {
+        case .file(let url): try? Data(contentsOf: url)
+        case .data(let data): data
+        }
+    }
+
     /// File URLs before bitmap flavors, always: a dragged file carries its original
     /// encoding *and* its name, and the name is what the save panel and the preview's
     /// title capsule show. SwiftUI's `onDrop` cannot do this — it hands back a provider

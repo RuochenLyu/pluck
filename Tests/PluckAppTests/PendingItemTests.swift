@@ -14,7 +14,31 @@ private final class MockPasteboard: ImagePasteboard, @unchecked Sendable {
 
     func readImage() -> (data: Data, name: String)? { stored }
 
-    func writePNG(_ data: Data) { written.append(data) }
+    /// Writing feeds the read side, the way the real clipboard does. Without that round
+    /// trip the tests would never see the situation that actually happens: a pluck leaves
+    /// its own result where the next pluck goes looking for input.
+    func writePNG(_ data: Data) {
+        written.append(data)
+        stored = (data, "Cutout")
+    }
+}
+
+/// A `Sendable` tally for closures that run off the main actor.
+private final class Counter: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value = 0
+
+    var count: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return value
+    }
+
+    func bump() {
+        lock.lock()
+        value += 1
+        lock.unlock()
+    }
 }
 
 private func processed(_ bytes: [UInt8], name: String = "cut") -> ProcessedImage {
@@ -176,6 +200,77 @@ final class PendingItemTests: XCTestCase {
 
         // The flash is transient; a border stuck on forever reads as a selection.
         await waitUntil("the highlight to expire", timeout: 6) { model.highlightedItemID == nil }
+    }
+
+    /// ⌘V twice in a row. The first pluck put its result on the clipboard, so the second one
+    /// reads the cutout back in — and the engine must not touch it. Plucking a cutout is not
+    /// idempotent (QA, 2026-07-27: three passes, three different digests), so a second run
+    /// would produce a fresh near-copy that no fingerprint can ever match, and would leave
+    /// that slightly worse version on the user's clipboard.
+    func testPastingACutoutBackInNeverReachesTheEngine() async {
+        let passes = Counter()
+        let pasteboard = MockPasteboard(stored: (Data([9]), "cat"))
+        let model = AppModel(pasteboard: pasteboard) { _, _ in
+            passes.bump()
+            return processed([1, 2, 3])
+        }
+
+        model.pluckClipboard()
+        await waitUntil("the first result") { model.recents.items.count == 1 }
+        scratch = model.recents.items.map(\.fileURL)
+        let original = model.recents.items[0].id
+        XCTAssertEqual(pasteboard.stored?.data, Data([1, 2, 3]), "the cutout is on the clipboard now")
+
+        model.pluckClipboard()
+        await waitUntil("the repeat to be folded in") { model.highlightedItemID != nil }
+        XCTAssertEqual(passes.count, 1, "the second pluck ran the engine again")
+        XCTAssertEqual(model.recents.items.count, 1)
+        XCTAssertEqual(model.highlightedItemID, original)
+        XCTAssertTrue(model.pendingItems.isEmpty)
+        XCTAssertEqual(pasteboard.written.count, 1, "the clipboard was overwritten a second time")
+    }
+
+    /// Same recognition by the other route: the cutout saved to disk, dragged back onto the
+    /// icon. The bytes are the ones we wrote, so the fingerprint matches before any work.
+    func testDroppingACutoutBackInPromotesItInsteadOfPluckingItAgain() async {
+        let passes = Counter()
+        let model = AppModel(pasteboard: MockPasteboard(stored: (Data([9]), "cat"))) { _, _ in
+            passes.bump()
+            return processed([4, 5, 6])
+        }
+
+        model.pluckClipboard()
+        await waitUntil("the first result") { model.recents.items.count == 1 }
+        scratch = model.recents.items.map(\.fileURL)
+        let original = model.recents.items[0].id
+
+        model.handleDrop([.data(Data([4, 5, 6]))])
+        await waitUntil("the drop to be folded in") { model.highlightedItemID != nil }
+        XCTAssertEqual(passes.count, 1)
+        XCTAssertEqual(model.recents.items.count, 1)
+        XCTAssertEqual(model.highlightedItemID, original)
+        XCTAssertTrue(model.pendingItems.isEmpty)
+    }
+
+    /// The guard is "these exact bytes are already a result", not "this looks familiar".
+    /// A different picture must still go through the engine.
+    func testADifferentImageStillGetsPlucked() async {
+        let passes = Counter()
+        let pasteboard = MockPasteboard(stored: (Data([9]), "cat"))
+        let model = AppModel(pasteboard: pasteboard) { data, _ in
+            passes.bump()
+            return processed([data[0], 0])
+        }
+
+        model.pluckClipboard()
+        await waitUntil("the first result") { model.recents.items.count == 1 }
+
+        pasteboard.stored = (Data([8]), "dog")
+        model.pluckClipboard()
+        await waitUntil("the second result") { model.recents.items.count == 2 }
+        scratch = model.recents.items.map(\.fileURL)
+        XCTAssertEqual(passes.count, 2)
+        XCTAssertNil(model.highlightedItemID)
     }
 
     func testClearEmptiesTheGrid() async {

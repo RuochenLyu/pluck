@@ -58,6 +58,9 @@ enum PluckFailure: Equatable, Sendable {
 /// a place the message can drift from what actually happened.
 enum PluckOutcome: Equatable, Sendable {
     case success
+    /// Abandoned before the engine ran, because the grid already holds exactly this cutout.
+    /// Not a failure and not a result: nothing was produced, and nothing went wrong.
+    case superseded
     case failure(PluckFailure)
 
     var failureReason: PluckFailure? {

@@ -73,16 +73,26 @@ final class RecentStore {
     /// the grid with copies; identity is the cutout bytes, not the source path.
     @discardableResult
     func insert(_ item: RecentItem) -> InsertResult {
-        if let existing = items.firstIndex(where: { $0.fingerprint == item.fingerprint }) {
-            let promoted = items.remove(at: existing)
-            items.insert(promoted, at: 0)
-            return .promoted(promoted.id)
+        if let existing = promote(fingerprint: item.fingerprint) {
+            return .promoted(existing)
         }
         items.insert(item, at: 0)
         if items.count > capacity {
             items.removeLast(items.count - capacity)
         }
         return .inserted
+    }
+
+    /// Moves a matching entry to the front, or nil if there is none. Split out of `insert`
+    /// because the other caller recognises the bytes *before* doing the work: a cutout being
+    /// plucked a second time is already in the grid, and the fingerprint says so without a
+    /// second pass through the engine.
+    @discardableResult
+    func promote(fingerprint: String) -> UUID? {
+        guard let index = items.firstIndex(where: { $0.fingerprint == fingerprint }) else { return nil }
+        let promoted = items.remove(at: index)
+        items.insert(promoted, at: 0)
+        return promoted.id
     }
 
     /// Returns the files that backed the cleared entries so the caller can delete the

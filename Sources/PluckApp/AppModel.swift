@@ -93,12 +93,12 @@ final class AppModel {
         // The weak capture is hoisted into its own `@Sendable` closure: a `[weak self]`
         // binding is implicitly mutable, and Swift 6 refuses to let a nested concurrent
         // closure (here, `run`'s `onInput`) capture it directly.
-        let attach: @Sendable (Data) async -> Void = { [weak self] data in
+        let accept: @Sendable (Data) async -> Bool = { [weak self] data in
             let thumbnail = PluckService.inputThumbnail(data: data)
-            await self?.attach(thumbnail: thumbnail, to: ticket)
+            return await self?.accept(input: data, thumbnail: thumbnail, ticket: ticket) ?? false
         }
         Task.detached(priority: .userInitiated) { [weak self] in
-            let (outcome, processed) = await plucker.run { data in await attach(data) }
+            let (outcome, processed) = await plucker.run { data in await accept(data) }
             await self?.finish(ticket: ticket, outcome: outcome, processed: processed)
         }
     }
@@ -108,7 +108,12 @@ final class AppModel {
         for payload in payloads {
             let ticket = beginWork()
             Task.detached(priority: .userInitiated) { [weak self] in
-                await self?.attach(thumbnail: PluckService.inputThumbnail(of: payload), to: ticket)
+                let thumbnail = PluckService.inputThumbnail(of: payload)
+                let accepted = await self?.accept(input: payload.bytes, thumbnail: thumbnail, ticket: ticket)
+                guard accepted == true else {
+                    await self?.finish(ticket: ticket, outcome: .superseded, processed: nil)
+                    return
+                }
                 do {
                     let processed: ProcessedImage
                     switch payload {
@@ -191,6 +196,24 @@ final class AppModel {
         return pending.id
     }
 
+    /// Shows the input on the placeholder, and answers whether the job is worth running.
+    ///
+    /// False means these exact bytes are already a cutout in the grid. That is not a corner
+    /// case: every clipboard pluck writes its result back to the clipboard, so a second ⌘V
+    /// hands the output straight back in — and plucking a cutout is *not* idempotent (each
+    /// pass shaves the alpha edge again, so the bytes differ every time). Left to run, it
+    /// fills the grid with near-copies, each one slightly worse than the last, and leaves the
+    /// worst of them on the clipboard. Dragging a saved cutout back in is the same fingerprint
+    /// by the same route.
+    private func accept(input: Data?, thumbnail: Data?, ticket: UUID) -> Bool {
+        attach(thumbnail: thumbnail, to: ticket)
+        guard let input,
+              let existing = recents.promote(fingerprint: PluckService.fingerprint(input))
+        else { return true }
+        highlight(existing)
+        return false
+    }
+
     private func attach(thumbnail: Data?, to ticket: UUID) {
         guard let thumbnail, let index = pendingItems.firstIndex(where: { $0.id == ticket }) else { return }
         pendingItems[index].thumbnail = thumbnail
@@ -198,6 +221,13 @@ final class AppModel {
 
     private func finish(ticket: UUID, outcome: PluckOutcome, processed: ProcessedImage?) {
         inFlight = max(0, inFlight - 1)
+        // Nothing was produced and nothing went wrong: the entry this job would have
+        // duplicated is already flashing its border, which is the whole answer.
+        if case .superseded = outcome {
+            withAnimation(.easeInOut(duration: 0.25)) { pendingItems.removeAll { $0.id == ticket } }
+            flash(.success)
+            return
+        }
         // A `.success` with no image is a bug, not a user-facing state; treat it as the
         // generic failure rather than silently dropping the placeholder on the floor.
         guard case .success = outcome, let processed else {
