@@ -8,11 +8,10 @@
 - 阶段：**v0.1 功能代码完成并过完三轮用户实测反馈**（⌘V 入口 → 拖到图标即入口的 shelf 面板重做 → 浮层层级/摆位/拖动/关闭按钮）。PluckKit（VisionEngine/Compositor/ImageLoader/**PluckPipeline**）、`pluck` CLI、PluckApp 菜单栏 MVP、CC0 测试图片集全部落地，**92 测试全绿**，Swift 6 零 warning。
 - 交互现状：状态项本身是拖放目标 → 落下即开 shelf 面板（非激活 borderless NSPanel，网格内占位卡原地变结果卡）；预览面板贴 shelf 旁开、层级在其之上、顶部 44pt 条带可拖、关闭按钮常驻。
 - 打包：`./Scripts/bundle.sh` 产出可运行的 `Pluck.app`（Info.plist / 编译后的 String Catalog / icns / ad-hoc 签名），1.9 MB。
-- 待办（v0.1 收尾）：剩余 UI 细节打磨归到最后一期统一处理 → Developer ID 签名 + notarization + GitHub Release + Homebrew tap。
-- 发布链路：`./Scripts/release.sh` 已就位（Developer ID 签名 → notarytool → stapler → 重新打包 → spctl 判定）。Developer Program 会员**已确认有效**（Admin，Certificates/Identifiers/Profiles 可用）。
-- **阻塞在用户**：① developer.apple.com/account 接受更新后的 PLA（Xcode 建证书报 "Unable to process request – PLA Update available"，这是唯一原因）；② 接受后回 Xcode ▸ Settings ▸ Accounts ▸ Manage Certificates… ▸ + ▸ Developer ID Application；③ `xcrun notarytool store-credentials pluck-notary`（需 App-Specific Password）。三步做完 `release.sh` 即可跑通，无其他阻塞项。
-- Bundle ID 终定为 `com.aix4u.pluck`（用现有域名 `aix4u.com`，不为本 app 单独注册域名；decisions.md 2026-07-27）。
-- Developer ID Application 证书**已就位**：`Developer ID Application: Ruochen Lyu (B4BJ3QY8T2)`，Team ID `B4BJ3QY8T2`。
+- **发布链路已全程跑通（2026-07-27）**：`./Scripts/release.sh` 一次通过——Developer ID 签名（hardened runtime + timestamp）→ notarytool `Accepted`（提交 `7f7651b9`）→ stapler → 重新打包 → `spctl` 判定 `accepted / source=Notarized Developer ID`。zip 解压到别处二次判定同样通过，`stapler validate` 通过（票据已内嵌，用户首次启动不需要网络），启动 + SIGUSR1 实测存活。产物 `.build/Pluck.zip`，1.9 MB。
+- 签名身份：`Developer ID Application: Ruochen Lyu (B4BJ3QY8T2)`；Bundle ID `com.aix4u.pluck`（decisions.md 2026-07-27）；公证 keychain profile 名 `pluck-notary`。
+- 待办（v0.1 收尾）：剩余 UI 细节打磨归到最后一期统一处理 → GitHub Release（tag/正文/附 zip + SHA256）→ Homebrew cask。
+- **无阻塞项**。
 
 ## 里程碑
 
