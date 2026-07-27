@@ -34,6 +34,17 @@
         }
       }
     },
+    "Clear recent cutouts": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clear recent cutouts"
+          }
+        }
+      }
+    },
     "Close": {
       "extractionState": "manual",
       "localizations": {
@@ -56,6 +67,17 @@
         }
       }
     },
+    "Couldn’t save the cutout to disk — check free space.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn’t save the cutout to disk — check free space."
+          }
+        }
+      }
+    },
     "Cutout": {
       "extractionState": "manual",
       "localizations": {
@@ -67,13 +89,13 @@
         }
       }
     },
-    "Cutouts you make in this session show up here.": {
+    "Cutouts you make show up here.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Cutouts you make in this session show up here."
+            "value": "Cutouts you make show up here."
           }
         }
       }
@@ -85,6 +107,50 @@
           "stringUnit": {
             "state": "translated",
             "value": "Drop or paste images here"
+          }
+        }
+      }
+    },
+    "General": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "General"
+          }
+        }
+      }
+    },
+    "History": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "History"
+          }
+        }
+      }
+    },
+    "Keep recent cutouts between launches": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keep recent cutouts between launches"
+          }
+        }
+      }
+    },
+    "Launch Pluck at login": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Launch Pluck at login"
           }
         }
       }
@@ -118,6 +184,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "Pluck"
+          }
+        }
+      }
+    },
+    "Pluck Settings": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pluck Settings"
+          }
+        }
+      }
+    },
+    "Pluck works entirely offline. It makes no network requests and has no account, no telemetry and no uploads.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pluck works entirely offline. It makes no network requests and has no account, no telemetry and no uploads."
           }
         }
       }
@@ -199,6 +287,17 @@
         }
       }
     },
+    "Settings": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Settings"
+          }
+        }
+      }
+    },
     "Something went wrong plucking this image.": {
       "extractionState": "manual",
       "localizations": {
@@ -210,6 +309,17 @@
         }
       }
     },
+    "Stored on this Mac in Application Support, and never uploaded. Turn this off and cutouts are kept only until you quit.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stored on this Mac in Application Support, and never uploaded. Turn this off and cutouts are kept only until you quit."
+          }
+        }
+      }
+    },
     "That file isn’t an image Pluck can read.": {
       "extractionState": "manual",
       "localizations": {
@@ -217,6 +327,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "That file isn’t an image Pluck can read."
+          }
+        }
+      }
+    },
+    "This cutout’s file is no longer on disk.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This cutout’s file is no longer on disk."
           }
         }
       }

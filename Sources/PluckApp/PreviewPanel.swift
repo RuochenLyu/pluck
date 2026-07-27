@@ -32,7 +32,20 @@ final class PreviewPanelController {
     /// would make the panel jump around as the user clicks through cutouts of different
     /// shapes. The top-left corner is the one the eye is actually tracking.
     private var placedOrigin: NSPoint?
-    private var userTopLeft: NSPoint?
+
+    /// Kept in preferences rather than in this object: where a user put a window is the
+    /// kind of thing an app is expected to still know tomorrow, and the clamp on the way
+    /// out already handles a screen that has since changed shape.
+    private var userTopLeft: NSPoint? {
+        get { preferences?.previewTopLeft }
+        set { preferences?.previewTopLeft = newValue }
+    }
+
+    private let preferences: Preferences?
+
+    init(preferences: Preferences? = nil) {
+        self.preferences = preferences
+    }
 
     static func contentSize(for item: RecentItem) -> CGSize {
         let width = CGFloat(max(item.pixelWidth, 1))
@@ -208,9 +221,16 @@ struct CutoutPreviewView: View {
             .overlay(alignment: .topTrailing) { closeButton.padding(10) }
             .overlay(alignment: .bottom) { toolbar }
             .task(id: item.id) {
-                before = NSImage(data: item.originalPNG)
-                after = NSImage(data: item.pngData)
                 fraction = 0.5
+                // Both halves are files now, and `Data(contentsOf:)` blocks. Reading them
+                // on the main actor would stall the click that opened the panel for as
+                // long as the disk takes; the images arrive a frame later instead.
+                let item = item
+                let bytes = await Task.detached(priority: .userInitiated) {
+                    (item.originalPNG(), item.pngData())
+                }.value
+                before = bytes.0.flatMap(NSImage.init(data:))
+                after = bytes.1.flatMap(NSImage.init(data:))
             }
     }
 

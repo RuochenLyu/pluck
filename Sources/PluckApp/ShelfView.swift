@@ -16,10 +16,11 @@ struct ShelfView: View {
     /// dropping on the surface already under it.
     let dropTarget: DropTarget
     var onQuit: () -> Void
-    /// About, not Settings. v0.1 has nothing to configure — the engine is fixed, the output
-    /// format is fixed, and there is no shortcut to rebind — so a gear here would be a
-    /// control that promises a surface the app does not have.
     var onAbout: () -> Void
+    /// The gear is back, and this time it opens something. It was removed in v0.1 because
+    /// there was nothing to configure; history, login item and the offline statement are
+    /// enough to earn it.
+    var onSettings: () -> Void
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 10), count: 3)
 
@@ -97,7 +98,7 @@ struct ShelfView: View {
     private var grid: some View {
         Group {
             if model.pendingItems.isEmpty && model.recents.items.isEmpty {
-                Text(L.s("Cutouts you make in this session show up here."))
+                Text(L.s("Cutouts you make show up here."))
                     .font(.callout)
                     .foregroundStyle(.tertiary)
                     .multilineTextAlignment(.center)
@@ -139,6 +140,8 @@ struct ShelfView: View {
                 .keyboardShortcut("q", modifiers: .command)
             Spacer(minLength: 8)
             GlassCircleButton(symbol: "info.circle", label: L.s("About Pluck"), action: onAbout)
+            GlassCircleButton(symbol: "gearshape", label: L.s("Settings"), action: onSettings)
+                .padding(.leading, 6)
         }
         .padding(.horizontal, 14)
         .frame(height: Self.barHeight)

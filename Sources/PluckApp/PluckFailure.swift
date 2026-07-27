@@ -16,6 +16,14 @@ enum PluckFailure: Equatable, Sendable {
     case noSubject
     case unreadable
     case engineUnavailable
+    /// The cutout came out fine and could not be put anywhere. Since the file *is* the
+    /// entry (see `CutoutArchive`), a failed write is a failed job — there is no in-memory
+    /// copy left to offer instead, and pretending otherwise would produce a cell whose
+    /// every button does nothing.
+    case notWritten
+    /// The file behind an entry has gone missing since it was made. Rare and not the
+    /// user's doing, but Copy and Save have to say something when it happens.
+    case fileGone
     case unknown
 
     init(_ error: any Error) {
@@ -48,6 +56,8 @@ enum PluckFailure: Equatable, Sendable {
         case .noSubject: L.s("No subject found in this image.")
         case .unreadable: L.s("That file isn’t an image Pluck can read.")
         case .engineUnavailable: L.s("Background removal isn’t available on this Mac.")
+        case .notWritten: L.s("Couldn’t save the cutout to disk — check free space.")
+        case .fileGone: L.s("This cutout’s file is no longer on disk.")
         case .unknown: L.s("Something went wrong plucking this image.")
         }
     }

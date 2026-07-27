@@ -6,13 +6,15 @@ import SwiftUI
 /// dragged types on. Everything below the status item is still SwiftUI.
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    private let model = AppModel()
+    private let preferences = Preferences.shared
+    private lazy var model = AppModel(preferences: preferences)
     private var statusItem: NSStatusItem?
     private var dropView: StatusItemDropView?
     private var pluckSignalSource: (any DispatchSourceSignal)?
     private var monitors: [Any] = []
     private let shelf = ShelfPanelController()
-    private let preview = PreviewPanelController()
+    private lazy var preview = PreviewPanelController(preferences: preferences)
+    private let settings = SettingsWindowController()
 
     /// Set when a click already dismissed the shelf, so the status item's own `mouseDown`
     /// does not turn around and reopen what that same click just closed.
@@ -27,8 +29,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // is dead weight made of the user's photographs. Synchronous because the alternative
         // races — a detached sweep can land after the first drop has already written into
         // the same directory, and then it deletes a file the grid is pointing at. Nothing
-        // that can create one has been installed yet at this line.
-        PluckService.discardOrphanedTemporaryFiles()
+        // that can create one has been installed yet at this line, and `model` has not been
+        // touched, so nothing has been restored from the history root either.
+        //
+        // Both roots when history is off: the preference can be switched off mid-session,
+        // and the files that were already written under it have to expire somewhere.
+        CutoutArchive.session.discardEverything()
+        if !preferences.keepsHistory { CutoutArchive.history.discardEverything() }
         installStatusItem()
         installShelf()
         installKeyMonitor()
@@ -150,7 +157,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 model: model,
                 dropTarget: shelf.dropTarget,
                 onQuit: { NSApp.terminate(nil) },
-                onAbout: { [weak self] in self?.showAbout() }
+                onAbout: { [weak self] in self?.showAbout() },
+                onSettings: { [weak self] in self?.showSettings() }
             )
         )
     }
@@ -229,6 +237,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         } else {
             apply(model.feedback)
         }
+    }
+
+    /// Closes the shelf on the way, like About does: the shelf dismisses on any click
+    /// outside itself, and a window opening behind a panel that is about to vanish reads
+    /// as a glitch.
+    private func showSettings() {
+        shelf.close()
+        settings.show(model: model, preferences: preferences)
     }
 
     private func showAbout() {

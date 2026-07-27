@@ -23,10 +23,9 @@ final class PreviewDragRegionTests: XCTestCase {
         let item = RecentItem(
             id: UUID(),
             fingerprint: "f",
-            pngData: Data([1]),
             thumbnailPNG: Data([1]),
-            originalPNG: Data([1]),
-            fileURL: URL(fileURLWithPath: "/tmp/pluck-test.png"),
+            fileURL: URL(fileURLWithPath: "/tmp/Pluck/test/pluck-test.png"),
+            originalURL: URL(fileURLWithPath: "/tmp/Pluck/test/original.png"),
             suggestedName: "shot",
             pixelWidth: 100,
             pixelHeight: 100

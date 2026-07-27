@@ -1,17 +1,23 @@
 import Foundation
 import Observation
 
-/// One finished cutout. Pure data so the store stays testable without AppKit:
-/// `pngData` is the export, `thumbnailPNG` is what the grid decodes, `originalPNG` is the
-/// downsampled input the preview slider wipes between, `fileURL` is the on-disk copy
-/// handed to `NSItemProvider` when the user drags a cell out.
+/// One finished cutout, as a pointer to the three files `CutoutArchive` wrote for it.
+///
+/// Only `thumbnailPNG` is resident: the grid draws it constantly and it is ~50 KB. The
+/// export and the preview's "before" half are read back on demand — they are megabytes
+/// each, and a history of twenty of them in memory would be the largest thing about this
+/// app by an order of magnitude.
 struct RecentItem: Identifiable, Equatable, Sendable {
     let id: UUID
+    /// SHA-256 of the cutout bytes. Identity for de-duplication is the result, not the
+    /// source path, so the same picture arriving by drag and by paste is one entry.
     let fingerprint: String
-    let pngData: Data
     let thumbnailPNG: Data
-    let originalPNG: Data
+    /// The cutout, named after the picture — this is both the export and the file
+    /// `NSItemProvider` hands to whatever the cell is dragged into.
     let fileURL: URL
+    /// The downsampled input: the "before" half of the preview slider.
+    let originalURL: URL
     let suggestedName: String
     /// Pixel size of the cutout. Carried on the item because the preview panel sizes its
     /// window to the aspect ratio *before* it has decoded anything (§4.7).
@@ -22,10 +28,9 @@ struct RecentItem: Identifiable, Equatable, Sendable {
     init(
         id: UUID = UUID(),
         fingerprint: String,
-        pngData: Data,
         thumbnailPNG: Data,
-        originalPNG: Data,
         fileURL: URL,
+        originalURL: URL,
         suggestedName: String,
         pixelWidth: Int = 0,
         pixelHeight: Int = 0,
@@ -33,54 +38,77 @@ struct RecentItem: Identifiable, Equatable, Sendable {
     ) {
         self.id = id
         self.fingerprint = fingerprint
-        self.pngData = pngData
         self.thumbnailPNG = thumbnailPNG
-        self.originalPNG = originalPNG
         self.fileURL = fileURL
+        self.originalURL = originalURL
         self.suggestedName = suggestedName
         self.pixelWidth = pixelWidth
         self.pixelHeight = pixelHeight
         self.createdAt = createdAt
     }
+
+    /// nil when the file is gone — an external delete, or a write that failed at the time.
+    /// Callers turn that into the same failure flash any other export error gets, rather
+    /// than copying zero bytes and calling it a success.
+    func pngData() -> Data? { try? Data(contentsOf: fileURL) }
+
+    func originalPNG() -> Data? { try? Data(contentsOf: originalURL) }
 }
 
 /// What `insert` actually did. `promoted` exists because silent de-duplication reads as
 /// "nothing happened" to the user (decisions.md 2026-07-27): the caller needs the id so it
-/// can flash the row that already held the result.
-enum InsertResult: Equatable, Sendable {
-    case inserted
-    case promoted(UUID)
+/// can flash the row that already held the result. `evicted` exists because the entries
+/// pushed off the end own files, and nobody else knows they are gone.
+struct InsertResult: Equatable, Sendable {
+    var promoted: UUID?
+    var evicted: [RecentItem] = []
 }
 
-/// Session-only history: memory, newest first, capped. Nothing is persisted —
-/// "photos never leave this Mac" also means they do not quietly accumulate on it.
+/// Recent cutouts, newest first, capped. Whether any of this survives a quit is the
+/// archive's business, not this type's: the store is the order and the cap, and it hands
+/// every mutation to a sink so persistence is one line at the call site instead of a
+/// concern threaded through the list logic.
 @MainActor
 @Observable
 final class RecentStore {
-    /// Twelve = four full rows of the 3-column grid, which is what the compact drop strip
-    /// leaves room for.
-    static let defaultCapacity = 12
+    /// Twenty, of which the first twelve fill the shelf's four visible rows and the rest
+    /// scroll. Matches the persisted history size — a cap that differs from what survives
+    /// a restart would mean the grid silently shrinks on relaunch.
+    static let defaultCapacity = 20
 
     private(set) var items: [RecentItem] = []
 
     private let capacity: Int
+    /// Called after every change to `items`. The archive writes its index here; tests
+    /// leave it nil.
+    var onChange: (@MainActor ([RecentItem]) -> Void)?
 
     init(capacity: Int = RecentStore.defaultCapacity) {
         self.capacity = max(1, capacity)
     }
 
+    /// Seeds the grid from a previous run. Not `insert` in a loop: these are already in
+    /// order, already de-duplicated, and re-inserting them would rewrite the index for
+    /// each one before the app has drawn a single frame.
+    func restore(_ restored: [RecentItem]) {
+        items = Array(restored.prefix(capacity))
+    }
+
     /// Re-plucking the same picture promotes the existing entry instead of filling
-    /// the grid with copies; identity is the cutout bytes, not the source path.
+    /// the grid with copies.
     @discardableResult
     func insert(_ item: RecentItem) -> InsertResult {
         if let existing = promote(fingerprint: item.fingerprint) {
-            return .promoted(existing)
+            return InsertResult(promoted: existing)
         }
         items.insert(item, at: 0)
+        var evicted: [RecentItem] = []
         if items.count > capacity {
+            evicted = Array(items.suffix(items.count - capacity))
             items.removeLast(items.count - capacity)
         }
-        return .inserted
+        onChange?(items)
+        return InsertResult(evicted: evicted)
     }
 
     /// Moves a matching entry to the front, or nil if there is none. Split out of `insert`
@@ -92,16 +120,18 @@ final class RecentStore {
         guard let index = items.firstIndex(where: { $0.fingerprint == fingerprint }) else { return nil }
         let promoted = items.remove(at: index)
         items.insert(promoted, at: 0)
+        onChange?(items)
         return promoted.id
     }
 
-    /// Returns the files that backed the cleared entries so the caller can delete the
-    /// temporary copies too — "photos never leave this Mac" also means they do not sit in
-    /// `/tmp` after the user has asked for them to be gone.
+    /// Returns the entries that were cleared so the caller can delete their files too —
+    /// "photos never leave this Mac" also means they do not sit on it after the user has
+    /// asked for them to be gone.
     @discardableResult
-    func clear() -> [URL] {
-        let urls = items.map(\.fileURL)
+    func clear() -> [RecentItem] {
+        let cleared = items
         items.removeAll()
-        return urls
+        onChange?(items)
+        return cleared
     }
 }

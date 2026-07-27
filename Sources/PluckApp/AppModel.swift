@@ -79,10 +79,37 @@ final class AppModel {
 
     init(
         pasteboard: any ImagePasteboard = SystemPasteboard(),
+        preferences: Preferences? = nil,
         process: @escaping @Sendable (Data, String) async throws -> ProcessedImage = PluckService.process(data:name:)
     ) {
         self.pasteboard = pasteboard
+        self.preferences = preferences
         self.process = process
+        guard let preferences else { return }
+        // Order matters: restore first, then subscribe. Seeding through `onChange` would
+        // have the store rewrite the index it was just read from.
+        if preferences.keepsHistory {
+            recents.restore(CutoutArchive.history.load(limit: RecentStore.defaultCapacity))
+        }
+        recents.onChange = { items in CutoutArchive.history.writeIndex(items) }
+    }
+
+    /// nil in tests, which have no business touching the real defaults or the real
+    /// Application Support directory. A nil preference set means session behaviour:
+    /// nothing is restored and nothing is persisted.
+    private let preferences: Preferences?
+
+    private var archive: CutoutArchive { preferences?.archive ?? .session }
+
+    /// Switching the preference off forgets the list immediately, and the files go at the
+    /// next launch (`AppDelegate` sweeps both roots when history is off).
+    ///
+    /// Not the other order. Entries already in the grid are backed by files under this
+    /// root; deleting them now would leave the user looking at cells whose Copy, Save and
+    /// drag-out have all quietly stopped working. What they asked for is not to be
+    /// remembered next time, and that is what this does.
+    func forgetStoredHistory() {
+        CutoutArchive.history.writeIndex([])
     }
 
     // MARK: - Entry points
@@ -135,11 +162,24 @@ final class AppModel {
     }
 
     func copy(_ item: RecentItem) {
-        pasteboard.writePNG(item.pngData)
+        // The bytes live on disk now, so this can fail — a file deleted underneath us, or
+        // a write that failed when the entry was made. Silently copying nothing would be
+        // the worst of the three possible outcomes.
+        guard let data = item.pngData() else {
+            report(PluckFailure.fileGone.message)
+            flash(.failure)
+            return
+        }
+        pasteboard.writePNG(data)
         flash(.success)
     }
 
     func save(_ item: RecentItem) {
+        guard let data = item.pngData() else {
+            report(PluckFailure.fileGone.message)
+            flash(.failure)
+            return
+        }
         let panel = NSSavePanel()
         panel.nameFieldStringValue = item.suggestedName + ".png"
         panel.allowedContentTypes = [.png]
@@ -147,7 +187,7 @@ final class AppModel {
         NSApp.activate()
         guard panel.runModal() == .OK, let url = panel.url else { return }
         do {
-            try item.pngData.write(to: url, options: .atomic)
+            try data.write(to: url, options: .atomic)
             // Same confirmation Copy gives. The panel closing means "the dialog is done", not
             // "the bytes are on disk", and those are not the same event.
             flash(.success)
@@ -156,31 +196,18 @@ final class AppModel {
         }
     }
 
-    /// No confirmation sheet: the grid is session scratch, not a library. The temp copies
-    /// go with it — they are the user's photos, and leaving them in `/tmp` after an
-    /// explicit "clear" would quietly contradict the privacy claim.
+    /// No confirmation sheet: Clear is one press and the grid is not a library. The files
+    /// go with the entries — they are cutouts of the user's photos, and keeping them after
+    /// an explicit "clear" would quietly contradict the privacy claim.
     func clearRecents() {
         highlightedItemID = nil
-        let urls = withAnimation(.easeInOut(duration: 0.2)) { recents.clear() }
-        discardTemporaryFiles(at: urls)
+        let cleared = withAnimation(.easeInOut(duration: 0.2)) { recents.clear() }
+        discard(cleared)
     }
 
-    private func discardTemporaryFile(at url: URL) {
-        discardTemporaryFiles(at: [url])
-    }
-
-    /// Best effort and silent: a temp file that outlives its entry is a privacy wart, not
-    /// an error the user can act on. The guard is the safety rail — only ever remove
-    /// directories this app minted, `<tmp>/Pluck/<uuid>/`.
-    private func discardTemporaryFiles(at urls: [URL]) {
-        guard !urls.isEmpty else { return }
-        Task.detached(priority: .utility) {
-            for url in urls {
-                let directory = url.deletingLastPathComponent()
-                guard directory.deletingLastPathComponent().lastPathComponent == "Pluck" else { continue }
-                try? FileManager.default.removeItem(at: directory)
-            }
-        }
+    private func discard(_ items: [RecentItem]) {
+        guard !items.isEmpty else { return }
+        Task.detached(priority: .utility) { CutoutArchive.discard(items) }
     }
 
     // MARK: - Bookkeeping
@@ -243,37 +270,29 @@ final class AppModel {
         // across is what makes completion a content change on the cell the user is already
         // watching instead of a removal plus an unrelated insertion.
         let id = ticket
-        // If the temp copy could not be written, this URL names a file that does not exist —
-        // deliberately. `NSItemProvider(contentsOf:)` returns nil for it, so the drag simply
-        // does nothing, while Copy, Save and the preview all keep working off `pngData`.
-        // Losing one of four ways out beats losing the result.
-        let url = (try? PluckService.writeTemporaryFile(processed, id: id))
-            ?? URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("\(id).png")
-        let item = RecentItem(
-            id: id,
-            fingerprint: PluckService.fingerprint(processed.pngData),
-            pngData: processed.pngData,
-            thumbnailPNG: processed.thumbnailPNG,
-            originalPNG: processed.originalPNG,
-            fileURL: url,
-            suggestedName: processed.suggestedName,
-            pixelWidth: processed.width,
-            pixelHeight: processed.height
-        )
+        // The file *is* the entry now, so a write that fails is a job that failed: there is
+        // no in-memory copy to fall back on, and a cell whose Copy, Save, preview and drag
+        // all do nothing is worse than an honest error. Disk full is the realistic cause,
+        // and it is one the user can act on.
+        guard let item = try? archive.store(processed, id: id) else {
+            fail(ticket, reason: .notWritten)
+            flash(.failure)
+            return
+        }
         // Both mutations inside one animation so the placeholder and the result cross-fade
         // in the same grid slot instead of the row jumping.
         let result = withAnimation(.easeInOut(duration: 0.25)) { () -> InsertResult in
             pendingItems.removeAll { $0.id == ticket }
             return recents.insert(item)
         }
-        // A promotion keeps the entry that is already in the grid, which leaves the copy
-        // just written to /tmp with nothing pointing at it — and `clearRecents` only knows
-        // about files the store holds. Re-plucking the same picture must not quietly grow
-        // a pile of orphans.
-        if case .promoted(let existing) = result {
+        // A promotion keeps the entry that is already in the grid, which leaves the files
+        // just written with nothing pointing at them — and Clear only knows about the ones
+        // the store holds. Eviction is the same story from the other end of the list.
+        if let existing = result.promoted {
             highlight(existing)
-            discardTemporaryFile(at: url)
+            discard([item])
         }
+        discard(result.evicted)
         flash(.success)
     }
 
