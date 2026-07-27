@@ -13,7 +13,7 @@ final class VisionEngineTests: XCTestCase {
     func testBlankImageReportsNoSubjectInsteadOfCrashing() async throws {
         let blank = try TestImages.solid(width: 512, height: 512, color: (128, 128, 128))
         do {
-            _ = try await engine.mask(for: blank)
+            _ = try engine.mask(for: blank)
             XCTFail("expected noSubjectDetected for a blank image")
         } catch let error as PluckError {
             try skipIfEngineUnavailable(error)
@@ -26,7 +26,7 @@ final class VisionEngineTests: XCTestCase {
     func testMaskMatchesSourceDimensions() async throws {
         let image = try TestImages.circle(width: 600, height: 400)
         do {
-            let mask = try await engine.mask(for: image)
+            let mask = try engine.mask(for: image)
             XCTAssertEqual(mask.width, image.width)
             XCTAssertEqual(mask.height, image.height)
 
@@ -43,7 +43,7 @@ final class VisionEngineTests: XCTestCase {
     func testEndToEndCutoutOfSyntheticSubject() async throws {
         let image = try TestImages.circle(width: 600, height: 400)
         do {
-            let mask = try await engine.mask(for: image)
+            let mask = try engine.mask(for: image)
             let cutout = try Compositor.cutout(image: image, mask: mask)
             XCTAssertEqual(cutout.width, image.width)
             XCTAssertEqual(cutout.height, image.height)
@@ -66,7 +66,7 @@ final class VisionEngineTests: XCTestCase {
         let image = try TestImages.circle(width: 9000, height: 6000)
         XCTAssertGreaterThan(image.width * image.height, ImageBuffers.maxEnginePixels)
         do {
-            let mask = try await engine.mask(for: image)
+            let mask = try engine.mask(for: image)
             XCTAssertEqual(mask.width, 9000)
             XCTAssertEqual(mask.height, 6000)
         } catch let error as PluckError {

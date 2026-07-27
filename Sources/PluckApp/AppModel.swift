@@ -121,7 +121,7 @@ final class AppModel {
         // binding is implicitly mutable, and Swift 6 refuses to let a nested concurrent
         // closure (here, `run`'s `onInput`) capture it directly.
         let accept: @Sendable (Data) async -> Bool = { [weak self] data in
-            let thumbnail = PluckService.inputThumbnail(data: data)
+            let thumbnail = await PluckService.inputThumbnail(data: data)
             return await self?.accept(input: data, thumbnail: thumbnail, ticket: ticket) ?? false
         }
         Task.detached(priority: .userInitiated) { [weak self] in
@@ -135,7 +135,7 @@ final class AppModel {
         for payload in payloads {
             let ticket = beginWork()
             Task.detached(priority: .userInitiated) { [weak self] in
-                let thumbnail = PluckService.inputThumbnail(of: payload)
+                let thumbnail = await PluckService.inputThumbnail(of: payload)
                 let accepted = await self?.accept(input: payload.bytes, thumbnail: thumbnail, ticket: ticket)
                 guard accepted == true else {
                     await self?.finish(ticket: ticket, outcome: .superseded, processed: nil)

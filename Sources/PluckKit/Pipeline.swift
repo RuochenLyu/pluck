@@ -58,14 +58,22 @@ public struct PluckPipeline: Sendable {
         self.background = background
     }
 
-    public func run(_ source: PluckSource) async throws -> PluckRun {
-        let input = try Self.decode(source)
-        let mask = try await engine.mask(for: input)
-        return PluckRun(
-            input: input,
-            mask: mask,
-            image: try Compositor.compose(image: input, mask: mask, background: background)
-        )
+    /// The whole pixel path — decode, matte, compose — runs as one unit inside
+    /// `PluckQueue`. Splitting it would be worse than pointless: the intermediate buffers
+    /// stay alive across the gaps anyway, so releasing the slot between steps would let
+    /// more of them exist at once without any of them finishing sooner.
+    public func run(_ source: PluckSource, on queue: PluckQueue = .shared) async throws -> PluckRun {
+        let engine = engine
+        let background = background
+        return try await queue.run {
+            let input = try Self.decode(source)
+            let mask = try engine.mask(for: input)
+            return PluckRun(
+                input: input,
+                mask: mask,
+                image: try Compositor.compose(image: input, mask: mask, background: background)
+            )
+        }
     }
 
     private static func decode(_ source: PluckSource) throws -> CGImage {

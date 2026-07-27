@@ -9,7 +9,7 @@ public struct VisionEngine: MattingEngine {
 
     public init() {}
 
-    public func mask(for image: CGImage) async throws -> CGImage {
+    public func mask(for image: CGImage) throws -> CGImage {
         guard image.width > 0, image.height > 0 else {
             throw PluckError.imageLoadFailed(reason: "image has zero width or height")
         }

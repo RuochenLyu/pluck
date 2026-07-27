@@ -9,7 +9,7 @@ import XCTest
 private struct StubEngine: MattingEngine {
     let id = "stub"
     /// Left half foreground, right half background.
-    func mask(for image: CGImage) async throws -> CGImage {
+    func mask(for image: CGImage) throws -> CGImage {
         try TestImages.gray(width: image.width, height: image.height) { x, _ in
             x < image.width / 2 ? 255 : 0
         }
@@ -18,7 +18,7 @@ private struct StubEngine: MattingEngine {
 
 private struct FailingEngine: MattingEngine {
     let id = "failing"
-    func mask(for image: CGImage) async throws -> CGImage {
+    func mask(for image: CGImage) throws -> CGImage {
         throw PluckError.noSubjectDetected
     }
 }

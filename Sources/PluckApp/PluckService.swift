@@ -25,6 +25,12 @@ enum PluckService {
 
     private static let pipeline = PluckPipeline()
 
+    /// Deliberately *not* `PluckQueue.shared`. Placeholder thumbnails are the batch list's
+    /// only "yes, I got that file" for as long as matting takes, so queueing them behind
+    /// forty mattings would leave forty blank rows for a minute. Their own narrow queue
+    /// keeps them off the cooperative pool without letting them starve the real work.
+    private static let decoding = PluckQueue(width: 2, label: "com.aix4u.pluck.thumbnails")
+
     static func process(data: Data, name: String) async throws -> ProcessedImage {
         try await process(.data(data), name: name)
     }
@@ -50,20 +56,19 @@ enum PluckService {
     /// a placeholder that cannot be drawn is a cosmetic loss, and the real decode error
     /// surfaces from `process` a moment later. Costs one extra decode of the source —
     /// paid deliberately, so the grid can show *which* picture is being worked on.
-    static func inputThumbnail(data: Data) -> Data? {
-        thumbnail(of: try? ImageLoader.load(data: data))
+    static func inputThumbnail(data: Data) async -> Data? {
+        await thumbnail { try ImageLoader.load(data: data) }
     }
 
-    static func inputThumbnail(of payload: DroppedPayload) -> Data? {
+    static func inputThumbnail(of payload: DroppedPayload) async -> Data? {
         switch payload {
-        case .file(let url): thumbnail(of: try? ImageLoader.load(contentsOf: url))
-        case .data(let data): thumbnail(of: try? ImageLoader.load(data: data))
+        case .file(let url): await thumbnail { try ImageLoader.load(contentsOf: url) }
+        case .data(let data): await thumbnail { try ImageLoader.load(data: data) }
         }
     }
 
-    private static func thumbnail(of image: CGImage?) -> Data? {
-        guard let image else { return nil }
-        return try? Thumbnail.pngData(for: image, maxEdge: thumbnailMaxEdge)
+    private static func thumbnail(_ decode: @escaping @Sendable () throws -> CGImage) async -> Data? {
+        try? await decoding.run { try Thumbnail.pngData(for: decode(), maxEdge: thumbnailMaxEdge) }
     }
 
     static func fingerprint(_ data: Data) -> String {
