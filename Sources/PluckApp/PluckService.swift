@@ -51,6 +51,27 @@ enum PluckService {
         )
     }
 
+    /// The *input* image at grid-thumbnail size, for the placeholder card that stands in
+    /// while matting runs (decisions.md 2026-07-27). Returns nil rather than throwing:
+    /// a placeholder that cannot be drawn is a cosmetic loss, and the real decode error
+    /// surfaces from `process` a moment later. Costs one extra decode of the source —
+    /// paid deliberately, so the grid can show *which* picture is being worked on.
+    static func inputThumbnail(data: Data) -> Data? {
+        thumbnail(of: try? ImageLoader.load(data: data))
+    }
+
+    static func inputThumbnail(of payload: DroppedPayload) -> Data? {
+        switch payload {
+        case .file(let url): thumbnail(of: try? ImageLoader.load(contentsOf: url))
+        case .data(let data): thumbnail(of: try? ImageLoader.load(data: data))
+        }
+    }
+
+    private static func thumbnail(of image: CGImage?) -> Data? {
+        guard let image, let scaled = try? downsampled(image, maxEdge: thumbnailMaxEdge) else { return nil }
+        return try? Compositor.pngData(for: scaled)
+    }
+
     static func fingerprint(_ data: Data) -> String {
         SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
     }

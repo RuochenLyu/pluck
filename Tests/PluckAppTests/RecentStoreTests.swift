@@ -60,11 +60,36 @@ final class RecentStoreTests: XCTestCase {
         XCTAssertEqual(store.items.first?.suggestedName, "shot")
     }
 
-    func testClear() {
+    /// The return value is the whole point of the de-duplication fix: a silent promotion
+    /// is what made "drag a cutout back in" look like a failure, so the caller has to be
+    /// able to tell the two outcomes apart and flash the row it landed in.
+    func testInsertReportsWhetherItDeduplicated() {
+        let store = RecentStore()
+        let first = item(1)
+        XCTAssertEqual(store.insert(first), .inserted)
+        XCTAssertEqual(store.insert(item(2)), .inserted)
+        XCTAssertEqual(store.insert(item(1, name: "again")), .promoted(first.id))
+    }
+
+    /// The promoted id must be the *surviving* entry's, not the rejected duplicate's —
+    /// highlighting an id that is not in the grid would flash nothing at all.
+    func testPromotedCarriesTheSurvivingItemsID() {
+        let store = RecentStore()
+        let original = item(1)
+        store.insert(original)
+        let duplicate = item(1, name: "again")
+        XCTAssertNotEqual(original.id, duplicate.id)
+        XCTAssertEqual(store.insert(duplicate), .promoted(original.id))
+        XCTAssertEqual(store.items.first?.id, original.id)
+    }
+
+    func testClearReturnsBackingFilesSoTheCallerCanDeleteThem() {
         let store = RecentStore()
         store.insert(item(1))
-        store.clear()
+        store.insert(item(2))
+        let urls = store.clear()
         XCTAssertTrue(store.items.isEmpty)
+        XCTAssertEqual(Set(urls), [URL(fileURLWithPath: "/tmp/2.png"), URL(fileURLWithPath: "/tmp/1.png")])
     }
 
     func testFingerprintIsContentAddressed() {

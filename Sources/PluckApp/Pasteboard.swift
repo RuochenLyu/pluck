@@ -67,8 +67,11 @@ struct ClipboardPlucker: Sendable {
         self.process = process
     }
 
-    func run() async -> (outcome: ClipboardOutcome, result: ProcessedImage?) {
+    /// `onInput` fires with the raw clipboard bytes before matting starts, so the caller
+    /// can put a placeholder on screen that shows *which* picture is being worked on.
+    func run(onInput: @Sendable (Data) async -> Void = { _ in }) async -> (outcome: ClipboardOutcome, result: ProcessedImage?) {
         guard let input = pasteboard.readImage() else { return (.noImage, nil) }
+        await onInput(input.data)
         do {
             let processed = try await process(input.data, input.name)
             pasteboard.writePNG(processed.pngData)
