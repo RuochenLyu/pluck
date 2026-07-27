@@ -1,0 +1,123 @@
+# macOS 原生 Remove BG 应用 — 技术方案与竞品调研
+
+> 调研日期：2026-07-27。由两个并行调研 agent 完成（技术方案 / 竞品），本文为整合版。
+
+## 一、结论（TL;DR）
+
+**推荐技术架构：双层方案，零模型打包。**
+
+```
+默认路径（0 体积，覆盖 90%+ 场景）
+  └─ Apple Vision: VNGenerateForegroundInstanceMaskRequest (macOS 14+)
+     系统自带模型，与 Finder「移除背景」/ Photos 提取主体同源
+
+可选增强路径（按需下载，~50–250MB）
+  └─ Core ML 高质量模型（用户主动开启「高质量模式」时才下载）
+     首选 BiRefNet_lite（MIT）或 InSPyReNet（MIT），自行转 Core ML
+     存放于 ~/Library/Application Support，不进 app bundle
+```
+
+**产品定位：** 系统自带 Quick Action 已经"能抠图"，所以价值不在"能抠"，而在——完全离线隐私、批量处理、菜单栏/Finder/剪贴板全链路集成、比系统更好的发丝边缘（可选模型）、原生 SwiftUI 质感。目前市场上没有产品同时做到这五点，开源侧最接近的 RemoveThatBG 热度很低，空档真实存在。
+
+---
+
+## 二、技术方案
+
+### 2.1 Apple 系统内置能力（主路径）
+
+**VNGenerateForegroundInstanceMaskRequest**（macOS 14 Sonoma+ / iOS 17+）
+- 就是 Finder 右键「移除背景」、Preview、Photos「提取主体」背后的同一套模型，公开 API，可直接复用。
+- Class-agnostic：人、宠物、物体、食物均可，不限于人像。
+- 用法：请求 → `result.allInstances` → `generateMaskedImage(...)` 直接得抠图，或 `generateScaledMaskForImage(...)` 得高分辨率 mask 自行合成。
+- 参考实现：[stroniarz/remove-bg](https://github.com/stroniarz/remove-bg)（MIT，~70 行 Swift CLI，边界情况处理可直接借鉴）。
+
+已知局限（需在工程中处理）：
+- 不支持模拟器/纯 CPU（依赖 ANE），报 `com.apple.Vision Code=9`；
+- 多主体合并为一张 mask，无实例级选择；
+- 超大图（>50MP）可能内存溢出，需先降采样；
+- 找不到前景时返回空 mask；
+- 杂乱背景下发丝边缘偶有光晕（halo），但对产品图/头像/mockup 已"good enough"。
+
+相关 API：
+- `VNGeneratePersonSegmentationRequest`（iOS 15+）：仅人像，更快更轻，适合人像专用场景；
+- `VNGeneratePersonInstanceMaskRequest`：多人各自独立 mask；
+- VisionKit `ImageAnalysisInteraction`：系统同款"长按提取主体"UI，定制性差，做批处理工具用低层 Vision 更合适；
+- WWDC 2026 新增 **tap-to-segment API**（点哪抠哪），系统版本要求高，作为未来增强，不做 baseline。macOS 15/26 本身无新分割 API。
+
+### 2.2 可选高质量模型（增强路径）
+
+| 模型 | 体积 | License | 评价 |
+|---|---|---|---|
+| **BiRefNet_lite** | 44.4M 参数（明显小于 full 版） | **MIT** ✅ | 精度接近 full BiRefNet，性价比最高候选 |
+| **InSPyReNet** | ~367MB (.pth) | **MIT** ✅ | 报告称优于 BRIA/U²Net/IS-Net，宽图处理有已知 bug 需验证 |
+| U²-Net-p | ~4.5MB | Apache-2.0 ✅ | 极小极快，质量中等 |
+| IS-Net (DIS) | ~176MB | Apache-2.0 ✅ | 质量优于 U²Net |
+| MODNet | ~26MB | Apache-2.0 ✅ | 仅人像 |
+| BiRefNet (full) | 490MB (fp16) | MIT ✅ | 口碑最强但太大 |
+| RMBG-1.4 | ~44MB | OpenRAIL-M ⚠️ | 条款需评估 |
+| **RMBG-2.0** | 233MB (INT8 Core ML) | **CC BY-NC 4.0** ❌ | 非商用条款，对开源分发是法律隐患，**避开** |
+
+要点：
+- **License 红线**：BRIA 系（RMBG）非商用条款即使对免费 app 也有解释风险，选 MIT/Apache 的 BiRefNet_lite / InSPyReNet 更干净。
+- **Core ML 转换**：BiRefNet 架构已有社区转换先例（[VincentGOURBIN/RMBG-2-CoreML](https://huggingface.co/VincentGOURBIN/RMBG-2-CoreML)，INT8 量化 233MB + Swift 包），BiRefNet_lite（MIT 权重）走同样 coremltools 流程自行转换，工作量中等，目前无现成公开 mlpackage。
+- **按需下载**：模型不打包，首次开启高质量模式时下载，下载前明确标注模型来源与 license。
+
+### 2.3 可借鉴的开源实现
+
+| 项目 | 方案 | 借鉴点 |
+|---|---|---|
+| [stroniarz/remove-bg](https://github.com/stroniarz/remove-bg) | Vision API CLI | 完整流程 + 边界情况处理 |
+| [Ezaldeen99/BackgroundRemoval](https://github.com/Ezaldeen99/BackgroundRemoval) | Swift + U²Net Core ML | Core ML 输入输出预处理 |
+| [tbchen/BackgroundRemovalWithCoreMLSample](https://github.com/tbchen/BackgroundRemovalWithCoreMLSample) | Core ML + Core Image | mask 的 alpha 合成细节 |
+| [pietrosaveri/RemoveThatBG](https://github.com/pietrosaveri/RemoveThatBG) | SwiftUI 菜单栏 + rembg | **最接近的同类项目**，立项前应试用并读 issues |
+
+macOS 原生开源抠图项目普遍只有个位数到几十 star——细分空白，也是机会。
+
+---
+
+## 三、竞品格局
+
+### 3.1 主要对标
+
+- **系统自带**（免费）：Finder Quick Action / Shortcuts「Remove Background」。弱点：单张为主、Shortcuts 有空结果 bug、无批量 UI、无导出选项。→ 我们的基准线，不是终点。
+- **Pixelmator Pro / Photomator**（Apple 收购，买断/订阅）：自研 ML，Hide Background（非破坏矢量蒙版）+ 色彩去污染（decontaminate）是质量标杆。弱点：藏在专业修图软件里，轻量用户杀鸡用牛刀。
+- **remove.bg**（credit 制：$9/月 40 credits 起，$100/200 credits 按需）：发丝质量行业标杆。弱点：预览高清、下载 625×400 低清逼付费的 bait-and-switch，被广泛吐槽；需上传、按张计费。
+- **Mac App Store 小工具红海**：普遍订阅陷阱（$4.99/月甚至按周订阅）、低清限流、窗口不可缩放、崩溃、隐私政策含糊。唯一被表扬的是"一次性付费"的 PNG Maker（"refreshing"）。
+- **Snapclear.app**：主打"100% 离线、绝不上传"，隐私叙事值得借鉴。
+- **开源**：rembg（MIT，事实标准引擎，无原生 GUI）；GUI 套壳普遍是 Flask+浏览器，无原生质感；RemoveThatBG 是唯一 SwiftUI 原生方案但热度低。
+
+### 3.2 用户痛点（评论区/Reddit/论坛汇总）
+
+1. 预览诱导付费（remove.bg 系通病）
+2. 订阅疲劳——"一次性/免费"被主动表扬
+3. 隐私/上传顾虑——含人脸、证件、商业图的用户是硬需求
+4. **发丝/半透明边缘差**——所有产品评论区最一致的抱怨
+5. 批量处理弱——系统 Shortcuts 要手拼 Repeat with Each
+6. UI 简陋、窗口不可缩放、崩溃
+
+**未被满足的组合需求：完全离线 + 免费开源 + 原生 UI + 批量 + 边缘质量不输 remove.bg。目前无人同时做到。**
+
+### 3.3 值得抄的交互模式
+
+1. **菜单栏常驻 + 拖拽即处理**（RemoveThatBG / CleanShot X 范式）
+2. **Finder Quick Action / 右键扩展**——用户心智已被系统教育好，注册同一位置
+3. **CleanShot X 式处理完浮层**：拖到其它 App / 复制剪贴板 / 存文件夹，多去向、不强制保存对话框
+4. **剪贴板闭环**：复制图 → 全局快捷键 → 直接粘贴到 Keynote/聊天，中间不落盘
+5. **零配置默认 + 设置里留专业出口**（默认秒出，可切高质量模型）
+6. **批量拖入 + 进度可视化**——App Store 小工具普遍缺失的最大机会点
+
+### 3.4 差异化定位建议
+
+1. 第一卖点：**"你的照片从不离开这台 Mac"**——开源代码可审计，为隐私承诺背书
+2. 深挖系统能力的薄弱处：批量、模型可选、双入口（菜单栏 + Finder）
+3. 把**发丝质量**当核心 KPI——最一致的痛点，也最容易用 before/after 对比图做营销
+4. 原生 SwiftUI，拒绝套壳网页观感——这是开源方案普遍输给付费产品的地方
+5. 立项前试用 RemoveThatBG、读其 issues，确认增量差异化（批量 UI / Finder 集成深度 / onboarding）
+
+---
+
+## 四、来源
+
+技术：[VNGenerateForegroundInstanceMaskRequest 文档](https://developer.apple.com/documentation/vision/vngenerateforegroundinstancemaskrequest) · [WWDC23 Lift subjects](https://wwdcnotes.com/documentation/wwdc23-10176-lift-subjects-from-images-in-your-app/) · [WWDC26 image understanding](https://developer.apple.com/videos/play/wwdc2026/237/) · [RMBG-2.0 license](https://huggingface.co/briaai/RMBG-2.0) · [RMBG-2-CoreML](https://huggingface.co/VincentGOURBIN/RMBG-2-CoreML) · [BiRefNet_lite](https://huggingface.co/ZhengPeng7/BiRefNet_lite) · [InSPyReNet](https://github.com/plemeri/InSPyReNet) · [Create with Swift 教程](https://www.createwithswift.com/removing-image-background-using-the-vision-framework/)
+
+竞品：[rembg](https://github.com/danielgatis/rembg) · [RemoveThatBG](https://github.com/pietrosaveri/RemoveThatBG) · [snapclear.app](https://www.snapclear.app/) · [remove.bg 定价](https://www.softwaresuggest.com/remove-bg) · [Pixelmator AI 抠图](https://www.macrumors.com/2024/05/23/pixelmator-ai-background-removal-tool/) · [macOS 系统抠图](https://www.macrumors.com/how-to/remove-background-from-image-macos/)
