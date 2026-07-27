@@ -137,3 +137,9 @@
 - **背景**：上一条把 `pluckapp.com` 当成"发布前去注册"的前提。维护者的决定是不为这个 app 单独注册域名，用现有域名的二级域（`pluck.kshift.me`）。反向 DNS 约定要的就是这个——命名空间对应一个**确实控制**的域名，而不是一个漂亮但还没买下来的域名。
 - **在 `kshift.me` 与 `aix4u.com` 之间选前者**：`aix4u.com` 是 AI 品牌的命名空间，而 Pluck 的核心承诺恰恰是"离线、不上网、照片不离开这台 Mac"。bundle id 会出现在 `codesign -dv`、Console 日志、崩溃报告里，被人读到的时候不该暗示这是个 AI 服务的客户端。
 - **成本**：此刻改动等于改一行 plist（`bundle.sh` 早已从 plist 反读 id）。发布之后再改就是换一个 app——用户偏好、TCC 授权、Sparkle 更新链路全部重置。这也是为什么这条决策必须在第一次签名分发之前落定。
+
+## 2026-07-27 — Bundle ID 终定为 `com.aix4u.pluck`
+
+- **决策**：`com.aix4u.pluck`（`aix4u.com` 的反向 DNS）。Finder 扩展将来用 `com.aix4u.pluck.FinderQuickAction`。同日前两条（`com.pluckapp.Pluck`、`me.kshift.Pluck`）均作废，本条为准。
+- **理由**：维护者在自己控制的两个域名之间选定 `aix4u.com`。上一条选 `kshift.me` 的理由（避免 AI 品牌命名空间与"离线"承诺相冲）是一个措辞层面的顾虑，不是工程约束——bundle id 不出现在任何面向用户的界面里，`.com` 也比 `.me` 更长命。域名的归属是维护者的决定，采纳。
+- **一天三条同题 ADR 的教训**：命名空间取决于"哪个域名归我们"，这是个事实问题而非设计问题，应当在写第一行 plist 之前问清楚，而不是先按约定推演出一个漂亮答案再逐条推翻。所幸 `bundle.sh` 从 plist 反读 id，三次改动各是一行。
