@@ -130,3 +130,10 @@
 - **排除**：`com.ruochenlyu.pluck`（把个人名字焊进一个开源项目的标识符，日后换维护者或加协作者都尴尬）；`com.github.<user>.pluck`（github.com 不是我们的域名，这恰是反向 DNS 约定要避免的事）；`org.pluck.Pluck`（`pluck` 是常见词，裸占顶级项目名撞车概率高）。
 - **理由**：反向 DNS 约定要求命名空间对应一个**项目自己**的域名。roadmap v1.0 本就要做官网，`pluckapp.com` 是那个域名的自然候选——**发布前应确认能拿到**；拿不到就换成实际注册下来的那个（此刻改的成本是零，发布后是永久）。
 - **不需要在 Developer 后台注册 Identifier**：Developer ID 分发且不使用任何 capability 的 app 无此要求。等 Finder 扩展需要 App Group 时才需要。
+
+## 2026-07-27 — Bundle ID 改定为 `me.kshift.Pluck`（推翻上一条）
+
+- **决策**：`me.kshift.Pluck`（`kshift.me` 的反向 DNS）。Finder 扩展将来用 `me.kshift.Pluck.FinderQuickAction`。上一条的 `com.pluckapp.Pluck` 作废。
+- **背景**：上一条把 `pluckapp.com` 当成"发布前去注册"的前提。维护者的决定是不为这个 app 单独注册域名，用现有域名的二级域（`pluck.kshift.me`）。反向 DNS 约定要的就是这个——命名空间对应一个**确实控制**的域名，而不是一个漂亮但还没买下来的域名。
+- **在 `kshift.me` 与 `aix4u.com` 之间选前者**：`aix4u.com` 是 AI 品牌的命名空间，而 Pluck 的核心承诺恰恰是"离线、不上网、照片不离开这台 Mac"。bundle id 会出现在 `codesign -dv`、Console 日志、崩溃报告里，被人读到的时候不该暗示这是个 AI 服务的客户端。
+- **成本**：此刻改动等于改一行 plist（`bundle.sh` 早已从 plist 反读 id）。发布之后再改就是换一个 app——用户偏好、TCC 授权、Sparkle 更新链路全部重置。这也是为什么这条决策必须在第一次签名分发之前落定。
