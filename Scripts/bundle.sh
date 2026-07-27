@@ -56,10 +56,12 @@ echo "==> drawing the icon"
 swift "$ROOT/Scripts/make-icon.swift" "$RESOURCES/AppIcon.icns"
 
 # Ad-hoc, so the bundle runs on this machine and the layout is validated now rather than
-# on release day. A Developer ID signature replaces it verbatim: same command, real
-# identity, plus --options runtime --timestamp.
+# on release day. `Scripts/release.sh` replaces this signature with a Developer ID one.
+# The identifier is read back out of the plist rather than repeated here: two places to
+# spell a bundle id is one place to get it wrong.
 echo "==> signing (ad-hoc)"
-codesign --force --sign - --identifier "com.ruochenlyu.pluck" "$APP"
+BUNDLE_ID="$(plutil -extract CFBundleIdentifier raw "$CONTENTS/Info.plist")"
+codesign --force --sign - --identifier "$BUNDLE_ID" "$APP"
 codesign --verify --strict "$APP"
 
 echo "==> $APP"

@@ -9,7 +9,8 @@
 - 交互现状：状态项本身是拖放目标 → 落下即开 shelf 面板（非激活 borderless NSPanel，网格内占位卡原地变结果卡）；预览面板贴 shelf 旁开、层级在其之上、顶部 44pt 条带可拖、关闭按钮常驻。
 - 打包：`./Scripts/bundle.sh` 产出可运行的 `Pluck.app`（Info.plist / 编译后的 String Catalog / icns / ad-hoc 签名），1.9 MB。
 - 待办（v0.1 收尾）：剩余 UI 细节打磨归到最后一期统一处理 → Developer ID 签名 + notarization + GitHub Release + Homebrew tap。
-- **阻塞在用户**：Apple Developer Program 会员（本机 `security find-identity` 为 0 个签名身份）、Developer ID Application 证书导入、Team ID、notarytool 凭据、Bundle ID 拍板（暂定 `com.ruochenlyu.pluck`）。除此之外无阻塞项。
+- 发布链路：`./Scripts/release.sh` 已就位（Developer ID 签名 → notarytool → stapler → 重新打包 → spctl 判定）。Developer Program 会员**已确认有效**（Admin，Certificates/Identifiers/Profiles 可用）。
+- **阻塞在用户**：① Xcode ▸ Settings ▸ Accounts ▸ Manage Certificates… 创建 Developer ID Application 证书；② `xcrun notarytool store-credentials pluck-notary`（需 App-Specific Password）。两步做完 `release.sh` 即可跑通，无其他阻塞项。
 
 ## 里程碑
 
