@@ -1,6 +1,17 @@
+# macOS
 .DS_Store
+
+# SwiftPM / Xcode
 .build/
 .swiftpm/
 DerivedData/
 xcuserdata/
 *.xcuserstate
+
+# Release artifacts (published via GitHub Releases, never committed)
+dist/
+*.dmg
+
+# Core ML model artifacts (distributed as Release assets per docs/product-plan.md §4.8)
+*.mlpackage
+*.mlmodelc

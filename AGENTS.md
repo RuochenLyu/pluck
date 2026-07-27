@@ -12,10 +12,11 @@ macOS 原生离线抠图（remove background）应用。免费开源，GitHub �
 
 | 文档 | 内容 | 维护规则 |
 |---|---|---|
-| [docs/product-plan.md](docs/product-plan.md) | 产品定义、卖点、架构设计、里程碑 | 产品/架构决策变更时**必须**同步更新 |
+| [docs/product-plan.md](docs/product-plan.md) | 产品定义、卖点、架构与 UI 设计 | 产品/架构决策变更时**必须**同步更新 |
 | [docs/research.md](docs/research.md) | 技术方案与竞品调研（2026-07） | 历史参考，只追加不改写 |
 | [docs/decisions.md](docs/decisions.md) | 决策记录（ADR，追加式） | 每个不可逆/有争议的决策记一条：背景、选项、结论、理由 |
 | [docs/prototypes/](docs/prototypes/) | UI 原型图与讨论结论 | 原型定稿后把结论写进 product-plan |
+| [docs/roadmap.md](docs/roadmap.md) | 里程碑、当前状态、风险 | **开工前先读**；阶段推进时更新，AGENTS.md 不放进度信息 |
 
 ## 架构（详见 product-plan.md §4）
 
@@ -44,7 +45,3 @@ models/manifest.json 可下载模型清单
 - 注释密度低：只写代码本身表达不了的约束。
 - 面向用户的文案：英文为主（README、app 内文案），中文文档放 docs/。
 
-## 当前状态
-
-- 阶段：**立项 / v0.1 之前**。代码尚未开始，正在做 UI 原型讨论。
-- 下一步：原型定稿 → 搭 SwiftPM 骨架 → PluckKit VisionEngine → CLI → 菜单栏 MVP。

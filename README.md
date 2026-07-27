@@ -24,7 +24,7 @@ Finder Quick Action. Requires macOS 14+.
 
 ## Docs
 
-- [Product plan](docs/product-plan.md) · [Research](docs/research.md) · [Decisions](docs/decisions.md)
+- [Product plan](docs/product-plan.md) · [Roadmap](docs/roadmap.md) · [Research](docs/research.md) · [Decisions](docs/decisions.md)
 - Agents: start at [AGENTS.md](AGENTS.md)
 
 ## License

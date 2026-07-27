@@ -121,3 +121,36 @@ macOS 原生开源抠图项目普遍只有个位数到几十 star——细分空
 技术：[VNGenerateForegroundInstanceMaskRequest 文档](https://developer.apple.com/documentation/vision/vngenerateforegroundinstancemaskrequest) · [WWDC23 Lift subjects](https://wwdcnotes.com/documentation/wwdc23-10176-lift-subjects-from-images-in-your-app/) · [WWDC26 image understanding](https://developer.apple.com/videos/play/wwdc2026/237/) · [RMBG-2.0 license](https://huggingface.co/briaai/RMBG-2.0) · [RMBG-2-CoreML](https://huggingface.co/VincentGOURBIN/RMBG-2-CoreML) · [BiRefNet_lite](https://huggingface.co/ZhengPeng7/BiRefNet_lite) · [InSPyReNet](https://github.com/plemeri/InSPyReNet) · [Create with Swift 教程](https://www.createwithswift.com/removing-image-background-using-the-vision-framework/)
 
 竞品：[rembg](https://github.com/danielgatis/rembg) · [RemoveThatBG](https://github.com/pietrosaveri/RemoveThatBG) · [snapclear.app](https://www.snapclear.app/) · [remove.bg 定价](https://www.softwaresuggest.com/remove-bg) · [Pixelmator AI 抠图](https://www.macrumors.com/2024/05/23/pixelmator-ai-background-removal-tool/) · [macOS 系统抠图](https://www.macrumors.com/how-to/remove-background-from-image-macos/)
+
+---
+
+## 五、UI/交互设计调研（2026-07-27 追加，第二轮原型前）
+
+> 由四个并行调研 agent 完成：shelf 类工具交互 / Liquid Glass 规范 / 单功能小工具气质 / 抠图直接竞品。
+
+### 5.1 Shelf 类工具（Dropover / Dropzone / Yoink / FilePane）
+
+- **爽感核心是零位移成本**：Dropover 摇动手势在光标当前位置召唤 shelf（Gruber："It feels like you're saying 'Give me a shelf right here'"），优于 Yoink 固定屏幕边缘的形态。对 Pluck 的启示：结果浮层应出现在用户松手位置附近、立刻可拖走。
+- **该品类 2026 的竞争焦点就是 Liquid Glass 适配**：Dropzone 5 "ground up 重设计支持 Liquid Glass"；Dropover 刚做了轻玻璃+柔圆角刷新；新玩家 Dockside、FlowShelf 直接以 "floating glass shelf" 为卖点。玻璃材质已是品类标配而非可选项。
+- Dropzone 的"目的地网格"复杂度不适合 Pluck——我们动作固定（抠图），应保持零配置。
+- 来源：[Daring Fireball 评 Dropover](https://daringfireball.net/linked/2026/05/15/dropover) · [Dropzone 5 发布](https://aptonic.com/blog/dropzone-5-released) · [Macworld 评 Yoink](https://www.macworld.com/article/620102/yoink-review-mac-gems.html)
+
+### 5.2 Liquid Glass 规范要点（macOS 26 Tahoe）
+
+1. **内容/功能分层**：抠图结果和棋盘格属内容层，不加玻璃；玻璃只用于浮层容器、按钮、工具栏等功能层。
+2. **自定义强调色（珊瑚橙）被 HIG 支持**，但只 tint 一个主操作（`.glassProminent`），其余控件保持中性玻璃。Paste 6、Raycast 的重设计验证了"克制染色"路线。
+3. **虚线框 drop zone 被视为网页范式**；现代做法是玻璃卡片 + `.glassEffect(...).interactive()` 拖拽悬停高光，用材质边缘光代替描边。
+4. **参数跟随系统**：圆角用 concentric 配置、阴影走系统默认，不写死数值（macOS 27 将把窗口圆角 26pt→20pt，Liquid Glass 仍在调整期）。
+5. 关键 API：`GlassEffectContainer`、`.glassEffect(.regular.tint(...).interactive())`、`.buttonStyle(.glass/.glassProminent)`。
+- 来源：[WWDC25 Meet Liquid Glass](https://developer.apple.com/videos/play/wwdc2025/219/) · [LiquidGlassReference](https://github.com/conorluddy/LiquidGlassReference) · [Paste 6 Liquid Glass](https://pasteapp.io/blog/paste-in-liquid-glass) · [macOS 26 主题系统](https://www.macrumors.com/2025/06/13/macos-tahoes-new-theming-system-explained/)
+
+### 5.3 直接竞品补充（相对 §3 的增量）
+
+- **[Figura](https://github.com/nuance-dev/figura)——定位重合度最高的直接竞品**：免费、MIT、SwiftUI、macOS 14+、同样封装 Apple Vision。弱点：单窗口形态（无菜单栏/浮层/CLI/Finder 扩展/可选模型）、仅 GitHub 分发、111 star 个人维护、README 自称 AI 数小时写完的 v1。它证明需求存在，也是要超越的底线。
+- **SpeedCut**（€16.99，[Gumroad](https://speedcut.gumroad.com/l/kidcwu)）：菜单栏一键抠图，证明"菜单栏形态抠图"已有人做，但付费闭源。
+- **[EyeDrop](https://eyedrop.ai/)**（本地 AI 图片描述工具）：功能不同但产品哲学与 Pluck 镜像——"Drag. Drop. Describe."、完全离线、无订阅、结果自动进剪贴板（零步骤交付）。气质参考。
+- Photoroom（设计口碑最好的抠图产品）**没有原生 Mac 客户端**；remove.bg/Photoroom 均强制上云+水印/credit 墙。**没有任何竞品做到"拖入即处理、处理完直接拖出"的零摩擦交互**——这是 Pluck 最无竞争者的一环。
+
+### 5.4 第二轮原型的设计预设修订（据此改写 prototypes/prompts.md）
+
+第一轮图（暖奶油底 + 大面积珊瑚橙 + 自绘控件）被判定为"2023 Web 风"，与 macOS 26 脱节。修订：**布局保留，皮肤换掉**——中性底色 + 真实玻璃材质透出壁纸、珊瑚橙用量砍到单点强调、控件回归系统形态、抠图结果（棋盘格上的主体）作为视觉主角。

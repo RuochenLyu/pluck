@@ -113,11 +113,28 @@ agent 友好设计：`--json` 结构化输出、语义化 exit code（0 成功 /
 - **Sparkle** 做 app 内自动更新（不联网原则的唯一例外之二：更新检查 + 模型下载，都在设置里可关，README 里明示这两个网络行为——隐私承诺要经得起审计）。
 - 不上架的判断没问题：CLI、Sparkle、模型旁加载在 MAS 沙盒下都别扭，GitHub + Homebrew 是这类工具的主流通路（Rectangle、Ice 同款）。
 
+### 4.7 UI 设计定稿（2026-07-27，第二轮原型）
+
+定稿图见 [prototypes/](prototypes/)（p1–p6），提示词底稿见 [prototypes/prompts.md](prototypes/prompts.md)。要点：
+
+- **视觉语言**：macOS 26 Liquid Glass，内容/功能分层——抠图结果与棋盘格是内容层不加玻璃；浮层容器、按钮、工具栏是功能层用玻璃。圆角/阴影参数跟随系统，不写死数值。
+- **玻璃分级**（mockup 的玻璃浓度是上限不是规格）：主窗口用标准窗口材质保可读性（背后可能是任意窗口而非壁纸）；菜单栏 popover 与结果浮层保持强玻璃。
+- **强调色**：珊瑚橙每屏至多一个染色元素（主按钮/进度/选中勾），其余中性。
+- **图标**：实心有机 blob + 虚线剪影（主体被拽走留下轮廓）；18px 菜单栏版虚线简化为 4–5 段粗 dash，进开发后直接画矢量模板 PDF。羽毛方案废弃。
+- **入口层级**：菜单栏为主入口（单张高频场景），主窗口为批量处理场景（保留空状态）。
+- **结果浮层**（产品灵魂，无竞品做到）：出现在松手位置附近，约 260×300，图像满铺无留白；一级操作仅 Copy/Save/···（换背景收进溢出菜单）；底边珊瑚细线做 5s 自动消失倒计时，悬停暂停，无文字标签；"Before" 按住看原图。
+- **批量队列**：行内 hover 出 Copy/Save，整行可拖拽单个结果。
+- **设置**：原生 toolbar tab 形态；引擎行用单色 SF Symbols，不用彩色徽标（Apple logo 有商标问题）。
+
+### 4.8 模型下载：托管、清单与校验
+
+"不自己托管"的实际诉求是**不运维服务器**，而非让用户手动找文件——BiRefNet_lite 官方只有 PyTorch 权重，没有现成 mlpackage，用户自己下载原始权重也无法使用，转换产物必须由我们分发：
+
+- **托管**：转换后的 `.mlpackage`（zip）作为 **Pluck 自己的 GitHub Releases 资产**发布（免费、无服务器、带宽由 GitHub 承担；MIT license 允许再分发，随包附原始 LICENSE 与来源声明）。
+- **地址正确性 = 信任链**：`models/manifest.json` **打包在签名的 app bundle 内**（不从网络拉取），每条记录含 pinned URL（指向具体 release tag 的资产）+ SHA256 + 字节数 + license + 来源。链条：Developer ID 签名保证 manifest 未被篡改 → manifest 钉死 URL 和哈希 → 下载后校验 SHA256，不匹配即删除报错。URL 即使被劫持/替换，哈希校验也会拒绝。
+- **下载器**（PluckKit `ModelRegistry`）：URLSession 下载到临时目录 → SHA256 校验 → 原子移动到 `~/Library/Application Support/Pluck/Models/<id>/`；支持断点续传与重试；加载模型前可再校验一次。CLI `pluck models pull` 走同一实现。
+- **manifest 更新**：随 app 版本走（Sparkle 更新带来新 manifest），不做独立的远程 manifest——避免引入需要额外签名机制的第二信任通道，也符合"默认零网络"。
+
 ## 5. 里程碑
 
-- **v0.1（MVP，目标 1–2 周业余时间）**：PluckKit(VisionEngine) + CLI + 菜单栏拖放 + 剪贴板快捷键。签名 + notarize + GitHub Release + tap。
-- **v0.2**：主窗口批量队列、结果浮层、Finder Quick Action、Sparkle。
-- **v0.3**：CoreMLEngine + BiRefNet_lite 转换与按需下载、对比滑块、SKILL.md 定稿。
-- **v1.0**：边缘 decontamination 打磨、发丝 before/after 营销图、README/官网、发 HN + 少数派/V2EX。
-
-风险与对策：BiRefNet_lite 转 Core ML 是最大不确定项（自转，无现成 mlpackage）→ 放 v0.3，不阻塞 MVP；Vision API 需 macOS 14+ → 系统要求写清楚，不做旧系统兼容。
+里程碑、当前状态与风险已移至 [roadmap.md](roadmap.md)（进度类信息的唯一真相源）。
