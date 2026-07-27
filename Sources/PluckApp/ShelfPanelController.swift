@@ -84,9 +84,13 @@ final class ShelfPanelController {
         self.host = host
     }
 
-    func show(from button: NSStatusBarButton) {
+    /// `anchor` is the status item's rect in screen coordinates, or nil when there is no
+    /// reachable icon to hang from.
+    func show(anchor: NSRect?, on screen: NSScreen?) {
         guard let panel else { return }
-        panel.setFrameOrigin(origin(for: button, size: panel.frame.size))
+        let size = panel.frame.size
+        guard let visible = (screen ?? NSScreen.main)?.visibleFrame else { return }
+        panel.setFrameOrigin(Self.origin(for: size, under: anchor, in: visible))
         // Non-activating panels do not take focus by themselves, and ⌘V needs a key
         // window to land in — so opening is the one moment the app asserts itself.
         NSApp.activate()
@@ -114,19 +118,30 @@ final class ShelfPanelController {
     }
 
     /// Centred under the status item, clamped into the visible frame. Without the clamp a
-    /// status item near the right edge (or on a display whose menu bar is not at the top
-    /// of the global coordinate space) pushes half the shelf off screen.
-    private func origin(for button: NSStatusBarButton, size: CGSize) -> NSPoint {
-        guard let window = button.window else { return .zero }
-        let anchor = window.convertToScreen(button.convert(button.bounds, to: nil))
-        var x = anchor.midX - size.width / 2
-        var y = anchor.minY - Self.gap - size.height
-
-        if let visible = (window.screen ?? NSScreen.main)?.visibleFrame {
-            let m = Self.margin
-            x = min(max(x, visible.minX + m), max(visible.minX + m, visible.maxX - size.width - m))
-            y = min(max(y, visible.minY + m), max(visible.minY + m, visible.maxY - size.height - m))
+    /// status item near the right edge (or on a display whose menu bar is not at the top of
+    /// the global coordinate space) pushes half the shelf off screen.
+    ///
+    /// A nil anchor means the icon could not be reached at all — a full menu bar, a notch,
+    /// or a third-party manager has swallowed it. The shelf then hangs from the top centre
+    /// of the usable area, which is the one place on screen that is never covered by
+    /// whatever hid the icon.
+    ///
+    /// Static and pure so the cases worth testing are the ones this machine does not have.
+    static func origin(for size: CGSize, under anchor: NSRect?, in visible: NSRect) -> NSPoint {
+        var x: CGFloat
+        var y: CGFloat
+        if let anchor {
+            x = anchor.midX - size.width / 2
+            y = anchor.minY - gap - size.height
+        } else {
+            // `margin`, not `gap`: there is no icon to hang under, and `visible.maxY` is
+            // already below the menu bar — so this is an edge keep-off like any other.
+            x = visible.midX - size.width / 2
+            y = visible.maxY - margin - size.height
         }
+        let m = margin
+        x = min(max(x, visible.minX + m), max(visible.minX + m, visible.maxX - size.width - m))
+        y = min(max(y, visible.minY + m), max(visible.minY + m, visible.maxY - size.height - m))
         return NSPoint(x: x.rounded(), y: y.rounded())
     }
 }

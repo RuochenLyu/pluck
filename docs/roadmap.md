@@ -25,9 +25,10 @@
 - ~~**端到端管线 API 下沉 PluckKit**~~ ✅ 2026-07-27：`PluckPipeline.run(_:) -> PluckRun`，CLI Runner 与 App PluckService 均降为薄壳（decisions.md 同日）。
 - ~~**缩略图/降采样 helper 公开**~~ ✅ 2026-07-27：公开 `Thumbnail.fit/pngData`（按长边）；`ImageBuffers` 维持 internal。
 - ~~**String Catalog 在纯 SwiftPM 下不编译**~~ ✅ 2026-07-27：`Scripts/bundle.sh` 跑 xcstringstool 编进 `Contents/Resources/<lang>.lproj`，实测新增 zh-Hans 生效。结论是**不建 Xcode 工程**（decisions.md 同日），Xcode 壳推迟到真正需要它的 Finder 扩展。
-- **PluckError 文案硬编码英文**：App 要在 UI 展示错误文本（v0.2 浮层）前，需给 PluckKit 一条可本地化路径。
+- ~~**PluckError 文案硬编码英文**~~ ✅ 2026-07-27：解法不是给 PluckKit 加本地化，而是 App 侧 `PluckFailure` 把 `PluckError.Kind` 映射成自己的 Catalog 文案；库保持机器可读，app 决定怎么说（decisions.md 同日）。
 - **历史记录持久化**（v0.1 反馈）：当前 session 内存 12 条；v0.2 改为默认持久化最近 20 条到 Application Support（本地磁盘不违背"不上网"承诺），设置可关 + 一键 Clear。
-- **菜单栏图标可达性兜底**：刘海机型 + 菜单栏拥挤时状态项会被藏进刘海下，app 无 Dock 图标无窗口即完全不可达（2026-07-27 实测发生）。v0.2 需要兜底：二次启动检测已有实例时强制弹 popover / 引导。全局快捷键已移除，目前唯一的逃生通道是 SIGUSR1（脚本级，普通用户用不上）。
+- ~~**菜单栏图标可达性兜底**~~ ✅ 2026-07-27（提前到 v0.1，因为它挡住了我自己的 UI 验收）：`statusAnchor()` 判定图标是否真的够得着（刘海 `auxiliaryTopLeftArea/RightArea`、零宽按钮、找不到所在屏），够不着时 shelf 从可用区顶部中央落下；`applicationShouldHandleReopen` 让"再点一次 app"成为逃生通道；启动 700ms 后若仍不可达则自动开一次 shelf。安置逻辑抽成纯函数 `ShelfPanelController.origin(for:under:in:)` 并覆盖测试。
+- **抠图对自身输出不幂等**（2026-07-27 QA 发现）：结果会写回剪贴板，于是连按两次 ⌘V 抠的是上一次的输出；每过一遍边缘 alpha 再削一点、字节全变，指纹去重因此永远不触发，格子里堆出一串几乎一样、却一次比一次糟的副本。要在处理前先拿输入字节比对已有结果，命中就直接提升而不是再抠一遍。
 
 ## 风险与对策
 

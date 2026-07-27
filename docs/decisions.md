@@ -143,3 +143,11 @@
 - **决策**：`com.aix4u.pluck`（`aix4u.com` 的反向 DNS）。Finder 扩展将来用 `com.aix4u.pluck.FinderQuickAction`。同日前两条（`com.pluckapp.Pluck`、`me.kshift.Pluck`）均作废，本条为准。
 - **理由**：维护者在自己控制的两个域名之间选定 `aix4u.com`。上一条选 `kshift.me` 的理由（避免 AI 品牌命名空间与"离线"承诺相冲）是一个措辞层面的顾虑，不是工程约束——bundle id 不出现在任何面向用户的界面里，`.com` 也比 `.me` 更长命。域名的归属是维护者的决定，采纳。
 - **一天三条同题 ADR 的教训**：命名空间取决于"哪个域名归我们"，这是个事实问题而非设计问题，应当在写第一行 plist 之前问清楚，而不是先按约定推演出一个漂亮答案再逐条推翻。所幸 `bundle.sh` 从 plist 反读 id，三次改动各是一行。
+
+## 2026-07-27 — 菜单栏图标够不着时，shelf 自己找地方落下
+
+- **决策**：`AppDelegate.statusAnchor()` 判定状态项是否**真的够得着**；够不着（返回 nil）时 shelf 从可用区顶部中央落下，而不是挂在一个不存在的图标下。判 nil 的三种情形：拿不到 button/window、按钮宽度 ≤ 1pt、以及矩形与 `NSScreen.auxiliaryTopLeftArea/auxiliaryTopRightArea` 都不相交（这两块是刘海**没占住**的那段菜单栏，都不沾即在刘海底下）。
+- **另外两条逃生通道**：`applicationShouldHandleReopen` —— 重复启动已在运行的 app，LaunchServices 发的是这个而不是起第二份，对一个没有 Dock 图标的 app 来说，这是用户唯一做得出来、我们又一定收得到的手势；以及启动 700ms 后若仍不可达就自动开一次 shelf（状态项要等菜单栏布完版才落位，所以不能立刻问）。
+- **背景**：`LSUIElement` app 无 Dock 图标、无窗口，状态项被刘海或第三方菜单栏管理器（Ice/Bartender）收起来时，屏幕上就再没有任何一个可点的东西——2026-07-27 实测发生，并且直接挡住了我自己的 UI 验收。这条债本来排在 v0.2，被提前是因为它不是体验问题而是可用性归零。
+- **顶部中央而非记住上次位置**：把图标藏起来的那个东西（刘海、满员的菜单栏、管理器）恰恰只可能占住菜单栏那一行，顶部中央是它够不到的地方；而"上次位置"在第一次就没有值。
+- **安置逻辑改为纯静态函数** `ShelfPanelController.origin(for:under:in:)`：值得测的正好是本机没有的那些屏幕（刘海机、副屏、比 shelf 还小的外接屏），只有不碰 `NSScreen` 才测得了。无 anchor 分支用 `margin` 而不是 `gap` —— 没有图标可挂，`visible.maxY` 本来就在菜单栏之下，那就是一条普通的边距。

@@ -33,6 +33,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             preview.show(item: item, model: model, beside: shelf.isVisible ? shelf.panel?.frame : nil)
         }
         installPluckSignal()
+        revealIfUnreachable()
     }
 
     /// SIGUSR1 triggers the same clipboard pluck as ⌘V in the shelf. Exists so the full
@@ -155,16 +156,59 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             swallowIconClick = false
             return
         }
-        guard let button = statusItem?.button else { return }
-        shelf.show(from: button)
+        openShelf()
     }
 
     /// Dropping on the icon is the primary way in, so the shelf opens on release: the
     /// pending cell, and then the result, appear where the user is already looking.
     private func iconReceived(_ payloads: [DroppedPayload]) {
         model.handleDrop(payloads)
-        guard let button = statusItem?.button else { return }
-        shelf.show(from: button)
+        openShelf()
+    }
+
+    private func openShelf() {
+        let anchor = statusAnchor()
+        shelf.show(anchor: anchor?.rect, on: anchor?.screen)
+    }
+
+    /// The status item's rect in screen coordinates, or nil when the pointer could not
+    /// actually get to it.
+    ///
+    /// A menu bar with no room left still hands back a button; it just parks it off the end
+    /// of the bar or under the camera housing. With no Dock icon and no window, an app in
+    /// that state has no surface at all — reported 2026-07-27 on a notched machine — so
+    /// every path that opens the shelf has to have an answer for "and if there is no icon?".
+    private func statusAnchor() -> (rect: NSRect, screen: NSScreen)? {
+        guard let button = statusItem?.button, let window = button.window else { return nil }
+        let rect = window.convertToScreen(button.convert(button.bounds, to: nil))
+        guard rect.width > 1,
+              let screen = NSScreen.screens.first(where: { $0.frame.intersects(rect) })
+        else { return nil }
+        // The two auxiliary areas are the stretches of the menu bar row the notch leaves
+        // exposed. Touching neither means sitting behind it.
+        let exposed = [screen.auxiliaryTopLeftArea, screen.auxiliaryTopRightArea].compactMap { $0 }
+        guard exposed.isEmpty || exposed.contains(where: { $0.intersects(rect) }) else { return nil }
+        return (rect, screen)
+    }
+
+    /// Launching Pluck again while it is already running is the way back in. LaunchServices
+    /// sends this rather than starting a second copy, and for an app with no Dock icon it is
+    /// the only gesture a user can perform that we are guaranteed to receive.
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows: Bool) -> Bool {
+        openShelf()
+        return true
+    }
+
+    /// The status item does not reach its final position until the bar has laid out, so this
+    /// asks once that has had a chance to happen. Opening the shelf is not a nicety here: an
+    /// app that is invisible *and* silent on launch is indistinguishable from one that
+    /// failed to start, and there would be nothing on screen to click to find out.
+    private func revealIfUnreachable() {
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 700_000_000)
+            guard statusAnchor() == nil, !shelf.isVisible else { return }
+            openShelf()
+        }
     }
 
     /// Filled ghost plus coral tint while a droppable image is overhead — the icon is the
