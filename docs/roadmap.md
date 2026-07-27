@@ -3,10 +3,10 @@
 > 本文件是唯一的进度真相源：阶段推进、里程碑范围变化时更新这里。
 > 产品定义与架构见 [product-plan.md](product-plan.md)，决策记录见 [decisions.md](decisions.md)。
 
-## 当前状态（2026-07-27）
+## 当前状态（2026-07-27 晚）
 
-- 阶段：**v0.1 开发前夜**。UI 原型已定稿（[prototypes/](prototypes/)，结论见 [product-plan.md](product-plan.md) §4.7），代码尚未开始。
-- 下一步：搭 SwiftPM 骨架 → PluckKit VisionEngine + 测试图片集 → CLI → 菜单栏 MVP。
+- 阶段：**v0.1 功能代码完成**。PluckKit（VisionEngine/Compositor/ImageLoader）、`pluck` CLI、PluckApp 菜单栏 MVP、CC0 测试图片集全部落地，62 测试全绿，Swift 6 零 warning。
+- 待办（v0.1 收尾）：GUI 人工验证（拖放到图标 / popover / ⌥⌘B 闭环 / Recent 拖出）→ Developer ID 签名 + notarization + GitHub Release + Homebrew tap。
 
 ## 里程碑
 
@@ -14,6 +14,13 @@
 - **v0.2**：主窗口批量队列、结果浮层、Finder Quick Action、Sparkle。
 - **v0.3**：CoreMLEngine + BiRefNet_lite 转换与按需下载、对比滑块、SKILL.md 定稿。
 - **v1.0**：边缘 decontamination 打磨、发丝 before/after 营销图、README/官网、发 HN + 少数派/V2EX。
+
+## v0.2 动工前的技术债（2026-07-27，来自 v0.1 实现的上报）
+
+- **端到端管线 API 下沉 PluckKit**：load → mask → compose → encode 目前在 CLI Runner 和 App PluckService 各有一份，Finder 扩展会是第三份——v0.2 第一个单元先做这个下沉。
+- **缩略图/降采样 helper 公开**：`ImageBuffers` 是 internal，App 自己重写了降采样；随管线下沉一并公开。
+- **String Catalog 在纯 SwiftPM 下不编译**（只 copy 不跑 xcstringstool）：英文 fallback 正确，但新增语言会被静默忽略——v0.2 建 Xcode app 壳时解决，多语言发布依赖此项。
+- **PluckError 文案硬编码英文**：App 要在 UI 展示错误文本（v0.2 浮层）前，需给 PluckKit 一条可本地化路径。
 
 ## 风险与对策
 
