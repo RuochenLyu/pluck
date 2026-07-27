@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+#
+# Assembles Pluck.app from the SwiftPM product.
+#
+# There is deliberately no Xcode project (decisions.md 2026-07-27). Everything an .app
+# needs that `swift build` does not do is done here, in ~60 readable lines: an Info.plist,
+# a compiled String Catalog, an icon, and an ad-hoc signature. Signing for distribution
+# and notarizing are `codesign`/`notarytool` on top of this output — neither needs a
+# project file either.
+#
+#   ./Scripts/bundle.sh [debug|release]     → .build/Pluck.app
+#
+set -euo pipefail
+
+CONFIG="${1:-release}"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT"
+
+SHORT_VERSION="0.1.0"
+# Monotonic and derivable, so two builds of the same commit produce the same bundle.
+BUILD_VERSION="$(git rev-list --count HEAD)"
+
+APP="$ROOT/.build/Pluck.app"
+CONTENTS="$APP/Contents"
+RESOURCES="$CONTENTS/Resources"
+
+echo "==> building PluckApp ($CONFIG)"
+swift build -c "$CONFIG" --product PluckApp
+
+BINARY="$ROOT/.build/$CONFIG/PluckApp"
+[ -x "$BINARY" ] || { echo "no PluckApp binary at $BINARY" >&2; exit 1; }
+
+echo "==> laying out $APP"
+rm -rf "$APP"
+mkdir -p "$CONTENTS/MacOS" "$RESOURCES"
+cp "$BINARY" "$CONTENTS/MacOS/Pluck"
+
+sed -e "s/__SHORT_VERSION__/$SHORT_VERSION/" \
+    -e "s/__BUILD_VERSION__/$BUILD_VERSION/" \
+    "$ROOT/Packaging/Info.plist" > "$CONTENTS/Info.plist"
+plutil -lint -s "$CONTENTS/Info.plist"
+
+# The reason this script exists at all. SwiftPM copies `Localizable.xcstrings` into its
+# resource bundle verbatim and never runs xcstringstool, so every lookup misses and falls
+# back to the key — invisible while the key *is* the English copy, and silently fatal the
+# day a second language is added. Compiling into `Contents/Resources/<lang>.lproj` also
+# puts the strings where an .app is supposed to keep them, which is what lets `codesign`
+# accept the bundle later.
+echo "==> compiling the String Catalog"
+xcrun xcstringstool compile \
+    --output-directory "$RESOURCES" \
+    "$ROOT/Sources/PluckApp/Resources/Localizable.xcstrings"
+ls -d "$RESOURCES"/*.lproj > /dev/null
+
+echo "==> drawing the icon"
+swift "$ROOT/Scripts/make-icon.swift" "$RESOURCES/AppIcon.icns"
+
+# Ad-hoc, so the bundle runs on this machine and the layout is validated now rather than
+# on release day. A Developer ID signature replaces it verbatim: same command, real
+# identity, plus --options runtime --timestamp.
+echo "==> signing (ad-hoc)"
+codesign --force --sign - --identifier "com.ruochenlyu.pluck" "$APP"
+codesign --verify --strict "$APP"
+
+echo "==> $APP"
+du -sh "$APP" | cut -f1

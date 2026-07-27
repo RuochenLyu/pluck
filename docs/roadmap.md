@@ -7,7 +7,9 @@
 
 - 阶段：**v0.1 功能代码完成并过完三轮用户实测反馈**（⌘V 入口 → 拖到图标即入口的 shelf 面板重做 → 浮层层级/摆位/拖动/关闭按钮）。PluckKit（VisionEngine/Compositor/ImageLoader/**PluckPipeline**）、`pluck` CLI、PluckApp 菜单栏 MVP、CC0 测试图片集全部落地，**92 测试全绿**，Swift 6 零 warning。
 - 交互现状：状态项本身是拖放目标 → 落下即开 shelf 面板（非激活 borderless NSPanel，网格内占位卡原地变结果卡）；预览面板贴 shelf 旁开、层级在其之上、顶部 44pt 条带可拖、关闭按钮常驻。
-- 待办（v0.1 收尾）：剩余 UI 细节打磨归到最后一期统一处理 → Developer ID 签名 + notarization + GitHub Release + Homebrew tap（**阻塞在证书信息**）。
+- 打包：`./Scripts/bundle.sh` 产出可运行的 `Pluck.app`（Info.plist / 编译后的 String Catalog / icns / ad-hoc 签名），1.9 MB。
+- 待办（v0.1 收尾）：剩余 UI 细节打磨归到最后一期统一处理 → Developer ID 签名 + notarization + GitHub Release + Homebrew tap。
+- **阻塞在用户**：Apple Developer Program 会员（本机 `security find-identity` 为 0 个签名身份）、Developer ID Application 证书导入、Team ID、notarytool 凭据、Bundle ID 拍板（暂定 `com.ruochenlyu.pluck`）。除此之外无阻塞项。
 
 ## 里程碑
 
@@ -20,7 +22,7 @@
 
 - ~~**端到端管线 API 下沉 PluckKit**~~ ✅ 2026-07-27：`PluckPipeline.run(_:) -> PluckRun`，CLI Runner 与 App PluckService 均降为薄壳（decisions.md 同日）。
 - ~~**缩略图/降采样 helper 公开**~~ ✅ 2026-07-27：公开 `Thumbnail.fit/pngData`（按长边）；`ImageBuffers` 维持 internal。
-- **String Catalog 在纯 SwiftPM 下不编译**（只 copy 不跑 xcstringstool）：英文 fallback 正确，但新增语言会被静默忽略——v0.2 建 Xcode app 壳时解决，多语言发布依赖此项。
+- ~~**String Catalog 在纯 SwiftPM 下不编译**~~ ✅ 2026-07-27：`Scripts/bundle.sh` 跑 xcstringstool 编进 `Contents/Resources/<lang>.lproj`，实测新增 zh-Hans 生效。结论是**不建 Xcode 工程**（decisions.md 同日），Xcode 壳推迟到真正需要它的 Finder 扩展。
 - **PluckError 文案硬编码英文**：App 要在 UI 展示错误文本（v0.2 浮层）前，需给 PluckKit 一条可本地化路径。
 - **历史记录持久化**（v0.1 反馈）：当前 session 内存 12 条；v0.2 改为默认持久化最近 20 条到 Application Support（本地磁盘不违背"不上网"承诺），设置可关 + 一键 Clear。
 - **菜单栏图标可达性兜底**：刘海机型 + 菜单栏拥挤时状态项会被藏进刘海下，app 无 Dock 图标无窗口即完全不可达（2026-07-27 实测发生）。v0.2 需要兜底：二次启动检测已有实例时强制弹 popover / 引导。全局快捷键已移除，目前唯一的逃生通道是 SIGUSR1（脚本级，普通用户用不上）。

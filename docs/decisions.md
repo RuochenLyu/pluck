@@ -115,3 +115,11 @@
 - **`PluckRun` 保留中间态而非只返回结果图**：CLI 只要 `image`，但 App 的 before/after 擦除需要 `input`，将来的"修边"UI 需要 `mask`；任一项少给，调用方就得重新解码或重新抠一次。
 - **只公开 `Thumbnail`，不公开 `ImageBuffers`**：需要外露的是"按长边缩到 320pt"这个需求，不是 RGBA/Gray 两套规范化缓冲布局。把布局导出去等于此后每次改它都是 breaking change，而库外没有人受益。`ImageBuffers.downsampled(_:maxPixels:)` 仍是内部的、面向引擎输入上限的那一个——两者服务不同的问题，不合并。
 - **stdin 仍在 CLI 读**：抽干 stdin 是一次性副作用，交给可重试的管线内部去做，失败重试会静默产出空图。
+
+## 2026-07-27 — 不建 Xcode 工程，用 `Scripts/bundle.sh` 组 .app
+
+- **决策**：v0.1/v0.2 前半段不引入 `.xcodeproj`。`Scripts/bundle.sh` 把 SwiftPM 产物组装成 `Pluck.app`：Info.plist（模板在 `Packaging/`）、xcstringstool 编译 String Catalog、`Scripts/make-icon.swift` 画 icns、ad-hoc 签名并 verify。Bundle ID 暂定 `com.ruochenlyu.pluck`（**待用户确认，发布后不可改**）。
+- **背景**：roadmap 原计划"v0.2 建 Xcode app 壳"来解决 String Catalog 不编译。但被卡住的实际只有两件事——`.xcstrings` 原样 copy 从不编译、没有 .app bundle——两件都是命令行能干的，`xcstringstool` 就在 Xcode 里。
+- **理由**：签名与公证不需要工程文件（`codesign` / `notarytool` 直接作用于 .app），所以引入 `.xcodeproj` 只会换来 `swift test` / `xcodebuild test` 双轨和一个天生冲突的二进制式工程文件。Xcode 工程真正不可替代的时刻是 **Finder Quick Action**（`.appex` 嵌套签名），到那时再建，且到那时它要解决的是一个真问题而不是一个想象中的问题。
+- **顺带修掉的坑**：`Bundle.module` 的 SwiftPM 生成访问器找的是 `Pluck.app/Pluck_PluckApp.bundle`（在 `Contents/` 之外，codesign 不接受），且两个候选都不存在时直接 `fatalError`——打包后的 app 一旦碰它就是启动崩溃。`L.catalog` 改为探测 `Contents/Resources/en.lproj` 决定用 `Bundle.main` 还是 `.module`，打包分支永不求值 `.module`。
+- **验证**：临时给 `Clear` 加一条 `zh-Hans` 译文重打包，`zh-Hans.lproj` 正确生成且运行时取到"清空"，随后还原。多语言这条链路从此是通的，不是"应该通的"。
