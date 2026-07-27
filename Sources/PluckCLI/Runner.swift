@@ -14,6 +14,7 @@ struct Runner {
             }
         }
 
+        let pipeline = PluckPipeline(engine: engine, background: plan.background)
         let showProgress = Terminal.stderrIsTTY && plan.items.count > 1
         var claimed: Set<String> = []
         var outcomes: [ItemOutcome] = []
@@ -32,7 +33,7 @@ struct Runner {
                 )
             }
 
-            let outcome = if let collision { collision } else { await process(item: item, engine: engine) }
+            let outcome = if let collision { collision } else { await process(item: item, through: pipeline) }
             outcomes.append(outcome)
             report(outcome)
         }
@@ -40,7 +41,7 @@ struct Runner {
         return outcomes
     }
 
-    private func process(item: WorkItem, engine: any MattingEngine) async -> ItemOutcome {
+    private func process(item: WorkItem, through pipeline: PluckPipeline) async -> ItemOutcome {
         let label = item.source.display
         let started = ContinuousClock.now
 
@@ -54,19 +55,21 @@ struct Runner {
                 )
             }
 
-            let image: CGImage
+            let source: PluckSource
             switch item.source {
             case .file(let path):
-                image = try ImageLoader.load(contentsOf: URL(fileURLWithPath: path))
+                source = .file(URL(fileURLWithPath: path))
             case .standardInput:
+                // Read here rather than letting the pipeline take a file handle: draining
+                // stdin is a one-shot side effect, and a retry that silently produced an
+                // empty image would be worse than the error.
                 let data = FileHandle.standardInput.readDataToEndOfFile()
                 guard !data.isEmpty else { throw PluckError.imageLoadFailed(reason: "no data on stdin") }
-                image = try ImageLoader.load(data: data)
+                source = .data(data)
             }
 
-            let mask = try await engine.mask(for: image)
-            let composed = try Compositor.compose(image: image, mask: mask, background: plan.background)
-            let png = try Compositor.pngData(for: composed)
+            let run = try await pipeline.run(source)
+            let png = try run.pngData()
 
             switch item.destination {
             case .file(let path):
@@ -78,8 +81,8 @@ struct Runner {
             let elapsed = ContinuousClock.now - started
             return .success(input: label, ItemSuccess(
                 output: item.destination.display,
-                width: composed.width,
-                height: composed.height,
+                width: run.width,
+                height: run.height,
                 durationMs: Self.milliseconds(elapsed)
             ))
         } catch {

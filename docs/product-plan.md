@@ -66,6 +66,29 @@ pluck/
 
 核心设计：**PluckKit 是唯一引擎，App、CLI、Finder 扩展都是它的薄壳。** 保证三个入口行为一致，也让第三方能直接依赖 PluckKit。
 
+"薄壳"由 PluckKit 的入口 API 界定——壳只负责 I/O、命名、进度与错误呈现，从字节到合成图之间的一切归 PluckKit：
+
+```swift
+public enum PluckSource { case file(URL), data(Data), image(CGImage) }
+
+public struct PluckPipeline {                        // load → mask → compose
+    public init(engine: any MattingEngine = VisionEngine(), background: PluckBackground = .transparent)
+    public func run(_ source: PluckSource) async throws -> PluckRun
+}
+
+public struct PluckRun {                             // 中间态一并保留，不必重算
+    public let input: CGImage                        // 已应用 EXIF 方向的输入 = before
+    public let mask: CGImage
+    public let image: CGImage                        // 合成结果 = 导出物
+    public func pngData() throws -> Data
+}
+
+public enum Thumbnail {                              // 按长边降采样，供 UI 使用
+    public static func fit(_ image: CGImage, maxEdge: Int) throws -> CGImage
+    public static func pngData(for image: CGImage, maxEdge: Int) throws -> Data
+}
+```
+
 ### 4.2 引擎层
 
 ```swift

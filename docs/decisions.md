@@ -107,3 +107,11 @@
 - **补记（同日）**：只重写 `mouseDownCanMoveWindow` 不够——AppKit 是在 `hitTest` 返回的那个 view 上问这个问题，而 SwiftUI 会把 representable 再包一层它自己的宿主 view，那一层的答案是默认值（否，除非窗口 movable by background，而我们刻意不开）。改为同时重写 `mouseDown` 调 `window?.performDrag(with:)`：两条路径任一走通即可。
 - **同批**：关闭按钮改为**常驻显示**，不再 hover 才出现。无边框窗口没有别的可见出口，Esc 能用但屏幕上没有任何东西这么说；而"指针已经移到正确位置才现身"的控件教不会任何人那个位置在哪。
 - **理由**：自绘 chrome 要连同它的行为一起自绘。条带避开关闭按钮是因为拖动区与控件重叠时谁接到 mouseDown 是掷硬币，输的一方是一个画得出来、亮得起来、但永远不触发的按钮；这条几何约束有测试（`PreviewDragRegionTests`，断言的是区域 frame 而非 hit-test——`NSHostingView.hitTest` 需要真实窗口才会去查 SwiftUI 自己的命中树）。
+
+## 2026-07-27 — 端到端管线下沉 PluckKit：`PluckPipeline` + `Thumbnail`
+
+- **决策**：新增 `PluckPipeline.run(_:) -> PluckRun`（load → mask → compose 一次调用）与 `PluckSource`（file/data/image）；`PluckRun` 同时保留 `input`（已应用 EXIF 方向）、`mask`、`image` 三者。CLI `Runner` 与 App `PluckService` 改为纯薄壳。缩略图按**长边**降采样的 helper 公开为 `Thumbnail`。
+- **背景**：同一段管线在 CLI Runner 和 App PluckService 各写了一遍，Finder 扩展会是第三遍（roadmap 技术债首项）。两份拷贝已经开始漂移：App 那份直接调 `Compositor.cutout`，`--background` 这条路在 App 侧根本不存在；App 还自己重写了一份 CGContext 降采样。
+- **`PluckRun` 保留中间态而非只返回结果图**：CLI 只要 `image`，但 App 的 before/after 擦除需要 `input`，将来的"修边"UI 需要 `mask`；任一项少给，调用方就得重新解码或重新抠一次。
+- **只公开 `Thumbnail`，不公开 `ImageBuffers`**：需要外露的是"按长边缩到 320pt"这个需求，不是 RGBA/Gray 两套规范化缓冲布局。把布局导出去等于此后每次改它都是 breaking change，而库外没有人受益。`ImageBuffers.downsampled(_:maxPixels:)` 仍是内部的、面向引擎输入上限的那一个——两者服务不同的问题，不合并。
+- **stdin 仍在 CLI 读**：抽干 stdin 是一次性副作用，交给可重试的管线内部去做，失败重试会静默产出空图。

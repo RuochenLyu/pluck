@@ -3,10 +3,11 @@
 > 本文件是唯一的进度真相源：阶段推进、里程碑范围变化时更新这里。
 > 产品定义与架构见 [product-plan.md](product-plan.md)，决策记录见 [decisions.md](decisions.md)。
 
-## 当前状态（2026-07-27 晚）
+## 当前状态（2026-07-27 深夜）
 
-- 阶段：**v0.1 功能代码完成**，已过一轮用户上手反馈迭代（⌘V 入口 / popover 重排 / 预览滑块）。PluckKit（VisionEngine/Compositor/ImageLoader）、`pluck` CLI、PluckApp 菜单栏 MVP、CC0 测试图片集全部落地，60 测试全绿，Swift 6 零 warning。
-- 待办（v0.1 收尾）：GUI 人工验证（拖放到图标 / popover 点击与布局 / popover 内 ⌘V / Recent 拖出 / 预览滑块）→ Developer ID 签名 + notarization + GitHub Release + Homebrew tap。
+- 阶段：**v0.1 功能代码完成并过完三轮用户实测反馈**（⌘V 入口 → 拖到图标即入口的 shelf 面板重做 → 浮层层级/摆位/拖动/关闭按钮）。PluckKit（VisionEngine/Compositor/ImageLoader/**PluckPipeline**）、`pluck` CLI、PluckApp 菜单栏 MVP、CC0 测试图片集全部落地，**92 测试全绿**，Swift 6 零 warning。
+- 交互现状：状态项本身是拖放目标 → 落下即开 shelf 面板（非激活 borderless NSPanel，网格内占位卡原地变结果卡）；预览面板贴 shelf 旁开、层级在其之上、顶部 44pt 条带可拖、关闭按钮常驻。
+- 待办（v0.1 收尾）：剩余 UI 细节打磨归到最后一期统一处理 → Developer ID 签名 + notarization + GitHub Release + Homebrew tap（**阻塞在证书信息**）。
 
 ## 里程碑
 
@@ -17,8 +18,8 @@
 
 ## v0.2 动工前的技术债（2026-07-27，来自 v0.1 实现的上报）
 
-- **端到端管线 API 下沉 PluckKit**：load → mask → compose → encode 目前在 CLI Runner 和 App PluckService 各有一份，Finder 扩展会是第三份——v0.2 第一个单元先做这个下沉。
-- **缩略图/降采样 helper 公开**：`ImageBuffers` 是 internal，App 自己重写了降采样；随管线下沉一并公开。
+- ~~**端到端管线 API 下沉 PluckKit**~~ ✅ 2026-07-27：`PluckPipeline.run(_:) -> PluckRun`，CLI Runner 与 App PluckService 均降为薄壳（decisions.md 同日）。
+- ~~**缩略图/降采样 helper 公开**~~ ✅ 2026-07-27：公开 `Thumbnail.fit/pngData`（按长边）；`ImageBuffers` 维持 internal。
 - **String Catalog 在纯 SwiftPM 下不编译**（只 copy 不跑 xcstringstool）：英文 fallback 正确，但新增语言会被静默忽略——v0.2 建 Xcode app 壳时解决，多语言发布依赖此项。
 - **PluckError 文案硬编码英文**：App 要在 UI 展示错误文本（v0.2 浮层）前，需给 PluckKit 一条可本地化路径。
 - **历史记录持久化**（v0.1 反馈）：当前 session 内存 12 条；v0.2 改为默认持久化最近 20 条到 Application Support（本地磁盘不违背"不上网"承诺），设置可关 + 一键 Clear。

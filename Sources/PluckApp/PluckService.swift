@@ -15,38 +15,32 @@ struct ProcessedImage: Sendable, Equatable {
     var suggestedName: String
 }
 
-/// The app's whole image path. Every byte goes through PluckKit — the app owns no
-/// matting logic of its own. Deliberately `nonisolated` and `async` so callers are
-/// forced off the main actor.
+/// The app's whole image path. Nothing here decodes, mattes or composites: that is
+/// `PluckPipeline`'s job, and this type is the shell that turns one run into the several
+/// encodings the UI needs. Deliberately `nonisolated` and `async` so callers are forced
+/// off the main actor.
 enum PluckService {
     static let thumbnailMaxEdge = 320
     static let previewMaxEdge = 1200
 
-    private static let engine = VisionEngine()
+    private static let pipeline = PluckPipeline()
 
     static func process(data: Data, name: String) async throws -> ProcessedImage {
-        try await process(image: ImageLoader.load(data: data), name: name)
+        try await process(.data(data), name: name)
     }
 
     static func process(url: URL) async throws -> ProcessedImage {
-        try await process(
-            image: ImageLoader.load(contentsOf: url),
-            name: url.deletingPathExtension().lastPathComponent
-        )
+        try await process(.file(url), name: PluckSource.file(url).suggestedName ?? "")
     }
 
-    static func process(image: CGImage, name: String) async throws -> ProcessedImage {
-        let mask = try await engine.mask(for: image)
-        let cutout = try Compositor.cutout(image: image, mask: mask)
-        let png = try Compositor.pngData(for: cutout)
-        let thumb = try Compositor.pngData(for: downsampled(cutout, maxEdge: thumbnailMaxEdge))
-        let original = try Compositor.pngData(for: downsampled(image, maxEdge: previewMaxEdge))
+    private static func process(_ source: PluckSource, name: String) async throws -> ProcessedImage {
+        let run = try await pipeline.run(source)
         return ProcessedImage(
-            pngData: png,
-            thumbnailPNG: thumb,
-            originalPNG: original,
-            width: cutout.width,
-            height: cutout.height,
+            pngData: try run.pngData(),
+            thumbnailPNG: try Thumbnail.pngData(for: run.image, maxEdge: thumbnailMaxEdge),
+            originalPNG: try Thumbnail.pngData(for: run.input, maxEdge: previewMaxEdge),
+            width: run.width,
+            height: run.height,
             suggestedName: name.isEmpty ? L.s("Cutout") : name
         )
     }
@@ -68,8 +62,8 @@ enum PluckService {
     }
 
     private static func thumbnail(of image: CGImage?) -> Data? {
-        guard let image, let scaled = try? downsampled(image, maxEdge: thumbnailMaxEdge) else { return nil }
-        return try? Compositor.pngData(for: scaled)
+        guard let image else { return nil }
+        return try? Thumbnail.pngData(for: image, maxEdge: thumbnailMaxEdge)
     }
 
     static func fingerprint(_ data: Data) -> String {
@@ -87,30 +81,5 @@ enum PluckService {
         let url = directory.appendingPathComponent(processed.suggestedName).appendingPathExtension("png")
         try processed.pngData.write(to: url, options: .atomic)
         return url
-    }
-
-    private static func downsampled(_ image: CGImage, maxEdge: Int) throws -> CGImage {
-        let longest = max(image.width, image.height)
-        guard longest > maxEdge else { return image }
-        let scale = Double(maxEdge) / Double(longest)
-        let width = max(1, Int((Double(image.width) * scale).rounded()))
-        let height = max(1, Int((Double(image.height) * scale).rounded()))
-        guard let context = CGContext(
-            data: nil,
-            width: width,
-            height: height,
-            bitsPerComponent: 8,
-            bytesPerRow: 0,
-            space: CGColorSpaceCreateDeviceRGB(),
-            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
-        ) else {
-            throw PluckError.processingFailed(underlying: nil)
-        }
-        context.interpolationQuality = .high
-        context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
-        guard let scaled = context.makeImage() else {
-            throw PluckError.processingFailed(underlying: nil)
-        }
-        return scaled
     }
 }
