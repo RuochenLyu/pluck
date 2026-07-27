@@ -6,7 +6,7 @@
 ## 当前状态（2026-07-27 深夜）
 
 - 阶段：**v0.1 全部完成、发布链路跑通；v0.2 第一、二批已落地**（磁盘化 + 历史持久化 + 偏好存储 + Settings 窗口；并发闸 + 主窗口批量队列）。PluckKit（VisionEngine/Compositor/ImageLoader/**PluckPipeline**/**PluckQueue**）、`pluck` CLI、PluckApp 菜单栏 + 主窗口、CC0 测试图片集全部落地，**144 测试全绿**，Swift 6 零 warning。
-- **v0.2 未经人眼验收**：Settings 窗口与主窗口的实际外观、开机自启开关在真实签名包上的行为，以及拖出到别的 app（自动化驱不动 macOS 拖放），都要维护者本机确认——这台机器 23:57 起处于锁屏状态，截图全黑，不是"看过觉得还行"而是**根本没看**。历史持久化本身已实测：重启后格子里的 cutout 原样回来，`index.json` 与三文件目录都在。
+- **v0.2 验收状态（2026-07-28 早）**：解锁后已逐屏看过——Settings 窗口（两组、开关、Clear、离线说明）、主窗口空态（虚线投放区 + ⌘V 提示、Export All 正确隐藏）、主窗口列表态（缩略图 + 尺寸 + hover 出 Copy/Save）、多张时的按整图进度条、失败行（红三角 + "No subject found in this image."）、Export All 全链路（9 张落盘、重名让位成 `Cutout 2.png`…、底栏报 `✓ Exported 9 cutouts.`）。历史持久化早已实测：重启后 cutout 原样回来。**仍需维护者本机确认的只剩两项**：开机自启开关在真实签名包上的行为（ad-hoc 包上的 `SMAppService` 结果不算数），以及拖出到别的 app——自动化驱不动 macOS 拖放，这条只有人手能验。
 - 交互现状：状态项本身是拖放目标 → 落下即开 shelf 面板（非激活 borderless NSPanel，网格内占位卡原地变结果卡）；预览面板贴 shelf 旁开、层级在其之上、顶部 44pt 条带可拖、关闭按钮常驻；shelf 底栏 `macwindow` 开主窗口——标准标题栏、一列 batch 行（缩略图 + 文件名 + 尺寸，hover 出 Copy/Save，整行可拖出）、多张时显示按整图计数的进度条、底栏 `Export All…`。
 - 打包：`./Scripts/bundle.sh` 产出可运行的 `Pluck.app`（Info.plist / 编译后的 String Catalog / icns / ad-hoc 签名），1.9 MB。
 - **发布链路已全程跑通（2026-07-27）**：`./Scripts/release.sh` 一次通过——Developer ID 签名（hardened runtime + timestamp）→ notarytool `Accepted`（提交 `7f7651b9`）→ stapler → 重新打包 → `spctl` 判定 `accepted / source=Notarized Developer ID`。zip 解压到别处二次判定同样通过，`stapler validate` 通过（票据已内嵌，用户首次启动不需要网络），启动 + SIGUSR1 实测存活。产物 `.build/Pluck.zip`，1.9 MB。
