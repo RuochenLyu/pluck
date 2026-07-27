@@ -25,6 +25,10 @@ struct PendingItem: Identifiable, Equatable, Sendable {
     }
 
     let id: UUID
+    /// What the user called it. The grid never shows this — a 92pt tile has no room — but
+    /// the batch list is a list of *files*, and a row that cannot say which one it is
+    /// leaves the user counting positions to work out which of forty failed.
+    let name: String
     /// The *input* thumbnail, filled in once the worker has decoded it — nil for the first
     /// few frames, and permanently nil if the bytes were not an image at all.
     var thumbnail: Data?
@@ -34,6 +38,28 @@ struct PendingItem: Identifiable, Equatable, Sendable {
         guard case .failed(let reason) = state else { return nil }
         return reason
     }
+}
+
+/// How far a multi-image drop has got. Counted in whole images because that is the only
+/// unit anyone can measure: Vision reports no progress inside a single request, so a
+/// per-image percentage would be an animation pretending to be information.
+struct BatchProgress: Equatable, Sendable {
+    var total: Int
+    var done: Int
+
+    var fraction: Double { total == 0 ? 0 : Double(done) / Double(total) }
+}
+
+/// A sentence for the status line, and whether it is bad news. Export writes here too, so
+/// the line cannot assume everything it carries is a complaint.
+struct StatusLine: Equatable, Sendable {
+    enum Kind: Equatable, Sendable {
+        case info
+        case warning
+    }
+
+    let kind: Kind
+    let text: String
 }
 
 @MainActor
@@ -52,7 +78,13 @@ final class AppModel {
     /// a red rim and nothing more; the reason needs a sentence, and the hint strip is the
     /// only place in v0.1 wide enough to hold one — it is also where the eye already is
     /// after a drop.
-    private(set) var statusMessage: String?
+    private(set) var status: StatusLine?
+
+    var statusMessage: String? { status?.text }
+
+    /// Non-nil while a drop is being worked through. Only shown for more than one image:
+    /// a single row's own spinner already says everything a "0 of 1 done" bar would.
+    private(set) var batch: BatchProgress?
 
     private(set) var feedback: StatusFeedback = .idle {
         didSet { onFeedbackChange?(feedback) }
@@ -115,7 +147,7 @@ final class AppModel {
     // MARK: - Entry points
 
     func pluckClipboard() {
-        let ticket = beginWork()
+        let ticket = beginWork(name: L.s("Clipboard image"))
         let plucker = ClipboardPlucker(pasteboard: pasteboard, process: process)
         // The weak capture is hoisted into its own `@Sendable` closure: a `[weak self]`
         // binding is implicitly mutable, and Swift 6 refuses to let a nested concurrent
@@ -133,7 +165,7 @@ final class AppModel {
     func handleDrop(_ payloads: [DroppedPayload]) {
         let process = process
         for payload in payloads {
-            let ticket = beginWork()
+            let ticket = beginWork(name: payload.displayName)
             Task.detached(priority: .userInitiated) { [weak self] in
                 let thumbnail = await PluckService.inputThumbnail(of: payload)
                 let accepted = await self?.accept(input: payload.bytes, thumbnail: thumbnail, ticket: ticket)
@@ -166,7 +198,7 @@ final class AppModel {
         // a write that failed when the entry was made. Silently copying nothing would be
         // the worst of the three possible outcomes.
         guard let data = item.pngData() else {
-            report(PluckFailure.fileGone.message)
+            report(.warning, PluckFailure.fileGone.message)
             flash(.failure)
             return
         }
@@ -176,7 +208,7 @@ final class AppModel {
 
     func save(_ item: RecentItem) {
         guard let data = item.pngData() else {
-            report(PluckFailure.fileGone.message)
+            report(.warning, PluckFailure.fileGone.message)
             flash(.failure)
             return
         }
@@ -196,6 +228,74 @@ final class AppModel {
         }
     }
 
+    /// Writes every cutout in the list into one directory.
+    ///
+    /// A directory picker rather than a silent write to the remembered folder: twenty files
+    /// appearing somewhere the user has to remember choosing, months ago, is not a
+    /// convenience. Remembering the folder makes the picker open where it opened last,
+    /// which is the part that was actually tedious.
+    func exportAll() {
+        let items = recents.items
+        guard !items.isEmpty else { return }
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.allowsMultipleSelection = false
+        panel.canCreateDirectories = true
+        panel.title = L.s("Export cutouts")
+        panel.message = L.s("Choose a folder for the cutouts")
+        panel.prompt = L.s("Export")
+        if let remembered = preferences?.exportDirectory {
+            panel.directoryURL = remembered
+        }
+        NSApp.activate()
+        guard panel.runModal() == .OK, let directory = panel.url else { return }
+        preferences?.exportDirectory = directory
+        // Oldest first, so that when two cutouts want the same filename the numbering runs
+        // in the order the images were plucked rather than backwards.
+        let ordered = items.reversed().map { $0 }
+        Task.detached(priority: .userInitiated) { [weak self] in
+            let written = Self.write(ordered, into: directory)
+            await self?.reportExport(written: written, of: ordered.count)
+        }
+    }
+
+    private func reportExport(written: Int, of total: Int) {
+        if written == total {
+            report(.info, String(format: L.s("Exported %d cutouts."), written))
+            flash(.success)
+        } else {
+            report(.warning, String(format: L.s("Exported %1$d of %2$d — the rest could not be written."), written, total))
+            flash(.failure)
+        }
+    }
+
+    /// Returns how many landed. Nonisolated because twenty PNGs is enough writing to be
+    /// felt on the main actor, and the panel has already closed by the time it starts.
+    private nonisolated static func write(_ items: [RecentItem], into directory: URL) -> Int {
+        items.reduce(into: 0) { written, item in
+            guard let data = item.pngData() else { return }
+            let url = availableURL(in: directory, name: item.suggestedName)
+            guard (try? data.write(to: url, options: .atomic)) != nil else { return }
+            written += 1
+        }
+    }
+
+    /// Never overwrites. Two plucks of two different `IMG_0042.jpg`s from two folders is
+    /// the ordinary case, not the exotic one, and silently keeping only the second would
+    /// destroy work the user cannot get back.
+    nonisolated static func availableURL(in directory: URL, name: String) -> URL {
+        func candidate(_ suffix: String) -> URL {
+            directory.appendingPathComponent(name + suffix).appendingPathExtension("png")
+        }
+        let first = candidate("")
+        guard FileManager.default.fileExists(atPath: first.path) else { return first }
+        for n in 2...999 where !FileManager.default.fileExists(atPath: candidate(" \(n)").path) {
+            return candidate(" \(n)")
+        }
+        return candidate(" \(UUID().uuidString)")
+    }
+
     /// No confirmation sheet: Clear is one press and the grid is not a library. The files
     /// go with the entries — they are cutouts of the user's photos, and keeping them after
     /// an explicit "clear" would quietly contradict the privacy claim.
@@ -213,13 +313,19 @@ final class AppModel {
     // MARK: - Bookkeeping
 
     /// Returns the ticket that ties a placeholder cell to the worker that will replace it.
-    private func beginWork() -> UUID {
+    private func beginWork(name: String) -> UUID {
+        // A batch is "everything queued while something was still queued". Dropping ten
+        // files calls this ten times in one turn of the run loop, so the first call starts
+        // the count and the other nine join it; a drop that arrives after the list has
+        // drained starts a fresh one rather than resuming a finished total.
+        if pendingItems.isEmpty { batch = BatchProgress(total: 0, done: 0) }
+        batch?.total += 1
         inFlight += 1
         feedback = .busy
         // A new attempt supersedes the last complaint. Leaving it up would let a stale
         // "no subject found" sit over a drop that is going perfectly well.
         clearStatus()
-        let pending = PendingItem(id: UUID())
+        let pending = PendingItem(id: UUID(), name: name)
         withAnimation(.easeOut(duration: 0.18)) {
             pendingItems.insert(pending, at: 0)
         }
@@ -251,6 +357,10 @@ final class AppModel {
 
     private func finish(ticket: UUID, outcome: PluckOutcome, processed: ProcessedImage?) {
         inFlight = max(0, inFlight - 1)
+        // Every exit from here is one image resolved, including the ones that failed and
+        // the ones that turned out to be duplicates. A bar that only counted successes
+        // would stall short of full on a batch with one bad file in it and never explain why.
+        batch?.done += 1
         // Nothing was produced and nothing went wrong: the entry this job would have
         // duplicated is already flashing its border, which is the whole answer.
         if case .superseded = outcome {
@@ -301,7 +411,7 @@ final class AppModel {
     /// never having registered; the rim alone would be indistinguishable from any other
     /// failure.
     private func fail(_ ticket: UUID, reason: PluckFailure) {
-        report(reason.message)
+        report(.warning, reason.message)
         guard let index = pendingItems.firstIndex(where: { $0.id == ticket }) else { return }
         pendingItems[index].state = .failed(reason)
         Task { @MainActor in
@@ -317,21 +427,21 @@ final class AppModel {
     /// Shown until superseded or until it has had time to be read. Not sticky: an error
     /// that outlives the situation that produced it is worse than none, because the user
     /// starts distrusting the line it sits in.
-    private func report(_ message: String) {
+    private func report(_ kind: StatusLine.Kind, _ message: String) {
         statusToken += 1
         let token = statusToken
-        withAnimation(.easeOut(duration: 0.18)) { statusMessage = message }
+        withAnimation(.easeOut(duration: 0.18)) { status = StatusLine(kind: kind, text: message) }
         Task { @MainActor in
             try? await Task.sleep(nanoseconds: 6_000_000_000)
             guard token == self.statusToken else { return }
-            withAnimation(.easeOut(duration: 0.25)) { self.statusMessage = nil }
+            withAnimation(.easeOut(duration: 0.25)) { self.status = nil }
         }
     }
 
     private func clearStatus() {
         statusToken += 1
-        guard statusMessage != nil else { return }
-        withAnimation(.easeOut(duration: 0.18)) { statusMessage = nil }
+        guard status != nil else { return }
+        withAnimation(.easeOut(duration: 0.18)) { status = nil }
     }
 
     private func highlight(_ id: UUID) {

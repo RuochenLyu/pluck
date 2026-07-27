@@ -1,6 +1,28 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "%1$d of %2$d done": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d of %2$d done"
+          }
+        }
+      }
+    },
+    "100% offline — photos never leave this Mac": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "100% offline — photos never leave this Mac"
+          }
+        }
+      }
+    },
     "About Pluck": {
       "extractionState": "manual",
       "localizations": {
@@ -23,6 +45,17 @@
         }
       }
     },
+    "Choose a folder for the cutouts": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose a folder for the cutouts"
+          }
+        }
+      }
+    },
     "Clear": {
       "extractionState": "manual",
       "localizations": {
@@ -41,6 +74,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Clear recent cutouts"
+          }
+        }
+      }
+    },
+    "Clipboard image": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clipboard image"
           }
         }
       }
@@ -100,6 +144,17 @@
         }
       }
     },
+    "Drop images here": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Drop images here"
+          }
+        }
+      }
+    },
     "Drop or paste images here": {
       "extractionState": "manual",
       "localizations": {
@@ -107,6 +162,72 @@
           "stringUnit": {
             "state": "translated",
             "value": "Drop or paste images here"
+          }
+        }
+      }
+    },
+    "Dropped image": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dropped image"
+          }
+        }
+      }
+    },
+    "Export": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Export"
+          }
+        }
+      }
+    },
+    "Export All…": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Export All…"
+          }
+        }
+      }
+    },
+    "Export cutouts": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Export cutouts"
+          }
+        }
+      }
+    },
+    "Exported %1$d of %2$d — the rest could not be written.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Exported %1$d of %2$d — the rest could not be written."
+          }
+        }
+      }
+    },
+    "Exported %d cutouts.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Exported %d cutouts."
           }
         }
       }
@@ -173,6 +294,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "No subject found in this image."
+          }
+        }
+      }
+    },
+    "Open main window": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open main window"
           }
         }
       }
@@ -349,6 +481,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "lift subjects out of photos. Offline, free, open source."
+          }
+        }
+      }
+    },
+    "or press ⌘V to paste": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "or press ⌘V to paste"
           }
         }
       }

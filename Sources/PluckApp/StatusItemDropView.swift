@@ -77,6 +77,16 @@ enum DroppedPayload: Sendable, Equatable {
         }
     }
 
+    /// What the batch list calls this row. A dropped file has a name; a dragged bitmap
+    /// never did, and inventing one from its bytes would be worse than saying where it
+    /// came from.
+    var displayName: String {
+        switch self {
+        case .file(let url): url.lastPathComponent
+        case .data: L.s("Dropped image")
+        }
+    }
+
     /// File URLs before bitmap flavors, always: a dragged file carries its original
     /// encoding *and* its name, and the name is what the save panel and the preview's
     /// title capsule show. SwiftUI's `onDrop` cannot do this — it hands back a provider

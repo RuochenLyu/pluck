@@ -15,6 +15,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let shelf = ShelfPanelController()
     private lazy var preview = PreviewPanelController(preferences: preferences)
     private let settings = SettingsWindowController()
+    private let mainWindow = MainWindowController()
 
     /// Set when a click already dismissed the shelf, so the status item's own `mouseDown`
     /// does not turn around and reopen what that same click just closed.
@@ -107,17 +108,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // A click inside one of our own windows is not a dismissal. That covers the shelf
         // itself and also the preview and save panels, which are opened *from* the shelf —
         // pulling it out from under them would read as a glitch, not as a dismissal.
-        if window != nil && !isStatusItem { return }
+        //
+        // The main window is the exception: it is not an auxiliary of the shelf but the
+        // other half of the app, and the shelf floats above every window we own. Leaving it
+        // up would park a 340pt panel over the thing the user just clicked on.
+        if window != nil && !isStatusItem && !mainWindow.owns(window) { return }
         shelf.close()
         swallowIconClick = isStatusItem
     }
 
     private func handleKey(_ event: NSEvent) -> Bool {
-        guard shelf.isVisible,
-              event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command,
-              event.window === shelf.panel
-        else { return false }
-        switch event.charactersIgnoringModifiers?.lowercased() {
+        guard event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command else { return false }
+        let key = event.charactersIgnoringModifiers?.lowercased()
+        // The main window has real chrome but still no menu bar, so ⌘W has nothing to
+        // dispatch it: `performClose(_:)` is reachable only through a File menu this app
+        // does not have. Same story for ⌘V.
+        if mainWindow.owns(event.window) {
+            switch key {
+            case "v":
+                model.pluckClipboard()
+                return true
+            case "w":
+                mainWindow.close()
+                return true
+            default:
+                return false
+            }
+        }
+        guard shelf.isVisible, event.window === shelf.panel else { return false }
+        switch key {
         case "v":
             model.pluckClipboard()
             return true
@@ -158,9 +177,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 dropTarget: shelf.dropTarget,
                 onQuit: { NSApp.terminate(nil) },
                 onAbout: { [weak self] in self?.showAbout() },
-                onSettings: { [weak self] in self?.showSettings() }
+                onSettings: { [weak self] in self?.showSettings() },
+                onMainWindow: { [weak self] in self?.showMainWindow() }
             )
         )
+        mainWindow.onDrop = { [weak self] payloads in self?.model.handleDrop(payloads) }
+    }
+
+    private func showMainWindow() {
+        shelf.close()
+        mainWindow.show(model: model)
     }
 
     /// Opening only. Closing is the dismiss monitor's job, and it has already run for this

@@ -17,6 +17,7 @@ final class Preferences {
         static let keepsHistory = "pluck.keepsHistory"
         static let previewOriginX = "pluck.preview.x"
         static let previewOriginY = "pluck.preview.y"
+        static let exportDirectory = "pluck.exportDirectory"
     }
 
     /// Whether finished cutouts survive a quit. On by default: the grid is the app's only
@@ -41,6 +42,21 @@ final class Preferences {
             }
             defaults.set(Double(point.x), forKey: Key.previewOriginX)
             defaults.set(Double(point.y), forKey: Key.previewOriginY)
+        }
+    }
+
+    /// Where Export All last put things, so the picker opens there again. A plain path,
+    /// not a security-scoped bookmark: Pluck is not sandboxed, and a bookmark would buy
+    /// nothing but a blob nobody can read. A folder that has since been deleted or
+    /// unmounted reads back as nil rather than sending the panel somewhere that no longer
+    /// exists.
+    var exportDirectory: URL? {
+        didSet {
+            guard let directory = exportDirectory else {
+                defaults.removeObject(forKey: Key.exportDirectory)
+                return
+            }
+            defaults.set(directory.path, forKey: Key.exportDirectory)
         }
     }
 
@@ -79,6 +95,10 @@ final class Preferences {
         defaults.register(defaults: [Key.keepsHistory: true])
         keepsHistory = defaults.bool(forKey: Key.keepsHistory)
         launchesAtLogin = service?.status == .enabled
+        if let path = defaults.string(forKey: Key.exportDirectory),
+           FileManager.default.fileExists(atPath: path) {
+            exportDirectory = URL(fileURLWithPath: path, isDirectory: true)
+        }
         if defaults.object(forKey: Key.previewOriginX) != nil {
             previewTopLeft = CGPoint(
                 x: defaults.double(forKey: Key.previewOriginX),

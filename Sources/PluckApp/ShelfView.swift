@@ -21,6 +21,10 @@ struct ShelfView: View {
     /// there was nothing to configure; history, login item and the offline statement are
     /// enough to earn it.
     var onSettings: () -> Void
+    /// The way to the batch window. The shelf is a 340pt panel that dismisses on any click
+    /// outside itself — fine for one image, wrong for forty rows the user wants to work
+    /// through — so the two surfaces need a door between them.
+    var onMainWindow: () -> Void
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 10), count: 3)
 
@@ -53,9 +57,9 @@ struct ShelfView: View {
     /// advice the user has visibly just finished taking.
     private var dropHint: some View {
         HStack(spacing: 10) {
-            Image(systemName: model.statusMessage == nil ? "square.and.arrow.down.on.square" : "exclamationmark.triangle.fill")
+            Image(systemName: hintSymbol)
                 .font(.system(size: 15, weight: .regular))
-                .foregroundStyle(model.statusMessage == nil ? AnyShapeStyle(.secondary) : AnyShapeStyle(.red))
+                .foregroundStyle(model.status?.kind == .warning ? AnyShapeStyle(.red) : AnyShapeStyle(.secondary))
             Text(model.statusMessage ?? L.s("Drop or paste images here"))
                 .font(.callout)
                 .foregroundStyle(.secondary)
@@ -69,6 +73,16 @@ struct ShelfView: View {
         .padding(.horizontal, 12)
         .padding(.top, 12)
         .accessibilityElement(children: .combine)
+    }
+
+    /// Export All reports through this line too, so "there is a message" no longer implies
+    /// "something went wrong" — the kind decides the glyph.
+    private var hintSymbol: String {
+        switch model.status?.kind {
+        case .warning: "exclamationmark.triangle.fill"
+        case .info: "checkmark.circle"
+        case nil: "square.and.arrow.down.on.square"
+        }
     }
 
     private var recentHeader: some View {
@@ -139,7 +153,9 @@ struct ShelfView: View {
                 .foregroundStyle(.secondary)
                 .keyboardShortcut("q", modifiers: .command)
             Spacer(minLength: 8)
+            GlassCircleButton(symbol: "macwindow", label: L.s("Open main window"), action: onMainWindow)
             GlassCircleButton(symbol: "info.circle", label: L.s("About Pluck"), action: onAbout)
+                .padding(.leading, 6)
             GlassCircleButton(symbol: "gearshape", label: L.s("Settings"), action: onSettings)
                 .padding(.leading, 6)
         }

@@ -5,9 +5,9 @@
 
 ## 当前状态（2026-07-27 深夜）
 
-- 阶段：**v0.1 全部完成、发布链路跑通；v0.2 第一批已落地**（磁盘化 + 历史持久化 + 偏好存储 + Settings 窗口）。PluckKit（VisionEngine/Compositor/ImageLoader/**PluckPipeline**）、`pluck` CLI、PluckApp 菜单栏 MVP、CC0 测试图片集全部落地，**129 测试全绿**，Swift 6 零 warning。
-- **v0.2 第一批未经人眼验收**：Settings 窗口的实际外观、开机自启开关在真实签名包上的行为，以及拖出到别的 app（自动化驱不动 macOS 拖放），都要维护者本机确认。历史持久化本身已实测：重启后格子里的 cutout 原样回来，`index.json` 与三文件目录都在。
-- 交互现状：状态项本身是拖放目标 → 落下即开 shelf 面板（非激活 borderless NSPanel，网格内占位卡原地变结果卡）；预览面板贴 shelf 旁开、层级在其之上、顶部 44pt 条带可拖、关闭按钮常驻。
+- 阶段：**v0.1 全部完成、发布链路跑通；v0.2 第一、二批已落地**（磁盘化 + 历史持久化 + 偏好存储 + Settings 窗口；并发闸 + 主窗口批量队列）。PluckKit（VisionEngine/Compositor/ImageLoader/**PluckPipeline**/**PluckQueue**）、`pluck` CLI、PluckApp 菜单栏 + 主窗口、CC0 测试图片集全部落地，**144 测试全绿**，Swift 6 零 warning。
+- **v0.2 未经人眼验收**：Settings 窗口与主窗口的实际外观、开机自启开关在真实签名包上的行为，以及拖出到别的 app（自动化驱不动 macOS 拖放），都要维护者本机确认——这台机器 23:57 起处于锁屏状态，截图全黑，不是"看过觉得还行"而是**根本没看**。历史持久化本身已实测：重启后格子里的 cutout 原样回来，`index.json` 与三文件目录都在。
+- 交互现状：状态项本身是拖放目标 → 落下即开 shelf 面板（非激活 borderless NSPanel，网格内占位卡原地变结果卡）；预览面板贴 shelf 旁开、层级在其之上、顶部 44pt 条带可拖、关闭按钮常驻；shelf 底栏 `macwindow` 开主窗口——标准标题栏、一列 batch 行（缩略图 + 文件名 + 尺寸，hover 出 Copy/Save，整行可拖出）、多张时显示按整图计数的进度条、底栏 `Export All…`。
 - 打包：`./Scripts/bundle.sh` 产出可运行的 `Pluck.app`（Info.plist / 编译后的 String Catalog / icns / ad-hoc 签名），1.9 MB。
 - **发布链路已全程跑通（2026-07-27）**：`./Scripts/release.sh` 一次通过——Developer ID 签名（hardened runtime + timestamp）→ notarytool `Accepted`（提交 `7f7651b9`）→ stapler → 重新打包 → `spctl` 判定 `accepted / source=Notarized Developer ID`。zip 解压到别处二次判定同样通过，`stapler validate` 通过（票据已内嵌，用户首次启动不需要网络），启动 + SIGUSR1 实测存活。产物 `.build/Pluck.zip`，1.9 MB。
 - 签名身份：`Developer ID Application: Ruochen Lyu (B4BJ3QY8T2)`；Bundle ID `com.aix4u.pluck`（decisions.md 2026-07-27）；公证 keychain profile 名 `pluck-notary`。
@@ -17,7 +17,7 @@
 ## 里程碑
 
 - **v0.1（MVP，目标 1–2 周业余时间）**：PluckKit(VisionEngine) + CLI + 菜单栏拖放 + popover ⌘V 剪贴板闭环 + 结果预览滑块。签名 + notarize + GitHub Release + tap。
-- **v0.2**：~~历史持久化 + Settings~~ ✅、主窗口批量队列、结果浮层、Finder Quick Action、Sparkle。
+- **v0.2**：~~历史持久化 + Settings~~ ✅、~~主窗口批量队列~~ ✅、结果浮层、Finder Quick Action、Sparkle。
 - **v0.3**：CoreMLEngine + BiRefNet_lite 转换与按需下载、对比滑块、SKILL.md 定稿。
 - **v1.0**：边缘 decontamination 打磨、发丝 before/after 营销图、README/官网、发 HN + 少数派/V2EX。
 
@@ -38,5 +38,5 @@
 
 - **BiRefNet_lite → Core ML 转换是最大不确定项**（自转，无现成 mlpackage）：属 v0.3 范围但建议骨架搭好后尽早做 time-boxed spike（一两天）验证可行性并拿到真实体积数字；spike 之前"140 MB"不得写进面向用户的文案。不阻塞 v0.1。
 - **Vision API 需 macOS 14+**：系统要求写清楚，不做旧系统兼容。
-- **VisionEngine 的 `handler.perform` 是同步调用，会阻塞 async 协作线程**：单张场景（v0.1）可接受；v0.2 主窗口批量队列动工前需决定是否移到专用 executor。
+- ~~**VisionEngine 的 `handler.perform` 是同步调用，会阻塞 async 协作线程**~~ ✅ 2026-07-27：`mask(for:)` 去掉 `async`（那件外套只是藏起了它阻塞的是谁），整条管线改在 `PluckQueue` 上跑——一个既限流（宽度 2–4）又换线程（私有并发 `DispatchQueue`）的 actor。批量拖放的内存上限从此由我们定，而不是由用户选了多少张文件决定（decisions.md 同日）。
 - **测试图片集**（发丝/毛发/玻璃/多主体/无主体/超大图）在 v0.1 期间攒齐——VisionEngine QA 即用，也是未来双引擎对比基准。
