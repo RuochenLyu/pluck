@@ -98,3 +98,10 @@
 - **决策**：`finish` 用占位卡的 ticket UUID 作为 `RecentItem.id`（不再新生成）；`ShelfView` 把 `pendingItems + recents.items` 合成一个 `ShelfCell` 列表，用**单个 `ForEach`** 渲染。
 - **背景**：占位卡完成时肉眼可见"位置变了"（用户实测）。原因是两个并列 `ForEach` 跨两个数组、两套 UUID：完成 = 从 A 删除 + 向 B 插入，SwiftUI 没有理由认为这是同一个格子，只能把它当成一次删除加一次无关插入来动画。
 - **理由**："原地交叉淡出"（见上方处理中反馈一条）不是动画参数问题，是身份问题——身份跨越状态迁移存活，SwiftUI 才会把它当成同一格的内容变化。身份继承由测试锁定（`testResultInheritsThePlaceholderIdentity`），否则以后有人随手改回 `UUID()` 不会有任何报错。
+
+## 2026-07-27 — 无边框面板的拖动：顶部 44pt 条带作为标题栏
+
+- **决策**：预览面板顶部 44pt（宽度止于关闭按钮前 44pt）是窗口拖动区，由一个 `mouseDownCanMoveWindow` 返回 true 的 `NSView`（`WindowDragHandle`）实现；标题胶囊设 `allowsHitTesting(false)`，让点击落到下面的条带上。图片区域仍然整块归 before/after 擦除手势。
+- **排除**：`isMovableByWindowBackground`（图片区被 SwiftUI 的 `DragGesture` 全部吃掉，等于没有可拖区）；把擦除限制到滑块把手上换取整图可拖（牺牲的是这个面板存在的理由）；`WindowDragGesture`（macOS 15，部署目标是 14）。
+- **背景**：§4.7 规则 ④ 拿掉了系统标题栏，但没有把标题栏**能拖**这件事还回来（用户实测：预览窗口不能拖拽移动）。
+- **理由**：自绘 chrome 要连同它的行为一起自绘。条带避开关闭按钮是因为拖动区与控件重叠时谁接到 mouseDown 是掷硬币，输的一方是一个画得出来、亮得起来、但永远不触发的按钮；这条几何约束有测试（`PreviewDragRegionTests`，断言的是区域 frame 而非 hit-test——`NSHostingView.hitTest` 需要真实窗口才会去查 SwiftUI 自己的命中树）。

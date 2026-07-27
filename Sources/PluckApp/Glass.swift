@@ -58,6 +58,19 @@ struct GlassCircleButton: View {
     }
 }
 
+/// An area that drags its window, for panels that drew their own chrome and so have no
+/// title bar to grab. `WindowDragGesture` would do this in one line — it is macOS 15, and
+/// the deployment target is 14. A view that answers yes to `mouseDownCanMoveWindow` is
+/// what a title bar is underneath anyway.
+struct WindowDragHandle: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSView { DragRegion() }
+    func updateNSView(_ nsView: NSView, context: Context) {}
+
+    private final class DragRegion: NSView {
+        override var mouseDownCanMoveWindow: Bool { true }
+    }
+}
+
 /// Material pill for a label floating over content — rule ④ of §4.7: no system title bar,
 /// the title rides on top of the image instead.
 struct GlassCapsule<Content: View>: View {

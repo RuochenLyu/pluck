@@ -168,7 +168,11 @@ struct CutoutPreviewView: View {
 
     var body: some View {
         comparison
-            .overlay(alignment: .topLeading) { titleCapsule.padding(10) }
+            .overlay(alignment: .top) { dragBand }
+            // Transparent to the mouse so the drag band underneath keeps the whole strip:
+            // a label that visibly *is* the title bar but refuses to drag would be worse
+            // than no handle at all.
+            .overlay(alignment: .topLeading) { titleCapsule.padding(10).allowsHitTesting(false) }
             .overlay(alignment: .topTrailing) { closeButton.padding(10) }
             .overlay(alignment: .bottom) { toolbar }
             .onHover { on in
@@ -226,6 +230,20 @@ struct CutoutPreviewView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    /// The strip the title rides on is the title bar, so it drags the window — that is the
+    /// habit §4.7 rule ④ has to pay for when it takes the system one away. It sits above
+    /// the wipe gesture, which gives up its top 44pt; below that the whole image still
+    /// scrubs, which is the interaction worth protecting.
+    private var dragBand: some View {
+        HStack(spacing: 0) {
+            WindowDragHandle()
+            // Stops short of the close button. Overlapping a control with a drag region is
+            // a hit-testing coin flip, and the losing side is a button that does nothing.
+            Spacer(minLength: 0).frame(width: 44)
+        }
+        .frame(height: 44)
     }
 
     private var titleCapsule: some View {
