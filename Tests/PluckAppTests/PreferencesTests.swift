@@ -22,18 +22,18 @@ final class PreferencesTests: XCTestCase {
     /// one on every launch makes the work feel disposable — the bytes are on this Mac
     /// either way, which is the part the privacy promise is actually about.
     func testHistoryIsOnUntilTheUserSaysOtherwise() {
-        XCTAssertTrue(Preferences(defaults: defaults, service: nil).keepsHistory)
+        XCTAssertTrue(Preferences(defaults: defaults).keepsHistory)
     }
 
     func testTheChoiceOutlivesTheProcess() {
-        Preferences(defaults: defaults, service: nil).keepsHistory = false
-        XCTAssertFalse(Preferences(defaults: defaults, service: nil).keepsHistory)
+        Preferences(defaults: defaults).keepsHistory = false
+        XCTAssertFalse(Preferences(defaults: defaults).keepsHistory)
     }
 
     /// Read per cutout, not cached: flipping the switch has to change where the *next*
     /// drop lands, not where the next launch's drops land.
     func testTheArchiveFollowsThePreferenceImmediately() {
-        let preferences = Preferences(defaults: defaults, service: nil)
+        let preferences = Preferences(defaults: defaults)
         XCTAssertEqual(preferences.archive.root, CutoutArchive.history.root)
         preferences.keepsHistory = false
         XCTAssertEqual(preferences.archive.root, CutoutArchive.session.root)
@@ -43,26 +43,19 @@ final class PreferencesTests: XCTestCase {
     /// Two plain numbers rather than an archived `CGPoint`: a preference nobody can read
     /// with `defaults read` is a preference nobody can debug.
     func testThePreviewCornerRoundTripsAsNumbers() {
-        let preferences = Preferences(defaults: defaults, service: nil)
+        let preferences = Preferences(defaults: defaults)
         XCTAssertNil(preferences.previewTopLeft)
         preferences.previewTopLeft = CGPoint(x: 120, y: 800)
 
         XCTAssertEqual(defaults.double(forKey: "pluck.preview.x"), 120)
-        XCTAssertEqual(Preferences(defaults: defaults, service: nil).previewTopLeft, CGPoint(x: 120, y: 800))
+        XCTAssertEqual(Preferences(defaults: defaults).previewTopLeft, CGPoint(x: 120, y: 800))
     }
 
     func testClearingThePreviewCornerForgetsItEntirely() {
-        let preferences = Preferences(defaults: defaults, service: nil)
+        let preferences = Preferences(defaults: defaults)
         preferences.previewTopLeft = CGPoint(x: 1, y: 2)
         preferences.previewTopLeft = nil
-        XCTAssertNil(Preferences(defaults: defaults, service: nil).previewTopLeft)
+        XCTAssertNil(Preferences(defaults: defaults).previewTopLeft)
     }
 
-    /// `SMAppService.mainApp` on a bare `swift build` executable would register a login
-    /// item pointing at a build directory. The switch says so instead of doing that.
-    func testLaunchAtLoginIsUnavailableWithoutABundle() {
-        let preferences = Preferences(defaults: defaults, service: nil)
-        XCTAssertFalse(preferences.canLaunchAtLogin)
-        XCTAssertFalse(preferences.launchesAtLogin)
-    }
 }

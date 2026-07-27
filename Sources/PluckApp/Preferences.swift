@@ -1,6 +1,5 @@
 import Foundation
 import Observation
-import ServiceManagement
 
 /// Everything the app remembers about how the user wants it to behave. Small on purpose:
 /// each entry here is a promise to keep honouring a choice across launches, and an app
@@ -60,41 +59,12 @@ final class Preferences {
         }
     }
 
-    /// Reflects `SMAppService`, which is the only place this actually lives — writing our
-    /// own copy would let the two disagree the moment the user removes the login item in
-    /// System Settings. The setter reverts on failure so the switch never claims a state
-    /// the system did not accept.
-    var launchesAtLogin: Bool {
-        didSet {
-            guard launchesAtLogin != oldValue, let service else { return }
-            do {
-                try launchesAtLogin ? service.register() : service.unregister()
-            } catch {
-                loginItemError = error.localizedDescription
-                launchesAtLogin = oldValue
-                return
-            }
-            loginItemError = nil
-        }
-    }
-
-    /// Non-nil when the last attempt to change the login item failed — surfaced in
-    /// Settings, because a toggle that snaps back with no explanation is worse than one
-    /// that does not exist. The common cause is running an unbundled build: there is no
-    /// `.app` for the system to launch.
-    private(set) var loginItemError: String?
-
     private let defaults: UserDefaults
-    /// nil in the test suite and in `swift run` builds: `SMAppService.mainApp` on a bare
-    /// executable registers a login item pointing at a build directory.
-    private let service: SMAppService?
 
-    init(defaults: UserDefaults = .standard, service: SMAppService? = Preferences.bundledService) {
+    init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
-        self.service = service
         defaults.register(defaults: [Key.keepsHistory: true])
         keepsHistory = defaults.bool(forKey: Key.keepsHistory)
-        launchesAtLogin = service?.status == .enabled
         if let path = defaults.string(forKey: Key.exportDirectory),
            FileManager.default.fileExists(atPath: path) {
             exportDirectory = URL(fileURLWithPath: path, isDirectory: true)
@@ -106,15 +76,6 @@ final class Preferences {
             )
         }
     }
-
-    private static var bundledService: SMAppService? {
-        Bundle.main.bundleIdentifier != nil && Bundle.main.bundleURL.pathExtension == "app"
-            ? .mainApp
-            : nil
-    }
-
-    /// Whether the login-item switch can do anything at all on this build.
-    var canLaunchAtLogin: Bool { service != nil }
 
     /// The archive new cutouts should be written to. Reading it per cutout rather than
     /// caching it is deliberate: flipping the preference has to take effect on the next

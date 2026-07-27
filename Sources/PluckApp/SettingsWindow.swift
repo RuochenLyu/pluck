@@ -42,7 +42,7 @@ final class SettingsWindowController {
     }
 }
 
-/// One pane, four rows. The tabbed toolbar §4.7 calls for arrives with the models pane in
+/// One pane, three rows. The tabbed toolbar §4.7 calls for arrives with the models pane in
 /// v0.3; tabs over a single pane are chrome for its own sake.
 struct SettingsView: View {
     let model: AppModel
@@ -64,19 +64,6 @@ struct SettingsView: View {
                     .disabled(model.recents.items.isEmpty)
             } header: {
                 Text(L.s("History"))
-            }
-
-            Section {
-                Toggle(L.s("Launch Pluck at login"), isOn: $preferences.launchesAtLogin)
-                    .disabled(!preferences.canLaunchAtLogin)
-                if let error = preferences.loginItemError {
-                    Text(error)
-                        .font(.callout)
-                        .foregroundStyle(.red)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            } header: {
-                Text(L.s("General"))
             }
 
             Section {

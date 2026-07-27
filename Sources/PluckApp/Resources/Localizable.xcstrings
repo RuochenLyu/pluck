@@ -232,17 +232,6 @@
         }
       }
     },
-    "General": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "General"
-          }
-        }
-      }
-    },
     "History": {
       "extractionState": "manual",
       "localizations": {
@@ -261,17 +250,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Keep recent cutouts between launches"
-          }
-        }
-      }
-    },
-    "Launch Pluck at login": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Launch Pluck at login"
           }
         }
       }
