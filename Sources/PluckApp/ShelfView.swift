@@ -16,7 +16,10 @@ struct ShelfView: View {
     /// dropping on the surface already under it.
     let dropTarget: DropTarget
     var onQuit: () -> Void
-    var onSettings: () -> Void
+    /// About, not Settings. v0.1 has nothing to configure — the engine is fixed, the output
+    /// format is fixed, and there is no shortcut to rebind — so a gear here would be a
+    /// control that promises a surface the app does not have.
+    var onAbout: () -> Void
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 10), count: 3)
 
@@ -135,7 +138,7 @@ struct ShelfView: View {
                 .foregroundStyle(.secondary)
                 .keyboardShortcut("q", modifiers: .command)
             Spacer(minLength: 8)
-            GlassCircleButton(symbol: "gearshape", label: L.s("Settings"), action: onSettings)
+            GlassCircleButton(symbol: "info.circle", label: L.s("About Pluck"), action: onAbout)
         }
         .padding(.horizontal, 14)
         .frame(height: Self.barHeight)

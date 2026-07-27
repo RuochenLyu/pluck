@@ -47,6 +47,30 @@ final class PreviewPlacementTests: XCTestCase {
         XCTAssertEqual(frame.midY, visible.midY)
     }
 
+    /// The corner the user dragged the panel to is the corner it comes back to, even though
+    /// the next cutout is a different shape and the frame therefore grows from a different
+    /// bottom edge. Remembering the origin instead would slide the panel down the screen.
+    func testARememberedCornerSurvivesAResize() {
+        let topLeft = NSPoint(x: 300, y: 800)
+        let tall = CGSize(width: 340, height: 560)
+        let first = NSRect(origin: PreviewPanelController.origin(for: size, keeping: topLeft, in: visible), size: size)
+        let second = NSRect(origin: PreviewPanelController.origin(for: tall, keeping: topLeft, in: visible), size: tall)
+        XCTAssertEqual(first.minX, topLeft.x)
+        XCTAssertEqual(first.maxY, topLeft.y)
+        XCTAssertEqual(second.minX, topLeft.x)
+        XCTAssertEqual(second.maxY, topLeft.y)
+    }
+
+    /// Displays get unplugged and resolutions change. A position remembered from a screen
+    /// that no longer exists has to yield to the one that does.
+    func testARememberedCornerOffTheScreenIsClampedBackIn() {
+        let frame = NSRect(
+            origin: PreviewPanelController.origin(for: size, keeping: NSPoint(x: 2400, y: 200), in: visible),
+            size: size
+        )
+        XCTAssertTrue(visible.contains(frame))
+    }
+
     /// A tall cutout next to a shelf that hangs low would otherwise start below the bottom
     /// of the screen — top alignment yields to the edge.
     func testTallPreviewIsPushedDownFromTheTopAlignment() {

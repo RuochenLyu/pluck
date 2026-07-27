@@ -22,6 +22,18 @@ final class PreviewPanelController {
     private var panel: PreviewPanel?
     private var host: NSHostingView<CutoutPreviewView>?
 
+    /// Where the panel was last put down by us, and where the user moved it to afterwards.
+    /// Dragging a panel somewhere is an explicit answer to "where should this be"; placing
+    /// it back beside the shelf on every open overrules that answer every single time, which
+    /// is why the position is remembered for the rest of the session once it is given.
+    ///
+    /// Top-left rather than the AppKit origin: the panel is resized per image, and
+    /// `setContentSize` grows it upward from the bottom-left, so a remembered bottom edge
+    /// would make the panel jump around as the user clicks through cutouts of different
+    /// shapes. The top-left corner is the one the eye is actually tracking.
+    private var placedOrigin: NSPoint?
+    private var userTopLeft: NSPoint?
+
     static func contentSize(for item: RecentItem) -> CGSize {
         let width = CGFloat(max(item.pixelWidth, 1))
         let height = CGFloat(max(item.pixelHeight, 1))
@@ -49,9 +61,15 @@ final class PreviewPanelController {
         let root = CutoutPreviewView(item: item, model: model, onClose: { [weak self] in self?.close() })
 
         let panel = self.panel ?? makePanel(root: root, size: size)
+        // Before anything moves it: a frame that no longer matches where we left it can only
+        // have been dragged there.
+        if let placed = placedOrigin, panel.frame.origin != placed {
+            userTopLeft = NSPoint(x: panel.frame.minX, y: panel.frame.maxY)
+        }
         host?.rootView = root
         panel.setContentSize(size)
         panel.setFrameOrigin(origin(for: panel.frame.size, beside: shelf))
+        placedOrigin = panel.frame.origin
         panel.makeKeyAndOrderFront(nil)
         NSApp.activate()
     }
@@ -64,10 +82,25 @@ final class PreviewPanelController {
     /// Centre of the screen when the shelf is closed, which is the only time nothing has
     /// to be avoided.
     private func origin(for size: CGSize, beside shelf: NSRect?) -> NSPoint {
+        if let topLeft = userTopLeft {
+            let screen = NSScreen.screens.first { $0.frame.contains(topLeft) } ?? NSScreen.main
+            if let visible = screen?.visibleFrame {
+                return Self.origin(for: size, keeping: topLeft, in: visible)
+            }
+        }
         let screen = shelf.flatMap { rect in NSScreen.screens.first { $0.frame.intersects(rect) } }
             ?? NSScreen.main
         guard let visible = screen?.visibleFrame else { return .zero }
         return Self.origin(for: size, beside: shelf, in: visible)
+    }
+
+    /// Hangs the panel from a corner the user chose, clamped like any other placement — a
+    /// remembered position must not survive into a screen arrangement where it is off screen.
+    static func origin(for size: CGSize, keeping topLeft: NSPoint, in visible: NSRect) -> NSPoint {
+        NSPoint(
+            x: clamp(topLeft.x, size.width, visible.minX, visible.maxX).rounded(),
+            y: clamp(topLeft.y - size.height, size.height, visible.minY, visible.maxY).rounded()
+        )
     }
 
     /// Split out from the screen lookup so the geometry — which is where the second-display

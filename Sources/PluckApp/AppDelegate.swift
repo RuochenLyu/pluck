@@ -144,7 +144,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 model: model,
                 dropTarget: shelf.dropTarget,
                 onQuit: { NSApp.terminate(nil) },
-                onSettings: { [weak self] in self?.showAbout() }
+                onAbout: { [weak self] in self?.showAbout() }
             )
         )
     }

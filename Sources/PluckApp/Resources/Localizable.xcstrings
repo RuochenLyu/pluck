@@ -1,6 +1,17 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "About Pluck": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "About Pluck"
+          }
+        }
+      }
+    },
     "Background removal isn’t available on this Mac.": {
       "extractionState": "manual",
       "localizations": {
@@ -184,17 +195,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Save cutout"
-          }
-        }
-      }
-    },
-    "Settings": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Settings"
           }
         }
       }
