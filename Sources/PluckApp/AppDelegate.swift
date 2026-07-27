@@ -10,6 +10,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem?
     private var popover: NSPopover?
     private var dropView: StatusItemDropView?
+    private var pluckSignalSource: (any DispatchSourceSignal)?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
@@ -19,6 +20,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         HotKeyCenter.shared.register(.pluckClipboard) { [weak self] in
             self?.model.pluckClipboard()
         }
+        installPluckSignal()
+    }
+
+    /// SIGUSR1 triggers the same clipboard pluck as the global hot key. Exists so the
+    /// full pipeline is drivable without Accessibility permission (headless QA, and
+    /// `pkill -USR1 PluckApp` as a scripting hook).
+    private func installPluckSignal() {
+        signal(SIGUSR1, SIG_IGN)
+        let source = DispatchSource.makeSignalSource(signal: SIGUSR1, queue: .main)
+        source.setEventHandler { [weak self] in
+            MainActor.assumeIsolated { self?.model.pluckClipboard() }
+        }
+        source.resume()
+        pluckSignalSource = source
     }
 
     func applicationWillTerminate(_ notification: Notification) {
