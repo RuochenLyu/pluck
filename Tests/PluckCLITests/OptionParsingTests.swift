@@ -62,18 +62,58 @@ final class OutputPlanTests: XCTestCase {
     }
 
     func testIdentityNormalizesEquivalentSpellings() {
-        XCTAssertEqual(OutputPlan.identity(of: "out/./a.png"), OutputPlan.identity(of: "out/a.png"))
+        XCTAssertEqual(ResolvedPath("out/./a.png").identity, ResolvedPath("out/a.png").identity)
+    }
+
+    /// The default macOS volume is case-insensitive, so `pluck A.jpg a.jpg -o out/` has
+    /// one file to write and two records to report. Folding unconditionally turns a
+    /// silently lost cutout into a refusal, including on the volumes where both could
+    /// have coexisted — the direction you can recover from.
+    func testIdentityFoldsCase() {
+        XCTAssertEqual(ResolvedPath("out/X.png").identity, ResolvedPath("out/x.png").identity)
+    }
+
+    /// The check that decides whether to overwrite and the write itself have to be looking
+    /// at the same file. `fileExists(atPath:)` takes `~` literally and `URL(fileURLWithPath:)`
+    /// expands it, so `-o '~/hero.png'` used to test a path that can never exist and then
+    /// overwrite one that did — reporting success either way.
+    func testTildePathsResolveOnceForCheckingAndWriting() {
+        let path = ResolvedPath("~/hero.png")
+        XCTAssertEqual(path.display, "~/hero.png", "logs echo what was typed")
+        XCTAssertEqual(path.url.path, NSHomeDirectory() + "/hero.png")
+        XCTAssertFalse(path.identity.contains("~"))
     }
 
     /// `-o out.png` used to make a *directory* named `out.png` and exit 0 with the file
     /// hidden inside it. Anything driving this CLI without eyes on the filesystem — which
     /// is the audience it was designed for — would have believed it.
     func testAPngOutputIsAFileNotAFolderToPutItIn() {
-        XCTAssertTrue(OutputPlan.namesAFile("out.png"))
-        XCTAssertTrue(OutputPlan.namesAFile("/tmp/deep/cut.PNG"))
-        XCTAssertFalse(OutputPlan.namesAFile("out"))
-        XCTAssertFalse(OutputPlan.namesAFile("out/"))
-        XCTAssertFalse(OutputPlan.namesAFile("cutouts.d"))
+        XCTAssertEqual(OutputPlan.classify("out.png"), .file)
+        XCTAssertEqual(OutputPlan.classify("/tmp/deep/cut.PNG"), .file)
+        XCTAssertEqual(OutputPlan.classify("out"), .directory)
+        XCTAssertEqual(OutputPlan.classify("cutouts.d"), .directory)
+    }
+
+    /// A trailing slash is the shell's own spelling of "directory" and survives
+    /// `pathExtension`, so `-o out.png/` was landing on the filename branch.
+    func testATrailingSlashMeansDirectoryWhateverTheSuffixSays() {
+        XCTAssertEqual(OutputPlan.classify("out/"), .directory)
+        XCTAssertEqual(OutputPlan.classify("out.png/"), .directory)
+        XCTAssertEqual(OutputPlan.classify(".hidden/"), .directory)
+    }
+
+    /// `-o .png` has no stem, so it read as a directory name — and made an invisible one.
+    func testAnExtensionWithNoNameIsRefused() {
+        guard case .malformed(let reason) = OutputPlan.classify(".png") else {
+            return XCTFail("expected .png to be refused")
+        }
+        XCTAssertTrue(reason.contains(".png/"), "the message should offer the directory spelling: \(reason)")
+        guard case .malformed = OutputPlan.classify("out/.png") else {
+            return XCTFail("expected out/.png to be refused")
+        }
+        // `.` and `..` are ordinary ways to name a directory and stay ordinary.
+        XCTAssertEqual(OutputPlan.classify("."), .directory)
+        XCTAssertEqual(OutputPlan.classify(".."), .directory)
     }
 
     /// A directory that is really there outranks the suffix: someone with a folder called
@@ -83,7 +123,7 @@ final class OutputPlanTests: XCTestCase {
             .appendingPathComponent("pluck-out-\(UUID().uuidString).png", isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: directory) }
-        XCTAssertFalse(OutputPlan.namesAFile(directory.path))
+        XCTAssertEqual(OutputPlan.classify(directory.path), .directory)
     }
 }
 
@@ -169,6 +209,19 @@ final class RunPlanTests: XCTestCase {
 
     func testInvalidBackgroundExitsOne() throws {
         XCTAssertEqual(try setupError { try plan(["a.jpg"], background: "blue") }.exitCode, 1)
+    }
+
+    func testAMalformedOutputIsRefusedBeforeAnythingIsWritten() throws {
+        let error = try setupError { try plan(["a.jpg"], output: ".png") }
+        XCTAssertEqual(error.exitCode, 1)
+        XCTAssertEqual(error.slug, SetupError.badArguments)
+    }
+
+    /// Setup failures carry the same vocabulary as per-item ones, so an agent branching on
+    /// `error` does not need to know which stage of the run it came from.
+    func testSetupErrorSlugs() throws {
+        XCTAssertEqual(try setupError { try plan([]) }.slug, SetupError.badArguments)
+        XCTAssertEqual(try setupError { try plan(["a.jpg"], model: "nope") }.slug, "model_missing")
     }
 
     func testStdinRejectsCompanionArguments() throws {

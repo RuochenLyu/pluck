@@ -30,19 +30,31 @@ final class EngineCatalogTests: XCTestCase {
         XCTAssertEqual(EngineCatalog.all.count, EngineCatalog.installed.count + EngineCatalog.available.count)
     }
 
-    func testUnknownIdHasNoDescriptorAndNoEngine() async throws {
+    /// One fallible lookup, not a nil beside a throw. "Never heard of it" and "not on this
+    /// disk" are the same exit code and the same advice, and keeping them apart only gave
+    /// the plan's check and the loader's check room to disagree.
+    func testUnknownIdIsAMissingModel() async throws {
         XCTAssertNil(EngineCatalog.descriptor(for: "nope"))
-        let engine = try await EngineCatalog.engine(for: "nope")
-        XCTAssertNil(engine)
+        do {
+            _ = try await EngineCatalog.engine(for: "nope")
+            XCTFail("an unknown id cannot produce an engine")
+        } catch {
+            XCTAssertEqual((error as? PluckError)?.kind, .modelMissing)
+        }
     }
 
-    func testKnownButUninstalledModelIsMissingRatherThanUnknown() async throws {
-        try XCTSkipUnless(
-            EngineCatalog.descriptor(for: "birefnet-lite")?.installed == false,
-            "birefnet-lite is installed on this machine"
-        )
+    /// The path a plan cannot rule out: the descriptor says installed, and by the time the
+    /// engine is asked for, the file is gone. Deleting the real model to prove it would be
+    /// rude, so this asserts on whichever half of the pair this machine can show.
+    func testAModelWithNothingOnDiskIsMissingAtLoadTime() async throws {
+        let registry = try XCTUnwrap(EngineCatalog.registry)
+        let uninstalled = registry.manifest.models.first { !registry.isInstalled($0.id) }
+        try XCTSkipUnless(uninstalled != nil, "every manifest model is installed on this machine")
+        let id = try XCTUnwrap(uninstalled).id
+
+        XCTAssertEqual(EngineCatalog.descriptor(for: id)?.installed, false)
         do {
-            _ = try await EngineCatalog.engine(for: "birefnet-lite")
+            _ = try await EngineCatalog.engine(for: id)
             XCTFail("an uninstalled model cannot produce an engine")
         } catch {
             XCTAssertEqual((error as? PluckError)?.kind, .modelMissing)

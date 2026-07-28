@@ -88,14 +88,43 @@ final class JSONReportTests: XCTestCase {
 
     func testFailureRecordCarriesSlugAndMessage() throws {
         let line = JSONReport.line(
-            for: .failure(input: "a.jpg", .noSubject, "a.jpg: No subject was detected in this image."),
+            for: .failure(
+                input: "a.jpg",
+                output: "out/a.png",
+                .noSubject,
+                "a.jpg: No subject was detected in this image."
+            ),
             engine: "vision"
         )
         let json = try object(line)
         XCTAssertEqual(json["ok"] as? Bool, false)
         XCTAssertEqual(json["error"] as? String, "no_subject")
         XCTAssertEqual(json["message"] as? String, "a.jpg: No subject was detected in this image.")
+        // Both fields used to be dropped from failure records. `output` is what the caller
+        // needs to know which file is not there — it never saw the path, the CLI derived
+        // it — and `engine` is what tells it whether another `--model` is worth a retry.
+        XCTAssertEqual(json["output"] as? String, "out/a.png")
+        XCTAssertEqual(json["engine"] as? String, "vision")
+    }
+
+    /// Nothing to name when the item never had a destination — `-` never became a file.
+    func testFailureRecordOmitsOutputWhenThereIsNone() throws {
+        let line = JSONReport.line(for: .failure(input: "-", .imageLoadFailed, "-: no data on stdin"), engine: "vision")
+        let json = try object(line)
         XCTAssertNil(json["output"])
+        XCTAssertEqual(json["engine"] as? String, "vision")
+    }
+
+    /// A run that dies during setup has no items, so it used to produce no stdout at all
+    /// under `--json` — the caller's only signal was an exit code.
+    func testSetupErrorsGetARunLevelRecord() throws {
+        let json = try object(JSONReport.line(
+            for: SetupError(message: "unknown model “nope”.", exitCode: 3, slug: SetupError.modelMissing)
+        ))
+        XCTAssertEqual(json["ok"] as? Bool, false)
+        XCTAssertEqual(json["error"] as? String, "model_missing")
+        XCTAssertEqual(json["message"] as? String, "unknown model “nope”.")
+        XCTAssertNil(json["input"], "there is no item this failure belongs to")
     }
 
     func testPathsAreNotEscaped() throws {
