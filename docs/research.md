@@ -256,3 +256,12 @@ fp16 的误差集中在软边缘带（alpha 0.05–0.95，占像素 1–4%），
 两条硬约束，写给 v0.3 的 CoreMLEngine：**加载必须 `.cpuAndGPU`**——ANE 对 deform gather 链在 lite 上是快速失败，在 swin-large 上是**无限挂起**（0% CPU 卡 37 分钟），所以连 `ct.convert` 结束时的验证加载也要钉 compute units。**首次加载约 5–10 秒**（Core ML 编译缓存，之后消失），app 里要么预热要么给进度提示。
 
 体积-质量结论维持 A.5：general/matting 的 451 MB 对比 lite 的 94 MB，25 图矩阵目检差距肉眼几乎不可见，**v0.3 候选收敛为 lite vs lite-matting 二选一**（后者软边缘带更宽 4.4% vs 1.2%，发丝过渡更自然，同体积同速度）。整个 HF 没有 MIT 权重的 BiRefNet Core ML 转换，我们的 mlpackage 发布时应传回 HF，兼作 app 内下载的托管点。
+
+## 附录 B：shelf 品类深研——Dropover / Yoink / Dropzone（2026-07-28）
+
+面板重设计（见 decisions.md 同日）的调研底稿。两轮：先广扫 menubar-apps.github.io 收录的 12 款（结论：无一家用常驻投放横幅；工具栏收角落；模板图标是规范），再对三家头部 shelf 深挖九个维度（帮助文档 + changelog + 差评）。要点存档：
+
+- **三家的签名交互各占一条召唤通道**：Dropover 摇晃手势（主动、拖拽中）、Yoink 拖到屏幕边缘（被动、常驻）、Dropzone 全局快捷键（键盘优先、全屏场景）。我们的入口是"抠完看结果"，三者皆不直接适用，但 Dropzone 的快捷键思路解决的问题（全屏下菜单栏不可达）我们同样存在。
+- **Yoink 的 hover-only 控件**（X + QuickLook 眼睛，靠近才现身）与**锁定机制**（默认拖出即移除，锁定=保留）。我们语义相反：结果档案默认保留，删除才是例外——不抄它的默认值，抄它的克制。
+- **被抱怨的坑，绕开**：Dropover 求好评弹窗、新建 shelf 抢焦点打断打字（5.2 才修——我们的非激活面板从 v0.1 就是对的）；Dropzone MAS 沙盒阉割版造成的版本混乱。
+- **进 backlog 的三条**（v0.3+，未排期）：①固定（Pin）某张结果在网格顶部；②全局快捷键唤出 shelf；③修饰键拖出选格式（默认透明 PNG，按住修饰键=白底版）。

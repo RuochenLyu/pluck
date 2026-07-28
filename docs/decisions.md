@@ -243,3 +243,10 @@
 - **`package-models.sh --check` 不重新打包**：ditto 的 zip 不是逐字节可复现的（mtime 与目录顺序会渗进去）。该问的是"manifest 描述的是不是我正要上传的那个文件"，不是"重打一遍哈希是否相同"。manifest 里的 sha256/bytes 一律由脚本从真实 zip 生成，不许手填占位值。
 - **新增三个 `PluckError.Kind`**（`model_load_failed` / `model_download_failed` / `manifest_invalid`）：CLI 把前者与 `model_missing` 一并解析为 exit 3——对写脚本的人来说"模型没装"和"模型装了但用不了"是同一件事：这个模型现在不可用。App 侧 `PluckFailure` 暂时把它们并进 `.unknown`，等 app 长出下载 UI 再给它们自己的文案。
 - **安装是一次 rename**：先解压进 `Models/.staging-<uuid>/`，校验通过后整个目录一次移入 `Models/<id>/`。半个模型目录在下一次启动会被读成"已安装"。
+
+## 2026-07-28 — 两处对外契约变化：PNG 带色彩 profile，--json 补全失败词汇表
+
+- **背景**：Kit/CLI 审查修复批（merge commit 见 git log）中两条修复改变了外部可见行为，按惯例记录。
+- **PNG 输出现在携带输入的色彩空间**：此前所有输出被静默压进 DeviceRGB（事实上的 sRGB 语义），Display P3 照片的出画面色域被裁剪。现在工作空间跟随输入的 RGB profile（非法的位图目标 profile 回退 sRGB），`--background` 的 hex 颜色按 sRGB 解释后转入工作空间——同一个 #ff6600 在 P3 输出里仍是同一个颜色。对"把主体原样还给你"的工具，这是正确性而非增强。
+- **`--json` 的失败词汇表补全**：setup 阶段失败（坏参数/未知模型）此前 stdout 零输出，现在发一条 run 级记录（`ok:false` + slug + message）；条目级失败记录新增 `output` 与 `engine` 字段。面向 agent 的接口里，"失败但不说哪个文件、哪个引擎"等于要求调用方解析英文散文。
+- **shelf 面板即投放目标，引导是结构不是横幅**：对 12 款 menubar app（重点 Dropover/Yoink/Dropzone）两轮调研确认：无一家用常驻投放横幅。投放条删除；有内容时网格首格为虚线幽灵格（"下一张落在这里"+ ⌘V 提示），空态为同语法撑满版；底栏取消，控件并入标题行；状态消息改为仅在有话可说时出现的浮动材质条。缩略图右键菜单（Copy/Save As/Show Preview/Delete）补齐单项删除。产品差异注记：Dropover/Yoink 是"拖出即用完"的暂存架，Pluck 是"拖出后仍保留"的结果档案——因此不抄"拖出即移除"。

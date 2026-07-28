@@ -19,7 +19,7 @@
 
 - **v0.1（MVP，目标 1–2 周业余时间）**：PluckKit(VisionEngine) + CLI + 菜单栏拖放 + popover ⌘V 剪贴板闭环 + 结果预览滑块。签名 + notarize + GitHub Release + tap。
 - **v0.2**：~~历史持久化 + Settings~~ ✅、~~主窗口批量队列~~ ✅、~~结果浮层~~ ❌ 不做（2026-07-28 决定：不自动弹，用户自己点开看）、Finder Quick Action、Sparkle。
-- **v0.3**：CoreMLEngine + BiRefNet_lite 转换与按需下载、对比滑块、SKILL.md 定稿。
+- **v0.3**：~~CoreMLEngine~~ ✅、~~BiRefNet_lite 转换~~ ✅（连同 general/matting/lite-matting 全家，见 research.md A.5/A.6）、按需下载（CLI ✅；断点续传与 app 内 Models 面板进行中）、对比滑块、SKILL.md 定稿。Backlog（调研产出，未排期）：固定结果、全局快捷键唤出 shelf、修饰键拖出选格式（research.md 附录 B）。
 - **v1.0**：边缘 decontamination 打磨、发丝 before/after 营销图、README/官网、发 HN + 少数派/V2EX。
 
 ## v0.2 动工前的技术债（2026-07-27，来自 v0.1 实现的上报）
