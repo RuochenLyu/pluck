@@ -59,12 +59,13 @@ private func processed(_ bytes: [UInt8], name: String = "cut") -> ProcessedImage
 final class PendingItemTests: XCTestCase {
     private var scratch: [URL] = []
 
-    override func tearDown() {
+    /// The `async` overload rather than the plain one: it inherits the class's `@MainActor`,
+    /// which is where `scratch` lives.
+    override func tearDown() async throws {
         for url in scratch {
             try? FileManager.default.removeItem(at: url.deletingLastPathComponent())
         }
         scratch = []
-        super.tearDown()
     }
 
     private func model(

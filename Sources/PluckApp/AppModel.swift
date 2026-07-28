@@ -153,12 +153,16 @@ final class AppModel {
         // binding is implicitly mutable, and Swift 6 refuses to let a nested concurrent
         // closure (here, `run`'s `onInput`) capture it directly.
         let accept: @Sendable (Data) async -> Bool = { [weak self] data in
+            // Both the decode and the hash happen out here. A SHA-256 of a 24-megapixel
+            // PNG is tens of milliseconds, and the main actor is at this moment animating
+            // the placeholder that was inserted for these very bytes.
             let thumbnail = await PluckService.inputThumbnail(data: data)
-            return await self?.accept(input: data, thumbnail: thumbnail, ticket: ticket) ?? false
+            let fingerprint = PluckService.fingerprint(data)
+            return await self?.accept(fingerprint: fingerprint, thumbnail: thumbnail, ticket: ticket) ?? false
         }
         Task.detached(priority: .userInitiated) { [weak self] in
             let (outcome, processed) = await plucker.run { data in await accept(data) }
-            await self?.finish(ticket: ticket, outcome: outcome, processed: processed)
+            await self?.deliver(ticket: ticket, outcome: outcome, processed: processed)
         }
     }
 
@@ -168,9 +172,10 @@ final class AppModel {
             let ticket = beginWork(name: payload.displayName)
             Task.detached(priority: .userInitiated) { [weak self] in
                 let thumbnail = await PluckService.inputThumbnail(of: payload)
-                let accepted = await self?.accept(input: payload.bytes, thumbnail: thumbnail, ticket: ticket)
+                let fingerprint = payload.bytes.map(PluckService.fingerprint)
+                let accepted = await self?.accept(fingerprint: fingerprint, thumbnail: thumbnail, ticket: ticket)
                 guard accepted == true else {
-                    await self?.finish(ticket: ticket, outcome: .superseded, processed: nil)
+                    await self?.deliver(ticket: ticket, outcome: .superseded, processed: nil)
                     return
                 }
                 do {
@@ -181,9 +186,9 @@ final class AppModel {
                     case .data(let data):
                         processed = try await process(data, L.s("Cutout"))
                     }
-                    await self?.finish(ticket: ticket, outcome: .success, processed: processed)
+                    await self?.deliver(ticket: ticket, outcome: .success, processed: processed)
                 } catch {
-                    await self?.finish(ticket: ticket, outcome: .failure(PluckFailure(error)), processed: nil)
+                    await self?.deliver(ticket: ticket, outcome: .failure(PluckFailure(error)), processed: nil)
                 }
             }
         }
@@ -194,38 +199,46 @@ final class AppModel {
     }
 
     func copy(_ item: RecentItem) {
-        // The bytes live on disk now, so this can fail — a file deleted underneath us, or
-        // a write that failed when the entry was made. Silently copying nothing would be
-        // the worst of the three possible outcomes.
-        guard let data = item.pngData() else {
-            report(.warning, PluckFailure.fileGone.message)
-            flash(.failure)
-            return
+        Task { [weak self] in
+            guard let self else { return }
+            // The bytes live on disk now, so this can fail — a file deleted underneath us,
+            // or a write that failed when the entry was made. Silently copying nothing
+            // would be the worst of the three possible outcomes.
+            guard let data = await Self.bytes(of: item) else { return reportMissingFile() }
+            pasteboard.writePNG(data)
+            flash(.success)
         }
-        pasteboard.writePNG(data)
-        flash(.success)
     }
 
     func save(_ item: RecentItem) {
-        guard let data = item.pngData() else {
-            report(.warning, PluckFailure.fileGone.message)
-            flash(.failure)
-            return
+        Task { [weak self] in
+            guard let self else { return }
+            guard let data = await Self.bytes(of: item) else { return reportMissingFile() }
+            let panel = NSSavePanel()
+            panel.nameFieldStringValue = item.suggestedName + ".png"
+            panel.allowedContentTypes = [.png]
+            panel.title = L.s("Save cutout")
+            NSApp.activate()
+            guard panel.runModal() == .OK, let url = panel.url else { return }
+            // Same confirmation Copy gives. The panel closing means "the dialog is done",
+            // not "the bytes are on disk", and those are not the same event.
+            flash(await Self.write(data, to: url) ? .success : .failure)
         }
-        let panel = NSSavePanel()
-        panel.nameFieldStringValue = item.suggestedName + ".png"
-        panel.allowedContentTypes = [.png]
-        panel.title = L.s("Save cutout")
-        NSApp.activate()
-        guard panel.runModal() == .OK, let url = panel.url else { return }
-        do {
-            try data.write(to: url, options: .atomic)
-            // Same confirmation Copy gives. The panel closing means "the dialog is done", not
-            // "the bytes are on disk", and those are not the same event.
-            flash(.success)
-        } catch {
-            flash(.failure)
-        }
+    }
+
+    /// Reading a cutout back is `Data(contentsOf:)` on a file that is routinely megabytes,
+    /// and both callers are buttons in a panel that is still animating. `nonisolated async`
+    /// is the whole mechanism: it puts the read on the cooperative pool, and the caller's
+    /// `Task` is already on the main actor for the part that has to be.
+    private nonisolated static func bytes(of item: RecentItem) async -> Data? { item.pngData() }
+
+    private nonisolated static func write(_ data: Data, to url: URL) async -> Bool {
+        (try? data.write(to: url, options: .atomic)) != nil
+    }
+
+    private func reportMissingFile() {
+        report(.warning, PluckFailure.fileGone.message)
+        flash(.failure)
     }
 
     /// Writes every cutout in the list into one directory.
@@ -318,7 +331,12 @@ final class AppModel {
         // files calls this ten times in one turn of the run loop, so the first call starts
         // the count and the other nine join it; a drop that arrives after the list has
         // drained starts a fresh one rather than resuming a finished total.
-        if pendingItems.isEmpty { batch = BatchProgress(total: 0, done: 0) }
+        //
+        // "Still queued" means *running*, not "present": a failed placeholder lingers for
+        // 2.2 seconds with its red rim (see `fail`), and a drop that arrives in that window
+        // used to be counted onto the batch it had nothing to do with — one image reported
+        // as "5 of 6".
+        if !pendingItems.contains(where: { $0.state == .running }) { batch = BatchProgress(total: 0, done: 0) }
         batch?.total += 1
         inFlight += 1
         feedback = .busy
@@ -341,11 +359,12 @@ final class AppModel {
     /// fills the grid with near-copies, each one slightly worse than the last, and leaves the
     /// worst of them on the clipboard. Dragging a saved cutout back in is the same fingerprint
     /// by the same route.
-    private func accept(input: Data?, thumbnail: Data?, ticket: UUID) -> Bool {
+    ///
+    /// Takes the hash rather than the bytes: computing it is a full pass over the input, and
+    /// every caller is already off the main actor when it has them.
+    private func accept(fingerprint: String?, thumbnail: Data?, ticket: UUID) -> Bool {
         attach(thumbnail: thumbnail, to: ticket)
-        guard let input,
-              let existing = recents.promote(fingerprint: PluckService.fingerprint(input))
-        else { return true }
+        guard let fingerprint, let existing = recents.promote(fingerprint: fingerprint) else { return true }
         highlight(existing)
         return false
     }
@@ -355,7 +374,30 @@ final class AppModel {
         pendingItems[index].thumbnail = thumbnail
     }
 
-    private func finish(ticket: UUID, outcome: PluckOutcome, processed: ProcessedImage?) {
+    /// The tail of every job, and deliberately `nonisolated`: storing a cutout is three
+    /// atomic writes plus a SHA-256 over the full-size PNG, which on the main actor is a
+    /// visible freeze *per image* — a hundred-file drop was a hundred stutters. Only the
+    /// finished entry crosses back.
+    ///
+    /// A write that fails is still a job that failed. The file *is* the entry (see
+    /// `CutoutArchive`), so there is no in-memory copy to fall back on, and a cell whose
+    /// Copy, Save, preview and drag all do nothing is worse than an honest error.
+    private nonisolated func deliver(ticket: UUID, outcome: PluckOutcome, processed: ProcessedImage?) async {
+        guard case .success = outcome, let processed else {
+            await finish(ticket: ticket, outcome: outcome, item: nil)
+            return
+        }
+        // Read per cutout rather than captured when the drop arrived, so flipping the
+        // history preference takes effect on the next file rather than the next launch.
+        let archive = await self.archive
+        guard let item = try? archive.store(processed, id: ticket) else {
+            await finish(ticket: ticket, outcome: .failure(.notWritten), item: nil)
+            return
+        }
+        await finish(ticket: ticket, outcome: .success, item: item)
+    }
+
+    private func finish(ticket: UUID, outcome: PluckOutcome, item: RecentItem?) {
         inFlight = max(0, inFlight - 1)
         // Every exit from here is one image resolved, including the ones that failed and
         // the ones that turned out to be duplicates. A bar that only counted successes
@@ -368,27 +410,20 @@ final class AppModel {
             flash(.success)
             return
         }
-        // A `.success` with no image is a bug, not a user-facing state; treat it as the
+        // A `.success` with no entry is a bug, not a user-facing state; treat it as the
         // generic failure rather than silently dropping the placeholder on the floor.
-        guard case .success = outcome, let processed else {
+        // `deliver` has already turned a failed write into `.failure(.notWritten)`.
+        guard case .success = outcome, let item else {
             fail(ticket, reason: outcome.failureReason ?? .unknown)
             flash(.failure)
             return
         }
-        // The result inherits the ticket's identity rather than minting a new one. The grid
+        // The result inherits the ticket's identity rather than minting a new one — the
+        // archive is handed the ticket as the entry id for exactly that reason. The grid
         // renders placeholders and results in one list keyed by this id, so carrying it
         // across is what makes completion a content change on the cell the user is already
         // watching instead of a removal plus an unrelated insertion.
-        let id = ticket
-        // The file *is* the entry now, so a write that fails is a job that failed: there is
-        // no in-memory copy to fall back on, and a cell whose Copy, Save, preview and drag
-        // all do nothing is worse than an honest error. Disk full is the realistic cause,
-        // and it is one the user can act on.
-        guard let item = try? archive.store(processed, id: id) else {
-            fail(ticket, reason: .notWritten)
-            flash(.failure)
-            return
-        }
+        //
         // Both mutations inside one animation so the placeholder and the result cross-fade
         // in the same grid slot instead of the row jumping.
         let result = withAnimation(.easeInOut(duration: 0.25)) { () -> InsertResult in

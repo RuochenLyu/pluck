@@ -22,12 +22,13 @@ private func processed(_ bytes: [UInt8], name: String = "cut") -> ProcessedImage
 final class BatchTests: XCTestCase {
     private var scratch: [URL] = []
 
-    override func tearDown() {
+    /// The `async` overload rather than the plain one: it inherits the class's `@MainActor`,
+    /// which is where `scratch` lives.
+    override func tearDown() async throws {
         for url in scratch {
             try? FileManager.default.removeItem(at: url.deletingLastPathComponent())
         }
         scratch = []
-        super.tearDown()
     }
 
     private func model(
@@ -92,6 +93,54 @@ final class BatchTests: XCTestCase {
         scratch = model.recents.items.map(\.fileURL)
     }
 
+    /// A failed placeholder keeps its cell for 2.2 seconds so the red rim and the sentence
+    /// explaining it are on screen together. It is finished work, though, and a drop that
+    /// lands inside that window is a new batch — counting it onto the old one reported one
+    /// image as "5 of 6" and left the bar stuck part-way for as long as the user kept going.
+    func testADropLandingWhileAFailedCellIsStillFadingStartsAFreshCount() async {
+        let model = model { _, _ in throw PluckError.noSubjectDetected }
+        model.handleDrop([.data(Data([1])), .data(Data([2]))])
+        await waitUntil("both files to fail") { model.batch?.done == 2 }
+        // The cells are still there — that is the whole point of the case.
+        XCTAssertEqual(model.pendingItems.count, 2)
+
+        model.handleDrop([.data(Data([3]))])
+        XCTAssertEqual(model.batch?.total, 1)
+        XCTAssertEqual(model.batch?.done, 0)
+    }
+
+    /// The other half of the same rule: a drop that lands while something is genuinely
+    /// still running must join it, or a ten-file drag becomes ten batches of one.
+    func testADropLandingWhileAJobIsRunningJoinsIt() async {
+        let gate = Gate()
+        let model = model { _, _ in
+            await gate.wait()
+            return processed([1])
+        }
+        model.handleDrop([.data(Data([1]))])
+        await waitUntil("the first job to be running") { model.pendingItems.first?.state == .running }
+        model.handleDrop([.data(Data([2]))])
+        XCTAssertEqual(model.batch?.total, 2)
+        await gate.open()
+        await waitUntil("the batch to drain") { model.batch?.done == 2 }
+        scratch = model.recents.items.map(\.fileURL)
+    }
+
+    // MARK: - Where the work happens
+
+    /// A canary, not a test of our own code. Every heavy thing `AppModel` moved off the main
+    /// thread — storing a cutout, hashing an input, reading bytes back for Copy and Save —
+    /// rests on one language rule: a `nonisolated async` member of a `@MainActor` type does
+    /// *not* inherit its caller's actor. Nothing else in this suite would notice if that
+    /// stopped being true (the `nonisolatedNonsendingByDefault` upcoming feature changes
+    /// exactly this), and the symptom in the field is a UI that freezes once per image.
+    func testANonisolatedAsyncMemberDoesNotRunOnTheMainActor() async {
+        XCTAssertTrue(isMainThread(), "the test itself is on the main actor")
+        let subject = MainActorSubject()
+        let ranOnMain = await subject.offMain()
+        XCTAssertFalse(ranOnMain)
+    }
+
     func testAnEmptyBatchIsZeroRatherThanNotANumber() {
         XCTAssertEqual(BatchProgress(total: 0, done: 0).fraction, 0)
     }
@@ -145,6 +194,35 @@ final class BatchTests: XCTestCase {
             }
             try? await Task.sleep(nanoseconds: 10_000_000)
         }
+    }
+}
+
+/// `Thread.current` is unavailable from an async context — which is the very question being
+/// asked here, so it has to be asked one level down.
+private func isMainThread() -> Bool { pthread_main_np() != 0 }
+
+/// The same shape `AppModel` uses for its off-main work, with nothing in it but the answer
+/// to "where did this run?".
+@MainActor
+private final class MainActorSubject {
+    nonisolated func offMain() async -> Bool { isMainThread() }
+}
+
+/// Holds jobs open so a test can inspect the state a second drop would actually land in.
+/// Sleeping instead would make the test both slower and flakier.
+private actor Gate {
+    private var isOpen = false
+    private var waiting: [CheckedContinuation<Void, Never>] = []
+
+    func wait() async {
+        guard !isOpen else { return }
+        await withCheckedContinuation { waiting.append($0) }
+    }
+
+    func open() {
+        isOpen = true
+        waiting.forEach { $0.resume() }
+        waiting = []
     }
 }
 
