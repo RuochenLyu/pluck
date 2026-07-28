@@ -5,22 +5,31 @@
 Pluck is a native macOS app (and CLI) that removes image backgrounds entirely on-device.
 Your photos never leave your Mac — no account, no upload, no subscription, no watermark.
 
-> 🚧 Early development. Nothing to install yet — see [docs/product-plan.md](docs/product-plan.md) for where this is going.
+> 🚧 Pre-release. No packaged download yet — it builds and runs from source today
+> (`swift build`, `./Scripts/bundle.sh`), and the first tagged release is close.
 
 ## Why another background remover?
 
-- **100% offline.** Powered by Apple's on-device Vision framework by default; optional
-  higher-quality Core ML models (MIT-licensed) downloaded on demand. Auditable — it's all here.
-- **Native, fast, zero-config.** Menu bar drag & drop, Finder right-click, a clipboard
-  round-trip (⌘C → hotkey → ⌘V), batch processing with progress.
-- **Built for AI agents too.** The same engine ships as a `pluck` CLI with `--json` output
-  and an agent skill — the first background remover designed to be driven by agents.
+- **100% offline.** Apple's on-device Vision framework by default; optional higher-quality
+  BiRefNet models (MIT-licensed, [published here](https://github.com/RuochenLyu/pluck/releases/tag/models-v1))
+  downloaded on demand and verified against pinned SHA256 digests. Auditable — it's all here.
+- **Native and zero-config.** Menu-bar shelf with drag & drop and ⌘V, batch window with
+  progress, history that survives relaunches. A Finder Quick Action is planned.
+- **Built for AI agents too.** The same engine ships as a `pluck` CLI: `--json` NDJSON
+  output, semantic exit codes, no GUI, no TTY assumptions.
 - **Free forever.** No "HD behind a paywall", no weekly subscription.
 
-## Planned architecture
+## Architecture
 
-`PluckKit` (Swift library, the only engine) → thin shells: SwiftUI app, `pluck` CLI,
-Finder Quick Action. Requires macOS 14+.
+`PluckKit` (Swift library, the only engine) → thin shells: SwiftUI menu-bar app and the
+`pluck` CLI. Vision runs built-in; BiRefNet variants run through Core ML after an explicit
+`pluck models pull <id>` (or a click in Settings). Requires macOS 14+.
+
+```bash
+swift build            # library + CLI
+swift test             # the whole suite, no network needed
+./Scripts/bundle.sh    # a runnable Pluck.app in .build/
+```
 
 ## Docs
 
@@ -29,4 +38,5 @@ Finder Quick Action. Requires macOS 14+.
 
 ## License
 
-MIT
+MIT. Bundled model conversions remain under their upstream MIT license with attribution —
+see the NOTICE inside each [model asset](https://github.com/RuochenLyu/pluck/releases/tag/models-v1).
