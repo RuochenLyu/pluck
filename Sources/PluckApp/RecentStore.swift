@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import UniformTypeIdentifiers
 
 /// One finished cutout, as a pointer to the three files `CutoutArchive` wrote for it.
 ///
@@ -53,6 +54,32 @@ struct RecentItem: Identifiable, Equatable, Sendable {
     func pngData() -> Data? { try? Data(contentsOf: fileURL) }
 
     func originalPNG() -> Data? { try? Data(contentsOf: originalURL) }
+
+    /// The payload for dragging a cutout out of the grid, carried as bytes rather than as a
+    /// promise to read `fileURL` later.
+    ///
+    /// `NSItemProvider(contentsOf:)` only opens the file when the drag *lands*, which can be
+    /// seconds later — and by then Clear, or an eviction off the end of the list, may have
+    /// deleted it (`AppModel.discard` removes the directory on a detached task the moment
+    /// the entry leaves the store). The drop then silently produces nothing, which is the
+    /// one failure mode with no error path at all: the receiving app is not ours to report
+    /// in.
+    ///
+    /// The cost is one synchronous read at the start of the gesture, on a file the user has
+    /// just put the pointer on. Paid deliberately: the alternative is a drag whose outcome
+    /// depends on what else the grid happened to do while the mouse was moving.
+    func dragProvider() -> NSItemProvider {
+        guard let data = pngData() else { return NSItemProvider() }
+        let provider = NSItemProvider()
+        // What the file is called wherever it lands — the whole reason a dropped *file*
+        // beats a dropped bitmap.
+        provider.suggestedName = suggestedName + ".png"
+        provider.registerDataRepresentation(for: .png, visibility: .all) { completion in
+            completion(data, nil)
+            return nil
+        }
+        return provider
+    }
 }
 
 /// What `insert` actually did. `promoted` exists because silent de-duplication reads as

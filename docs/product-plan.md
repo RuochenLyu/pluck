@@ -54,8 +54,7 @@ pluck/
 │   ├── PluckCLI/            # 命令行（swift-argument-parser）
 │   └── PluckApp/            # SwiftUI app
 │       ├── MenuBar/         # 菜单栏常驻 + 拖放目标
-│       ├── MainWindow/      # 批量队列、对比预览、导出
-│       └── ResultOverlay/   # CleanShot X 式处理完浮层
+│       └── MainWindow/      # 批量队列、对比预览、导出
 ├── Extensions/
 │   └── FinderQuickAction/   # Action Extension（右键「Pluck 移除背景」）
 ├── skills/

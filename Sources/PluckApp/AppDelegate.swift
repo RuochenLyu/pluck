@@ -37,6 +37,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // and the files that were already written under it have to expire somewhere.
         CutoutArchive.session.discardEverything()
         if !preferences.keepsHistory { CutoutArchive.history.discardEverything() }
+        installMainMenu()
         installStatusItem()
         installShelf()
         installKeyMonitor()
@@ -48,6 +49,66 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         installPluckSignal()
         revealIfUnreachable()
+    }
+
+    /// A menu bar an `.accessory` app never draws, and cannot do without.
+    ///
+    /// The main menu is where AppKit resolves key equivalents, so with `NSApp.mainMenu` nil
+    /// the save panel's filename field had no ⌘A/⌘C/⌘V/⌘Z at all — the standard Edit items
+    /// are not built into `NSTextField`, they are menu items that dispatch `cut:`/`copy:`/
+    /// `paste:` down the responder chain — and no window in the app could be closed with ⌘W
+    /// unless `handleKey` below knew about it by name. Nothing here is ever seen: an
+    /// accessory app shows no menu bar even when it is frontmost. The titles still go
+    /// through the catalog, because "invisible" is a fact about today's activation policy
+    /// and not about the strings.
+    private func installMainMenu() {
+        let main = NSMenu()
+        main.addItem(Self.submenu(L.s("Pluck"), [
+            Self.item(L.s("About Pluck"), #selector(showAbout), "", target: self),
+            Self.item(L.s("Settings…"), #selector(showSettings), ",", target: self),
+            .separator(),
+            Self.item(L.s("Quit Pluck"), #selector(NSApplication.terminate(_:)), "q")
+        ]))
+        main.addItem(Self.submenu(L.s("File"), [
+            Self.item(L.s("Close"), #selector(NSWindow.performClose(_:)), "w")
+        ]))
+        // Standard and in the standard order, because these are muscle memory: the point is
+        // that a text field in one of our panels behaves like a text field anywhere else.
+        main.addItem(Self.submenu(L.s("Edit"), [
+            Self.item(L.s("Undo"), NSSelectorFromString("undo:"), "z"),
+            Self.item(L.s("Redo"), NSSelectorFromString("redo:"), "z", modifiers: [.command, .shift]),
+            .separator(),
+            Self.item(L.s("Cut"), #selector(NSText.cut(_:)), "x"),
+            Self.item(L.s("Copy"), #selector(NSText.copy(_:)), "c"),
+            Self.item(L.s("Paste"), #selector(NSText.paste(_:)), "v"),
+            Self.item(L.s("Delete"), #selector(NSText.delete(_:)), ""),
+            Self.item(L.s("Select All"), #selector(NSText.selectAll(_:)), "a")
+        ]))
+        NSApp.mainMenu = main
+    }
+
+    private static func submenu(_ title: String, _ items: [NSMenuItem]) -> NSMenuItem {
+        let menu = NSMenu(title: title)
+        items.forEach(menu.addItem)
+        let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+        item.submenu = menu
+        return item
+    }
+
+    /// A nil `target` means the responder chain, which is what makes the Edit items
+    /// self-disabling: nothing in a shelf full of images answers `paste:`, so the item is
+    /// grey there and live in a save panel's name field, with no code of ours deciding it.
+    private static func item(
+        _ title: String,
+        _ action: Selector,
+        _ key: String,
+        modifiers: NSEvent.ModifierFlags = .command,
+        target: AnyObject? = nil
+    ) -> NSMenuItem {
+        let item = NSMenuItem(title: title, action: action, keyEquivalent: key)
+        item.keyEquivalentModifierMask = modifiers
+        item.target = target
+        return item
     }
 
     /// SIGUSR1 triggers the same clipboard pluck as ⌘V in the shelf. Exists so the full
@@ -68,8 +129,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// a key equivalent, so it fires whatever SwiftUI happens to have focused; the guards
     /// keep it from stealing ⌘V from any other window of ours (the save panel, say).
     ///
-    /// ⌘W rides along because a borderless panel has no close button, and
-    /// `performClose(_:)` on a window without one just beeps.
+    /// ⌘W rides along for the two borderless panels, for the same reason the File ▸ Close
+    /// item cannot serve them: a window with no close button has `performClose(_:)`
+    /// disabled by AppKit's menu validation, and calling it anyway just beeps.
     private func installKeyMonitor() {
         let monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             // `NSEvent` is not Sendable, so the isolated hop returns a verdict, not the event.
@@ -117,23 +179,43 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         swallowIconClick = isStatusItem
     }
 
+    /// Whether this is ⌘ and nothing else that matters.
+    ///
+    /// Equality against `.command` alone was wrong in a way nobody notices until it happens
+    /// to them: Caps Lock sets a bit in `deviceIndependentFlagsMask`, so with it on, every
+    /// shortcut in this app stopped working — ⌘V, ⌘W, all of it. The three flags dropped
+    /// here are the ones a user does not think of as part of the chord. `.shift`,
+    /// `.option` and `.control` are *not* dropped: ⇧⌘V is a different key stroke, and this
+    /// monitor must not eat it.
+    ///
+    /// Static and pure because the bug was in a boolean expression, and a boolean
+    /// expression is testable without an event.
+    nonisolated static func isCommandOnly(_ flags: NSEvent.ModifierFlags) -> Bool {
+        flags.intersection(.deviceIndependentFlagsMask)
+            .subtracting([.capsLock, .function, .numericPad]) == .command
+    }
+
     private func handleKey(_ event: NSEvent) -> Bool {
-        guard event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command else { return false }
+        guard Self.isCommandOnly(event.modifierFlags) else { return false }
         let key = event.charactersIgnoringModifiers?.lowercased()
-        // The main window has real chrome but still no menu bar, so ⌘W has nothing to
-        // dispatch it: `performClose(_:)` is reachable only through a File menu this app
-        // does not have. Same story for ⌘V.
+        // ⌘V never goes through the menu, on any surface. `paste:` is a *text* operation
+        // dispatched to whatever is first responder, and no view in this app implements it;
+        // pasting into Pluck means "matte the clipboard", which only the model can do.
+        //
+        // ⌘W is the other way round wherever AppKit will take it. The main window is a
+        // standard titled, closable window, so the File ▸ Close item validates and closes
+        // it — that dispatch is gone from here. The two panels are borderless: a window
+        // with no close button has `performClose(_:)` disabled by AppKit's own menu
+        // validation, so for them this monitor is still the only route.
         if mainWindow.owns(event.window) {
-            switch key {
-            case "v":
-                model.pluckClipboard()
-                return true
-            case "w":
-                mainWindow.close()
-                return true
-            default:
-                return false
-            }
+            guard key == "v" else { return false }
+            model.pluckClipboard()
+            return true
+        }
+        if preview.owns(event.window) {
+            guard key == "w" else { return false }
+            preview.close()
+            return true
         }
         guard shelf.isVisible, event.window === shelf.panel else { return false }
         switch key {
@@ -268,12 +350,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Closes the shelf on the way, like About does: the shelf dismisses on any click
     /// outside itself, and a window opening behind a panel that is about to vanish reads
     /// as a glitch.
-    private func showSettings() {
+    @objc private func showSettings() {
         shelf.close()
         settings.show(model: model, preferences: preferences)
     }
 
-    private func showAbout() {
+    @objc private func showAbout() {
         shelf.close()
         NSApp.activate()
         NSApp.orderFrontStandardAboutPanel(options: [

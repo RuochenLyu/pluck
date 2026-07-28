@@ -26,15 +26,12 @@ final class MainWindowController {
         window?.makeKeyAndOrderFront(nil)
     }
 
-    /// An accessory app never shows a menu bar, so ⌘V and ⌘W have nowhere to hang and are
-    /// dispatched by `AppDelegate`'s key monitor instead — which needs to know whether the
-    /// event landed here.
+    /// ⌘V is dispatched by `AppDelegate`'s key monitor rather than by a menu item — pasting
+    /// into Pluck is not the `paste:` any view here would answer — so the monitor needs to
+    /// know whether the event landed in this window. (⌘W is the File ▸ Close item's job:
+    /// this is a standard closable window, unlike the shelf and preview panels.)
     func owns(_ window: NSWindow?) -> Bool {
         window != nil && window === self.window
-    }
-
-    func close() {
-        window?.close()
     }
 
     private func make(model: AppModel) -> NSWindow {
@@ -303,7 +300,7 @@ private struct ResultRow: View {
         .onHover { on in withAnimation(.easeOut(duration: 0.12)) { hovering = on } }
         .onAppear { thumbnail = NSImage(data: item.thumbnailPNG) }
         .onTapGesture { model.preview(item) }
-        .onDrag { NSItemProvider(contentsOf: item.fileURL) ?? NSItemProvider() }
+        .onDrag { item.dragProvider() }
         .accessibilityElement(children: .combine)
         .accessibilityLabel(item.suggestedName)
     }

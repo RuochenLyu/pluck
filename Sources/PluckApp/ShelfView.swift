@@ -18,7 +18,7 @@ struct ShelfView: View {
     var onQuit: () -> Void
     var onAbout: () -> Void
     /// The gear is back, and this time it opens something. It was removed in v0.1 because
-    /// there was nothing to configure; history, login item and the offline statement are
+    /// there was nothing to configure; the history switch and the offline statement are
     /// enough to earn it.
     var onSettings: () -> Void
     /// The way to the batch window. The shelf is a 340pt panel that dismisses on any click
@@ -237,7 +237,7 @@ private struct RecentCell: View {
         .onHover { hovering = $0 }
         .onAppear { thumbnail = NSImage(data: item.thumbnailPNG) }
         .onTapGesture { model.preview(item) }
-        .onDrag { NSItemProvider(contentsOf: item.fileURL) ?? NSItemProvider() }
+        .onDrag { item.dragProvider() }
         .accessibilityAddTraits(.isButton)
         .accessibilityLabel(L.s("Preview cutout"))
     }

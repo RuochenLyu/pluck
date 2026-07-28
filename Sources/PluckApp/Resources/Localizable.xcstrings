@@ -122,6 +122,17 @@
         }
       }
     },
+    "Cut": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cut"
+          }
+        }
+      }
+    },
     "Cutout": {
       "extractionState": "manual",
       "localizations": {
@@ -140,6 +151,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Cutouts you make show up here."
+          }
+        }
+      }
+    },
+    "Delete": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete"
           }
         }
       }
@@ -173,6 +195,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Dropped image"
+          }
+        }
+      }
+    },
+    "Edit": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edit"
           }
         }
       }
@@ -232,6 +265,17 @@
         }
       }
     },
+    "File": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "File"
+          }
+        }
+      }
+    },
     "History": {
       "extractionState": "manual",
       "localizations": {
@@ -283,6 +327,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Open main window"
+          }
+        }
+      }
+    },
+    "Paste": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paste"
           }
         }
       }
@@ -364,6 +419,17 @@
         }
       }
     },
+    "Quit Pluck": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quit Pluck"
+          }
+        }
+      }
+    },
     "Recent": {
       "extractionState": "manual",
       "localizations": {
@@ -371,6 +437,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Recent"
+          }
+        }
+      }
+    },
+    "Redo": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Redo"
           }
         }
       }
@@ -397,6 +474,17 @@
         }
       }
     },
+    "Select All": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Select All"
+          }
+        }
+      }
+    },
     "Settings": {
       "extractionState": "manual",
       "localizations": {
@@ -404,6 +492,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Settings"
+          }
+        }
+      }
+    },
+    "Settings…": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Settings…"
           }
         }
       }
@@ -448,6 +547,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "This cutout’s file is no longer on disk."
+          }
+        }
+      }
+    },
+    "Undo": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Undo"
           }
         }
       }
