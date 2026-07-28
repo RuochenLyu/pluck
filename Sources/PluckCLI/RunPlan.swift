@@ -30,11 +30,19 @@ struct RunPlan: Equatable {
             throw SetupError(message: "no input files. Usage: pluck <image>... [-o <dir>]", exitCode: 1)
         }
 
-        guard EngineCatalog.descriptor(for: model) != nil else {
-            let hint = EngineCatalog.announced.contains(model)
-                ? "model “\(model)” is not installed; downloadable models arrive in v0.3"
-                : "unknown model “\(model)”"
-            throw SetupError(message: "\(hint). \(EngineCatalog.availabilityMessage)", exitCode: 3)
+        switch EngineCatalog.descriptor(for: model) {
+        case .some(let descriptor) where descriptor.installed:
+            break
+        case .some:
+            throw SetupError(
+                message: "model “\(model)” is not installed. Run: pluck models pull \(model)",
+                exitCode: 3
+            )
+        case .none:
+            throw SetupError(
+                message: "unknown model “\(model)”. \(EngineCatalog.availabilityMessage)",
+                exitCode: 3
+            )
         }
 
         let composited: PluckBackground

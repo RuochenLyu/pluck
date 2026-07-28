@@ -157,10 +157,14 @@ final class RunPlanTests: XCTestCase {
         XCTAssertTrue(error.message.contains("vision"), error.message)
     }
 
-    func testAnnouncedButUninstalledModelExplainsItself() throws {
+    func testManifestModelThatIsNotInstalledPointsAtThePullCommand() throws {
+        try XCTSkipUnless(
+            EngineCatalog.descriptor(for: "birefnet-lite")?.installed == false,
+            "birefnet-lite is installed on this machine"
+        )
         let error = try setupError { try plan(["a.jpg"], model: "birefnet-lite") }
         XCTAssertEqual(error.exitCode, 3)
-        XCTAssertTrue(error.message.contains("v0.3"), error.message)
+        XCTAssertTrue(error.message.contains("pluck models pull birefnet-lite"), error.message)
     }
 
     func testInvalidBackgroundExitsOne() throws {

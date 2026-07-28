@@ -1,5 +1,6 @@
 import ArgumentParser
 import Foundation
+import PluckKit
 
 /// ArgumentParser's own dispatch cannot reach a subcommand past a repeating positional
 /// argument (`parseCurrent` swallows every value into `inputs` before the subcommand
@@ -9,7 +10,7 @@ enum Entry {
     static func main() async {
         let arguments = Array(CommandLine.arguments.dropFirst())
         if arguments.first == Models.configuration.commandName {
-            Models.main(Array(arguments.dropFirst()))
+            await Models.main(Array(arguments.dropFirst()))
             return
         }
         await Pluck.main(arguments)
@@ -81,7 +82,7 @@ struct Pluck: AsyncParsableCommand {
     }
 }
 
-struct Models: ParsableCommand {
+struct Models: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "models",
         abstract: "Inspect and manage matting engines.",
@@ -90,36 +91,104 @@ struct Models: ParsableCommand {
     )
 
     struct List: ParsableCommand {
-        static let configuration = CommandConfiguration(abstract: "List installed engines.")
+        static let configuration = CommandConfiguration(
+            abstract: "List the engines this machine can use, and the ones it could download."
+        )
 
         @Flag(name: .long, help: "Emit the list as JSON on stdout.")
         var json = false
 
         func run() throws {
-            for engine in EngineCatalog.installed {
+            for engine in EngineCatalog.all {
                 if json {
                     Terminal.stdout(JSONReport.object([
                         ("id", .string(engine.id)),
                         ("summary", .string(engine.summary)),
                         ("builtIn", .bool(engine.builtIn)),
-                        ("installed", .bool(true))
+                        ("installed", .bool(engine.installed))
                     ]))
                 } else {
-                    Terminal.stdout("\(engine.id)\t\(engine.builtIn ? "built-in" : "downloaded")\t\(engine.summary)")
+                    let state = engine.builtIn ? "built-in" : (engine.installed ? "installed" : "available")
+                    Terminal.stdout("\(engine.id)\t\(state)\t\(engine.summary)")
                 }
             }
         }
     }
 
-    struct Pull: ParsableCommand {
-        static let configuration = CommandConfiguration(abstract: "Download a model (not available yet).")
+    struct Pull: AsyncParsableCommand {
+        static let configuration = CommandConfiguration(abstract: "Download and install a model.")
 
         @Argument(help: ArgumentHelp("Model id.", valueName: "id"))
         var id: String
 
-        func run() throws {
-            Terminal.error("cannot pull “\(id)”: downloadable models arrive in v0.3. \(EngineCatalog.availabilityMessage)")
-            throw ExitCode(ExitStatus.modelProblem)
+        @Flag(name: .long, help: "Download again even if the model is already installed.")
+        var force = false
+
+        func run() async throws {
+            guard let registry = EngineCatalog.registry, let model = registry.descriptor(for: id) else {
+                Terminal.error("unknown model “\(id)”. \(EngineCatalog.availabilityMessage)")
+                throw ExitCode(ExitStatus.modelProblem)
+            }
+            if !force, let installed = registry.localURL(for: id) {
+                Terminal.note("\(id) is already installed at \(installed.path)")
+                return
+            }
+
+            Terminal.note("\(id): \(model.displayName), \(Self.megabytes(model.bytes)) — \(model.license), \(model.source.absoluteString)")
+            let reporter = ProgressReporter()
+            do {
+                let url = try await registry.install(id, force: force) { progress in
+                    reporter.report(progress)
+                }
+                reporter.finish()
+                Terminal.note("installed \(id) at \(url.path)")
+            } catch {
+                reporter.finish()
+                let description = (error as? PluckError)?.errorDescription ?? error.localizedDescription
+                Terminal.error(description)
+                throw ExitCode(ExitStatus.modelProblem)
+            }
         }
+
+        static func megabytes(_ bytes: Int64) -> String {
+            String(format: "%.0f MB", Double(bytes) / 1_000_000)
+        }
+    }
+}
+
+/// Redraws one line on stderr while the bytes come down. Silent without a TTY: a progress
+/// bar in a log file is noise, and the CLI's contract is that stderr stays quiet for agents.
+private final class ProgressReporter: @unchecked Sendable {
+    private let lock = NSLock()
+    private var lastPercent = -1
+    private var drew = false
+
+    func report(_ progress: ModelRegistry.Progress) {
+        guard Terminal.stderrIsTTY else { return }
+        lock.lock()
+        defer { lock.unlock() }
+
+        let label: String
+        switch progress.phase {
+        case .downloading:
+            let percent = Int((progress.fraction ?? 0) * 100)
+            guard percent != lastPercent else { return }
+            lastPercent = percent
+            label = "downloading \(percent)%"
+        case .verifying:
+            label = "verifying…"
+        case .installing:
+            label = "installing…"
+        }
+        FileHandle.standardError.write(Data("\r\u{1B}[K\(label)".utf8))
+        drew = true
+    }
+
+    func finish() {
+        lock.lock()
+        defer { lock.unlock() }
+        guard drew else { return }
+        FileHandle.standardError.write(Data("\r\u{1B}[K".utf8))
+        drew = false
     }
 }

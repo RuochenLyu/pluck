@@ -12,6 +12,7 @@ enum FailureKind: Equatable {
 
     static let noSubject = FailureKind.library(.noSubject)
     static let modelMissing = FailureKind.library(.modelMissing)
+    static let modelLoadFailed = FailureKind.library(.modelLoadFailed)
     static let engineUnavailable = FailureKind.library(.engineUnavailable)
     static let imageLoadFailed = FailureKind.library(.imageLoadFailed)
     static let processingFailed = FailureKind.library(.processingFailed)
@@ -81,7 +82,9 @@ enum ExitStatus {
     static func resolve(_ outcomes: [ItemOutcome]) -> Int32 {
         let kinds = outcomes.compactMap { $0.failure?.kind }
         if kinds.isEmpty { return success }
-        if kinds.contains(.modelMissing) { return modelProblem }
+        // A model that is absent and a model that will not load are the same problem to
+        // whoever is scripting this: the model is not usable, exit 3 says so.
+        if kinds.contains(.modelMissing) || kinds.contains(.modelLoadFailed) { return modelProblem }
         if kinds.contains(where: { $0 != .noSubject }) { return otherError }
         return noSubject
     }

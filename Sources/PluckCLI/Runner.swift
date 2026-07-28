@@ -8,7 +8,19 @@ struct Runner {
     let plan: RunPlan
 
     func run() async -> [ItemOutcome] {
-        guard let engine = EngineCatalog.engine(for: plan.engineID) else {
+        let loaded: (any MattingEngine)?
+        do {
+            // Core ML compiles a freshly downloaded package on first use, which takes
+            // 5–10 seconds; say so rather than looking hung, but only to a human.
+            if Terminal.stderrIsTTY, plan.engineID != EngineCatalog.defaultEngineID {
+                Terminal.note("loading \(plan.engineID)…")
+            }
+            loaded = try await EngineCatalog.engine(for: plan.engineID)
+        } catch {
+            let failure = ItemFailure.from(error, context: plan.engineID)
+            return plan.items.map { ItemOutcome(input: $0.source.display, result: .failure(failure)) }
+        }
+        guard let engine = loaded else {
             return plan.items.map {
                 .failure(input: $0.source.display, .modelMissing, "model “\(plan.engineID)” is not installed")
             }
