@@ -255,17 +255,6 @@
         }
       }
     },
-    "Cutout · %@": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Cutout · %@"
-          }
-        }
-      }
-    },
     "Delete": {
       "extractionState": "manual",
       "localizations": {
@@ -350,6 +339,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Edit"
+          }
+        }
+      }
+    },
+    "Engine": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Engine"
           }
         }
       }
@@ -684,17 +684,6 @@
         }
       }
     },
-    "Re-pluck with": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Re-pluck with"
-          }
-        }
-      }
-    },
     "Recent": {
       "extractionState": "manual",
       "localizations": {
@@ -889,6 +878,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Version %@"
+          }
+        }
+      }
+    },
+    "Which engine made this cutout": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Which engine made this cutout"
           }
         }
       }

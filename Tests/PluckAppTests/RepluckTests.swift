@@ -25,9 +25,10 @@ private func onePassMore(_ data: Data, _ name: String, _ engine: any MattingEngi
 /// Running one picture through a second engine, and what the grid is allowed to do about it.
 ///
 /// The rules worth pinning down are all about *not* losing things: the first cutout stays,
-/// the two stay related, and the menu stops offering an engine this picture has already been
-/// through. None of it needs Core ML — the engine is injected, and what is being tested is
-/// the bookkeeping around it.
+/// the two stay related, every engine stays on the menu, and switching back to one this
+/// picture has already been through re-uses the cutout instead of computing it again. None
+/// of it needs Core ML — the engine is injected, and what is being tested is the bookkeeping
+/// around it.
 @MainActor
 final class RepluckTests: XCTestCase {
     private var scratch: [URL] = []
@@ -75,6 +76,35 @@ final class RepluckTests: XCTestCase {
         let root = URL(fileURLWithPath: NSTemporaryDirectory())
             .appendingPathComponent("pluck-repluck-\(UUID().uuidString)", isDirectory: true)
         return EngineCatalog(registry: ModelRegistry(manifest: manifest, root: root))
+    }
+
+    /// A second cutout of one picture through another engine: same lineage, same files — so
+    /// a re-pluck of it can still read the original back — different bytes. It stands in for
+    /// a re-pluck no unit test can perform, since a second engine means a download and a Core
+    /// ML compile.
+    private func sibling(of item: RecentItem, engine: String) -> RecentItem {
+        RecentItem(
+            fingerprint: engine + item.fingerprint,
+            thumbnailPNG: item.thumbnailPNG,
+            fileURL: item.fileURL,
+            originalURL: item.originalURL,
+            suggestedName: item.suggestedName,
+            engineID: engine,
+            sourceID: item.sourceID
+        )
+    }
+
+    /// An entry with nothing behind it, for the lineage rule — which is arithmetic on three
+    /// fields and never opens a file.
+    private func fake(engine: String) -> RecentItem {
+        RecentItem(
+            fingerprint: UUID().uuidString,
+            thumbnailPNG: Data(),
+            fileURL: URL(fileURLWithPath: "/dev/null"),
+            originalURL: URL(fileURLWithPath: "/dev/null"),
+            suggestedName: "cut",
+            engineID: engine
+        )
     }
 
     private func firstCutout(_ model: AppModel) async -> RecentItem? {
@@ -154,9 +184,12 @@ final class RepluckTests: XCTestCase {
         scratch = model.recents.items.map(\.fileURL)
     }
 
-    // MARK: - What the menu offers
+    // MARK: - What the switcher offers
 
-    func testTheMenuOffersTheEnginesThisPictureHasNotBeenThrough() async throws {
+    /// Every engine, every time, with the one that made this cutout ticked. A list that lost
+    /// an entry once it had been used could never be learned, and it answered "what is left
+    /// to try" when the question in front of the user is "what am I looking at".
+    func testTheSwitcherListsEveryEngineAndTicksTheCurrentOne() async throws {
         let model = model(catalog: try catalogWithTwoModels(), process: onePassMore)
         model.handleDrop([.data(Data([1]))])
         guard let first = await firstCutout(model) else { return }
@@ -164,29 +197,100 @@ final class RepluckTests: XCTestCase {
 
         let options = await model.engineOptions(for: first)
 
-        XCTAssertEqual(options.map(\.id), ["birefnet-lite", "birefnet-lite-matting"])
-        XCTAssertEqual(options.map(\.label), [L.s("Clean Cut"), L.s("Fine Edges")])
+        XCTAssertEqual(options.map(\.id), [EngineCatalog.defaultEngineID, "birefnet-lite", "birefnet-lite-matting"])
+        XCTAssertEqual(
+            options.map(\.label),
+            [L.s("Apple Vision"), L.s("Clean Cut"), L.s("Fine Edges")]
+        )
+        XCTAssertEqual(options.filter(\.isCurrent).map(\.id), [EngineCatalog.defaultEngineID])
         // Not installed, so the parenthetical is what the click will cost in bytes.
-        XCTAssertEqual(options.first?.hint, EngineLabels.megabytes(83000000))
-        XCTAssertFalse(options.contains { $0.id == EngineCatalog.defaultEngineID })
+        XCTAssertEqual(options.first { $0.id == "birefnet-lite" }?.hint, EngineLabels.megabytes(83000000))
+        XCTAssertNil(options.first?.hint)
     }
 
-    /// Opening either half of a lineage must offer the same remaining engine — the sibling
-    /// cutout is already the answer for the one it used.
-    func testAnEngineAlreadyUsedOnASiblingIsNotOfferedAgain() async throws {
+    /// The tick follows the cutout, not the preference: opening the other half of a lineage
+    /// must move it.
+    func testTheTickFollowsTheCutoutBeingLookedAt() async throws {
         let model = model(catalog: try catalogWithTwoModels(), process: onePassMore)
         model.handleDrop([.data(Data([1]))])
         guard let first = await firstCutout(model) else { return }
-        model.repluck(first, with: EngineCatalog.defaultEngineID)
-        await waitUntil("the second cutout") { model.recents.items.count == 2 }
+        scratch = [first.fileURL]
+        let sibling = sibling(of: first, engine: "birefnet-lite")
+
+        let options = await model.engineOptions(for: sibling)
+
+        XCTAssertEqual(options.filter(\.isCurrent).map(\.id), ["birefnet-lite"])
+    }
+
+    // MARK: - Switching
+
+    /// Lineage, engine, and still in the grid — all three, or it is not the cutout that
+    /// answers the question.
+    func testTheSiblingLookupMatchesOnLineageAndEngineTogether() {
+        let a = fake(engine: EngineCatalog.defaultEngineID)
+        let mine = sibling(of: a, engine: "birefnet-lite")
+        let stranger = fake(engine: "birefnet-lite")
+
+        XCTAssertEqual(AppModel.sibling(of: a, engine: "birefnet-lite", in: [stranger, mine])?.id, mine.id)
+        XCTAssertNil(AppModel.sibling(of: a, engine: "birefnet-lite-matting", in: [stranger, mine]))
+        XCTAssertNil(AppModel.sibling(of: a, engine: "birefnet-lite", in: [stranger]))
+    }
+
+    /// The point of the switcher: two cutouts of one photo are both on the shelf already, so
+    /// flipping between them to compare edges is a panel swap and not a second pluck.
+    func testSwitchingToAnEngineTheGridAlreadyHoldsShowsItWithoutComputingAnything() async {
+        let model = model(process: onePassMore)
+        model.handleDrop([.data(Data([1]))])
+        guard let first = await firstCutout(model) else { return }
+        scratch = [first.fileURL]
+        // A second entry of the same lineage from another engine, standing in for a re-pluck
+        // no test can run: loading a real model is a download and a Core ML compile.
+        let other = sibling(of: first, engine: "birefnet-lite")
+        model.recents.insert(other)
+        var previewed: [UUID] = []
+        model.onPreviewRequest = { item in previewed.append(item.id) }
+
+        model.showEngine(EngineCatalog.defaultEngineID, for: other)
+
+        XCTAssertEqual(previewed, [first.id])
+        XCTAssertTrue(model.pendingItems.isEmpty)
+        XCTAssertEqual(model.recents.items.count, 2)
+    }
+
+    /// And the other path: a combination the grid has never held is work, and goes through
+    /// the same re-pluck as before.
+    func testSwitchingToAnEngineWithNoResultYetComputesOne() async {
+        let model = model(process: onePassMore)
+        model.handleDrop([.data(Data([1]))])
+        guard let first = await firstCutout(model) else { return }
+        // Its own lineage, so Vision's cutout of the *other* picture is not a sibling of it.
+        let lone = RecentItem(
+            fingerprint: "lone", thumbnailPNG: Data(), fileURL: first.fileURL,
+            originalURL: first.originalURL, suggestedName: "cut", engineID: "birefnet-lite"
+        )
+        model.recents.insert(lone)
+
+        model.showEngine(EngineCatalog.defaultEngineID, for: lone)
+        await waitUntil("the computed cutout") { model.recents.items.count == 3 }
         scratch = model.recents.items.map(\.fileURL)
 
-        // The re-pluck above ran through Vision, so both entries are Vision cutouts of one
-        // picture: the two models are still on offer, and Vision is not.
-        for item in model.recents.items {
-            let options = await model.engineOptions(for: item)
-            XCTAssertEqual(options.map(\.id), ["birefnet-lite", "birefnet-lite-matting"])
-        }
+        XCTAssertEqual(model.recents.items.first?.sourceID, lone.sourceID)
+    }
+
+    /// Picking the engine that is already ticked is not a request for anything.
+    func testChoosingTheCurrentEngineDoesNothing() async {
+        let model = model(process: onePassMore)
+        model.handleDrop([.data(Data([1]))])
+        guard let first = await firstCutout(model) else { return }
+        scratch = [first.fileURL]
+        var previewed = 0
+        model.onPreviewRequest = { _ in previewed += 1 }
+
+        model.showEngine(first.engineID, for: first)
+
+        XCTAssertEqual(previewed, 0)
+        XCTAssertTrue(model.pendingItems.isEmpty)
+        XCTAssertEqual(model.recents.items.count, 1)
     }
 
     /// Order is a fact about the choice, not about the disk: a model finishing its download
@@ -222,19 +326,15 @@ final class RepluckTests: XCTestCase {
         XCTAssertEqual(EngineLabels.mark("birefnet-lite-matting"), L.s("Fine Edges"))
     }
 
-    /// The preview's corner is one capsule, not a capsule plus a capsule: two pills of equal
-    /// weight left the engine name reading as a label for the thing beside it.
-    func testTheCutoutBadgeFoldsTheEngineIntoOneCapsule() {
-        XCTAssertEqual(EngineLabels.cutoutBadge(EngineCatalog.defaultEngineID), L.s("Cutout"))
-        XCTAssertTrue(EngineLabels.cutoutBadge("birefnet-lite").hasPrefix(L.s("Cutout")))
-        XCTAssertTrue(EngineLabels.cutoutBadge("birefnet-lite").hasSuffix(L.s("Clean Cut")))
-    }
-
     /// A duration is a claim about the user's machine, and this app has never measured one.
     /// The parenthetical is now reserved for the download, which is a fact about the bytes.
     func testOnlyAnEngineThatStillHasToBeDownloadedCarriesAParenthetical() {
-        let installed = AppModel.EngineOption(id: "a", label: "Clean Cut", hint: nil, installed: true)
-        let missing = AppModel.EngineOption(id: "b", label: "Fine Edges", hint: "83 MB", installed: false)
+        let installed = AppModel.EngineOption(
+            id: "a", label: "Clean Cut", hint: nil, installed: true, isCurrent: true
+        )
+        let missing = AppModel.EngineOption(
+            id: "b", label: "Fine Edges", hint: "83 MB", installed: false, isCurrent: false
+        )
         XCTAssertEqual(installed.menuTitle, "Clean Cut")
         XCTAssertTrue(missing.menuTitle.contains("83 MB"))
         XCTAssertTrue(missing.menuTitle.hasPrefix("Fine Edges"))

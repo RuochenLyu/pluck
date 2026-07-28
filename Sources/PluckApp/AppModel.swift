@@ -270,7 +270,12 @@ final class AppModel {
 
     // MARK: - Re-plucking
 
-    /// One engine offered for a second go at a picture, as the menu needs to say it.
+    /// One engine, as the preview panel's switcher needs to say it.
+    ///
+    /// Every engine is always listed, including the one that made the cutout on screen: the
+    /// menu is "which engine am I looking at this picture through", not a shrinking list of
+    /// things left to try. A list that loses an entry each time it is used cannot be learned,
+    /// and it hides the one fact the user is actually after — which engine this result is.
     struct EngineOption: Identifiable, Equatable, Sendable {
         let id: String
         let label: String
@@ -281,8 +286,11 @@ final class AppModel {
         /// including the one that says 83 MB.
         let hint: String?
         let installed: Bool
+        /// Whether this is the engine that made the cutout being shown — the tick in the menu,
+        /// and the name on the button that opens it.
+        let isCurrent: Bool
 
-        /// How the re-pluck menu says it.
+        /// How the switcher's menu says it.
         var menuTitle: String {
             guard let hint else { return label }
             return String(format: L.s("%1$@ (%2$@)"), label, hint)
@@ -296,26 +304,43 @@ final class AppModel {
 
     func isRepluckRunning(_ item: RecentItem) -> Bool { repluckingIDs.contains(item.id) }
 
-    /// Engines this picture has not been through yet.
-    ///
-    /// "This picture" is the lineage, not the entry: re-plucking with Matting leaves two
-    /// cutouts of one photo in the grid, and opening either of them should offer the same
-    /// remaining one rather than re-offering what the sibling already is.
+    /// Every engine this build knows about, with the one that made `item` ticked.
     func engineOptions(for item: RecentItem) async -> [EngineOption] {
-        let used = Set(recents.items.filter { $0.sourceID == item.sourceID }.map(\.engineID))
-            .union([item.engineID])
-        return await engines.options
-            .filter { !used.contains($0.id) }
-            .map { descriptor in
-                EngineOption(
-                    id: descriptor.id,
-                    label: EngineLabels.name(descriptor.id, fallback: descriptor.model?.displayName),
-                    hint: descriptor.installed
-                        ? nil
-                        : EngineLabels.megabytes(descriptor.model?.bytes ?? 0),
-                    installed: descriptor.installed
-                )
-            }
+        await engines.options.map { descriptor in
+            EngineOption(
+                id: descriptor.id,
+                label: EngineLabels.name(descriptor.id, fallback: descriptor.model?.displayName),
+                hint: descriptor.installed
+                    ? nil
+                    : EngineLabels.megabytes(descriptor.model?.bytes ?? 0),
+                installed: descriptor.installed,
+                isCurrent: descriptor.id == item.engineID
+            )
+        }
+    }
+
+    /// The cutout of this same picture that `engineID` has already produced, if the grid
+    /// still holds one.
+    ///
+    /// "This picture" is the lineage, not the entry: re-plucking leaves two cutouts of one
+    /// photo in the grid, and switching back and forth between them must not re-run anything.
+    /// Static and pure because that is the whole rule, and the rule is what can be wrong.
+    static func sibling(of item: RecentItem, engine engineID: String, in items: [RecentItem]) -> RecentItem? {
+        items.first { $0.sourceID == item.sourceID && $0.engineID == engineID }
+    }
+
+    /// Points the preview at this picture as `engineID` sees it.
+    ///
+    /// A result that already exists is shown, not recomputed: the two cutouts of one photo
+    /// are both on the shelf, and the user flipping between them to compare edges should
+    /// cost nothing at all. Only a combination the grid has never held is work.
+    func showEngine(_ engineID: String, for item: RecentItem) {
+        guard engineID != item.engineID else { return }
+        if let existing = Self.sibling(of: item, engine: engineID, in: recents.items) {
+            preview(existing)
+            return
+        }
+        repluck(item, with: engineID)
     }
 
     /// Runs this cutout's source picture through another engine, and files the result beside

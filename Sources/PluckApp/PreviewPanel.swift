@@ -241,9 +241,9 @@ struct PreviewRoot: View {
     }
 }
 
-/// What the re-pluck menu's contents depend on. Two values, because the menu goes stale for
-/// two different reasons: the panel being pointed at a different cutout, and a re-pluck
-/// landing in the grid while this one is open.
+/// What the engine switcher's contents depend on. Two values, because it goes stale for two
+/// different reasons: the panel being pointed at a different cutout, and a re-pluck landing
+/// in the grid while this one is open.
 private struct EngineMenuKey: Equatable {
     let item: UUID
     let cutouts: Int
@@ -269,14 +269,14 @@ struct CutoutPreviewView: View {
             .overlay(alignment: .top) { dragBand }
             .overlay(alignment: .bottomLeading) { sideLabel(L.s("Original"), visible: Self.labels(at: fraction).original) }
             .overlay(alignment: .bottomTrailing) {
-                sideLabel(EngineLabels.cutoutBadge(item.engineID), visible: Self.labels(at: fraction).cutout)
+                sideLabel(L.s("Cutout"), visible: Self.labels(at: fraction).cutout)
             }
             .overlay(alignment: .topTrailing) { closeButton.padding(8) }
             .overlay(alignment: .bottom) { toolbar }
             .onHover { on in pointerInside = on }
-            // Re-read when the grid changes, not only when the panel swaps item: finishing a
-            // re-pluck removes an engine from this list, and the menu must not still be
-            // offering it.
+            // Re-read when the grid changes, not only when the panel swaps item: a finished
+            // download changes what an entry costs, and a re-pluck landing changes which
+            // engine is ticked.
             .task(id: EngineMenuKey(item: item.id, cutouts: model.recents.items.count)) {
                 options = await model.engineOptions(for: item)
             }
@@ -370,10 +370,10 @@ struct CutoutPreviewView: View {
         return (original: fraction > clearance, cutout: fraction < 1 - clearance)
     }
 
-    /// One capsule per half. The cutout side folds in who made it when that is not the
-    /// default engine (`EngineLabels.cutoutBadge`): with two cutouts of one photo able to sit
-    /// side by side in the grid, "which of the two am I looking at" is a question the panel
-    /// has to answer without the user remembering the order they clicked in.
+    /// One capsule per half, and nothing more: "which of the two cutouts of this photo am I
+    /// looking at" is answered by the switcher in the toolbar, which names the engine as part
+    /// of being the way to change it. Saying it twice made the corner capsule a second,
+    /// quieter label for the same fact.
     private func sideLabel(_ text: String, visible: Bool) -> some View {
         Text(text)
             .font(.system(size: 11, weight: .medium))
@@ -413,7 +413,7 @@ struct CutoutPreviewView: View {
                     .controlSize(.small)
                     .frame(width: 30, height: 30)
             } else if !options.isEmpty {
-                repluckMenu
+                engineSwitcher
             }
         }
         .padding(.horizontal, 4)
@@ -427,25 +427,54 @@ struct CutoutPreviewView: View {
         .animation(.easeOut(duration: 0.15), value: pointerInside)
     }
 
-    /// The way to try this picture through another engine, on the surface where the result
-    /// of the last one is being looked at — which is the moment anyone forms an opinion
-    /// about an edge. It offers only what this picture has not been through: an engine
-    /// already in the grid for it has nothing new to produce.
-    private var repluckMenu: some View {
+    /// Which engine this picture is being looked at through — a standing switch, not a verb.
+    ///
+    /// It was a circular-arrow button opening a list of engines this photo had not been
+    /// through yet, and both halves of that were wrong. A refresh glyph says "do it again",
+    /// not "with what"; and a menu that drops an entry each time it is used has no stable
+    /// shape to learn, while saying nothing about what is currently on screen. A word plus a
+    /// chevron is both facts in one control: the name is the state, the chevron is the door.
+    ///
+    /// Switching to an engine this picture has already been through costs nothing — the
+    /// panel just points at the cutout that exists (`AppModel.showEngine`).
+    private var engineSwitcher: some View {
         Menu {
             ForEach(options) { option in
-                Button(option.menuTitle) { model.repluck(item, with: option.id) }
+                // A `Toggle` rather than a `Button`, because AppKit draws a checked menu item
+                // for it: the tick is how a menu says "this one", and a list of plain buttons
+                // would leave the current engine indistinguishable from the alternatives.
+                Toggle(isOn: Binding(
+                    get: { option.isCurrent },
+                    set: { _ in model.showEngine(option.id, for: item) }
+                )) {
+                    Text(option.menuTitle)
+                }
             }
         } label: {
-            // Not the macOS 15 `arrow.trianglehead.*` family: the deployment target is 14,
-            // where those symbols do not exist and the button would draw as nothing at all.
-            PlainIconGlyph(symbol: "arrow.triangle.2.circlepath", size: 14, side: 30, highlighted: false)
+            HStack(spacing: 3) {
+                Text(currentEngineLabel)
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundStyle(.secondary)
+            }
+            .font(.system(size: 11, weight: .medium))
+            .foregroundStyle(.primary)
+            .padding(.horizontal, 7)
+            .frame(height: 30)
+            .contentShape(Rectangle())
         }
         .menuStyle(.borderlessButton)
         .menuIndicator(.hidden)
         .fixedSize()
-        .accessibilityLabel(L.s("Re-pluck with"))
-        .help(L.s("Re-pluck with"))
+        .accessibilityLabel(L.s("Engine"))
+        .help(L.s("Which engine made this cutout"))
+    }
+
+    /// The options list is the better source while it has loaded — it carries the manifest's
+    /// display name for a model this build has no copy written for — but the label must be
+    /// right on the first frame too.
+    private var currentEngineLabel: String {
+        options.first { $0.isCurrent }?.label ?? EngineLabels.name(item.engineID)
     }
 
     private func handle(width: CGFloat, height: CGFloat) -> some View {

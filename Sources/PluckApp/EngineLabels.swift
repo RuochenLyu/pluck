@@ -63,18 +63,12 @@ enum EngineLabels {
     /// saying. Vision is the default and the overwhelming majority of entries: marking those
     /// would put the same word on every row in the list, which is how a label stops being
     /// read. Only the departure from the default carries information.
+    ///
+    /// The batch window's row subtitle is the one caller left. The preview panel names its
+    /// engine unconditionally, because there the name is on the control that changes it —
+    /// a switcher that goes blank for the default would be a control with no state.
     static func mark(_ id: String) -> String? {
         id == EngineCatalog.defaultEngineID ? nil : name(id)
-    }
-
-    /// The preview panel's bottom-right corner, in one capsule.
-    ///
-    /// It used to be two: a provenance pill sitting against the "Cutout" pill, which read as
-    /// two labels of equal rank and left "is *Fine Edges* the name of this half, or of the
-    /// thing next to it" to be guessed. One capsule has one subject.
-    static func cutoutBadge(_ id: String) -> String {
-        guard let mark = mark(id) else { return L.s("Cutout") }
-        return String(format: L.s("Cutout · %@"), mark)
     }
 
     static func megabytes(_ bytes: Int64) -> String {
