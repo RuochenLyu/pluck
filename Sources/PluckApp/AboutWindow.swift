@@ -75,11 +75,17 @@ struct AboutView: View {
             Text(L.s("High-quality matting: BiRefNet (MIT)"))
                 .font(.footnote)
                 .foregroundStyle(.tertiary)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
         }
         .padding(.horizontal, 24)
         .padding(.top, 12)
         .padding(.bottom, 24)
-        .frame(width: 320)
+        // A floor, not a width. Two bordered buttons side by side are the widest thing in
+        // here, and their titles are words — a language whose word for "License" is twice
+        // English's would have had them clipped by a hard 320. The window is sized from
+        // `fittingSize`, so a wider layout simply makes a wider About panel.
+        .frame(minWidth: 320)
     }
 }
 

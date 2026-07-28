@@ -95,15 +95,23 @@ struct ShelfView: View {
     private var header: some View {
         HStack(spacing: 8) {
             if content.showsSectionLabel {
+                // The label yields first. In a language whose word for "Recent" is three
+                // times English's, the thing that must survive is the row of controls beside
+                // it — a label that has been shortened still names the grid, where a Clear
+                // button that has been squeezed out of the line is a feature that is gone.
                 Text(L.s("Recent"))
                     .font(.caption.weight(.semibold))
                     .textCase(.uppercase)
                     .tracking(0.6)
                     .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .layoutPriority(0)
             }
             Spacer(minLength: 8)
             if ShelfContent.showsClear(recents: model.recents.items.count) {
                 ClearButton { model.clearRecents() }
+                    .layoutPriority(1)
             }
             PlainIconButton(symbol: "macwindow", label: L.s("Open main window"), action: onMainWindow)
             PlainIconButton(symbol: "gearshape", label: L.s("Settings"), action: onSettings)
@@ -201,6 +209,9 @@ struct ShelfView: View {
                 .font(.caption)
                 .foregroundStyle(.tertiary)
         }
+        // Both lines wrap rather than shrink: the panel's width is fixed, so a longer
+        // language has nowhere to go but downward, and the invitation has the whole panel.
+        .fixedSize(horizontal: false, vertical: true)
         .multilineTextAlignment(.center)
         .padding(.horizontal, 20)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -283,6 +294,8 @@ private struct ClearButton: View {
     var body: some View {
         Button(L.s("Clear"), action: action)
             .buttonStyle(.plain)
+            .lineLimit(1)
+            .fixedSize()
             // Caption, like the section label it sits beside — but not small-capped: this
             // one is pressable, and a label and a control that look identical are a trap.
             .font(.caption)

@@ -13,8 +13,17 @@ import Foundation
 /// "2 hours ago" on each card was re-stating the position of the card in the grid, and it was
 /// the one part of the line that changed under the pointer while being read.
 enum GalleryCaption {
+    /// The whole line, for the card's accessibility label — where there is no pointer, no
+    /// truncation and nothing to hover.
     static func text(name: String, width: Int, height: Int, engine: String? = nil) -> String {
-        ([name, dimensions(width: width, height: height)] + [engine].compactMap { $0 })
+        name + " · " + detail(width: width, height: height, engine: engine)
+    }
+
+    /// Everything except the name. Drawn as its own `Text` so that the *name* is the part that
+    /// gets shortened when the card is too narrow for the line: truncating the string as a
+    /// whole ate the separator and ran the two facts together — "product-…960 × 664".
+    static func detail(width: Int, height: Int, engine: String? = nil) -> String {
+        ([dimensions(width: width, height: height)] + [engine].compactMap { $0 })
             .joined(separator: " · ")
     }
 

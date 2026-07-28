@@ -71,11 +71,19 @@ struct SettingsView: View {
                 ModelsSection(store: models, preferences: preferences)
 
                 Section {
-                    Toggle(L.s("Keep recent cutouts between launches"), isOn: $preferences.keepsHistory)
-                        .onChange(of: preferences.keepsHistory) { _, keeps in
-                            guard !keeps else { return }
-                            model.forgetStoredHistory()
-                        }
+                    // The label is a `Text` of its own so it can be told to wrap. A
+                    // `Toggle(_:isOn:)` with a string title truncates it instead, and the
+                    // switch stays pinned to the trailing edge of a 480pt form — so the
+                    // first language whose sentence is longer than English's loses the end
+                    // of the only sentence that says what the switch does.
+                    Toggle(isOn: $preferences.keepsHistory) {
+                        Text(L.s("Keep recent cutouts between launches"))
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .onChange(of: preferences.keepsHistory) { _, keeps in
+                        guard !keeps else { return }
+                        model.forgetStoredHistory()
+                    }
                     // One sentence, in the user's vocabulary. "Application Support" is a
                     // directory name from a developer's mental model of the machine, and
                     // "never uploaded" was the third statement of the privacy claim in a
@@ -202,7 +210,9 @@ private struct EngineRow<Control: View>: View {
             IconTile(symbol: EngineLabels.symbol(id), isSelected: isSelected)
 
             VStack(alignment: .leading, spacing: 5) {
-                Text(title).font(.headline)
+                Text(title)
+                    .font(.headline)
+                    .fixedSize(horizontal: false, vertical: true)
                 if let failure {
                     Text(failure)
                         .font(.caption)

@@ -474,10 +474,14 @@ struct CutoutPreviewView: View {
         if #available(macOS 26.0, *) {
             Text(currentEngineLabel)
                 .font(.system(size: 11, weight: .medium))
+                .lineLimit(1)
+                .frame(maxWidth: Self.engineLabelMaxWidth)
                 .frame(height: Tokens.toolbarControlSide - 10)
         } else {
             HStack(spacing: 3) {
                 Text(currentEngineLabel)
+                    .lineLimit(1)
+                    .frame(maxWidth: Self.engineLabelMaxWidth)
                 Image(systemName: "chevron.down")
                     .font(.system(size: 9, weight: .semibold))
                     .foregroundStyle(.secondary)
@@ -490,6 +494,13 @@ struct CutoutPreviewView: View {
             .contentShape(Capsule())
         }
     }
+
+    /// The toolbar capsule floats over a panel that can be as narrow as 320pt, and the
+    /// switcher's title is whatever the manifest calls a model — a string this app does not
+    /// author and cannot bound. `.fixedSize()` on the menu means the label's ideal width is
+    /// the capsule's width, so without a ceiling here one long model name pushes the capsule
+    /// wider than the picture it is floating on.
+    private static let engineLabelMaxWidth: CGFloat = 150
 
     /// The options list is the better source while it has loaded — it carries the manifest's
     /// display name for a model this build has no copy written for — but the label must be

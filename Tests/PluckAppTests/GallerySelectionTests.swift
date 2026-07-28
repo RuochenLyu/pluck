@@ -171,6 +171,16 @@ final class GalleryCaptionTests: XCTestCase {
         )
     }
 
+    /// The card draws the two halves separately so the name is what gets shortened when the
+    /// line does not fit — truncating the whole string ate the separator with it.
+    func testTheDetailHalfCarriesEverythingButTheName() {
+        XCTAssertEqual(GalleryCaption.detail(width: 640, height: 480), "640 × 480")
+        XCTAssertEqual(
+            GalleryCaption.detail(width: 640, height: 480, engine: L.s("Fine Edges")),
+            "640 × 480 · \(L.s("Fine Edges"))"
+        )
+    }
+
     /// Only a departure from the default engine is worth naming; a nil engine has to take its
     /// separator with it, or every Vision cutout ends in a dangling "·".
     func testTheEngineIsNamedOnlyWhenThereIsOneToName() {

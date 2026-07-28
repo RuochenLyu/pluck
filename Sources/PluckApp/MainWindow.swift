@@ -199,6 +199,7 @@ struct MainWindowView: View {
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .monospacedDigit()
+                .fixedSize(horizontal: false, vertical: true)
             ProgressView(value: batch.fraction)
                 .progressViewStyle(.linear)
                 .tint(Palette.coral)
@@ -222,6 +223,11 @@ struct MainWindowView: View {
                 .font(.callout)
                 .foregroundStyle(.secondary)
         }
+        // The window is resizable down to 480pt and the empty state is two sentences: they
+        // wrap and centre rather than being cut off at the window's edge.
+        .multilineTextAlignment(.center)
+        .fixedSize(horizontal: false, vertical: true)
+        .padding(.horizontal, 24)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(targeted ? AnyShapeStyle(Color.accentColor.opacity(0.08)) : AnyShapeStyle(.quaternary.opacity(0.4)))
         .clipShape(RoundedRectangle(cornerRadius: Tokens.cardRadius, style: .continuous))
@@ -426,7 +432,14 @@ private struct GalleryCard: View {
             Button(L.s("Delete"), role: .destructive) { model.discard(item) }
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(item.suggestedName)
+        // The whole caption, not just the name: VoiceOver has no hover, so this is the only
+        // place the size and the engine can be said at all.
+        .accessibilityLabel(GalleryCaption.text(
+            name: item.suggestedName,
+            width: item.pixelWidth,
+            height: item.pixelHeight,
+            engine: EngineLabels.mark(item.engineID)
+        ))
         .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
     }
 
@@ -438,16 +451,23 @@ private struct GalleryCard: View {
     /// would push the grid apart into a table of contents, and the file's name is not what
     /// the user is scanning for: the picture is.
     private var caption: some View {
-        Text(verbatim: GalleryCaption.text(
-            name: item.suggestedName,
-            width: item.pixelWidth,
-            height: item.pixelHeight,
-            engine: EngineLabels.mark(item.engineID)
-        ))
+        // Two `Text`s, so the name is what gives way. The size is four characters and an ×,
+        // and it is the fact that survives being read at a glance; a filename that has lost
+        // its last three letters is still the file.
+        HStack(spacing: 0) {
+            Text(verbatim: item.suggestedName)
+                .lineLimit(1)
+                .truncationMode(.tail)
+            Text(verbatim: " · " + GalleryCaption.detail(
+                width: item.pixelWidth,
+                height: item.pixelHeight,
+                engine: EngineLabels.mark(item.engineID)
+            ))
+            .lineLimit(1)
+            .layoutPriority(1)
+        }
         .font(.caption2)
         .monospacedDigit()
-        .lineLimit(1)
-        .truncationMode(.middle)
         .padding(.horizontal, 8)
         .padding(.vertical, 4)
         .frame(maxWidth: .infinity, alignment: .leading)
