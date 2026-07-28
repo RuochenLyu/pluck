@@ -7,6 +7,11 @@ import UniformTypeIdentifiers
 /// `onClick` rather than trying to be transparent to the mouse.
 final class StatusItemDropView: NSView {
     var onClick: (() -> Void)?
+    /// The right button, which this view has to route explicitly for the same reason it has
+    /// to route the left one: hit-testing gives it every mouse event the status item gets,
+    /// so an `NSStatusItem.menu` or a `sendAction(on:)` on the button underneath would never
+    /// be reached.
+    var onSecondaryClick: (() -> Void)?
     var onDrop: (([DroppedPayload]) -> Void)?
     /// The icon is the whole affordance here: there is no window to light up, so the mark
     /// itself has to say "let go and I will catch this".
@@ -26,7 +31,7 @@ final class StatusItemDropView: NSView {
     }
 
     override func rightMouseDown(with event: NSEvent) {
-        onClick?()
+        onSecondaryClick?()
     }
 
     override func draggingEntered(_ sender: any NSDraggingInfo) -> NSDragOperation {

@@ -46,13 +46,14 @@ struct ShelfView: View {
     /// not just the strip: aiming a dragged file at a 40pt bar is a worse deal than
     /// dropping on the surface already under it.
     let dropTarget: DropTarget
-    var onQuit: () -> Void
-    var onAbout: () -> Void
     /// The gear is back, and this time it opens something. It was removed in v0.1 because
     /// there was nothing to configure; the history switch and the offline statement are
-    /// enough to earn it. Quit and About moved inside it: a bar with a word-button, two
-    /// bordered icons and a gear was four controls competing for a strip that has one
-    /// primary job.
+    /// enough to earn it.
+    ///
+    /// It opens Settings on the click, with no menu in between: a gear means settings
+    /// everywhere else on this machine, and a pull-down that exists to hold one more item
+    /// than it needs makes the common case cost two clicks. About and Quit live on the
+    /// status item's right-click menu, which is where a menu-bar app is looked for.
     var onSettings: () -> Void
     /// The way to the batch window. The shelf is a 340pt panel that dismisses on any click
     /// outside itself — fine for one image, wrong for forty rows the user wants to work
@@ -105,7 +106,7 @@ struct ShelfView: View {
                 ClearButton { model.clearRecents() }
             }
             PlainIconButton(symbol: "macwindow", label: L.s("Open main window"), action: onMainWindow)
-            ShelfMenuButton(onAbout: onAbout, onSettings: onSettings, onQuit: onQuit)
+            PlainIconButton(symbol: "gearshape", label: L.s("Settings"), action: onSettings)
         }
         .padding(.horizontal, Self.inset)
         .padding(.top, 12)
@@ -245,37 +246,6 @@ private struct GhostSlot: View {
         .overlay { DashedOutline(cornerRadius: 10, accented: accented) }
         .allowsHitTesting(false)
         .accessibilityHidden(true)
-    }
-}
-
-/// The gear, as a menu. ⌘, and ⌘Q are declared here rather than on a hidden button so the
-/// shelf shows the shortcuts it answers instead of the user having to know them.
-private struct ShelfMenuButton: View {
-    var onAbout: () -> Void
-    var onSettings: () -> Void
-    var onQuit: () -> Void
-
-    @State private var hovering = false
-
-    var body: some View {
-        Menu {
-            Button(L.s("About Pluck"), action: onAbout)
-            Button(L.s("Settings…"), action: onSettings)
-                .keyboardShortcut(",", modifiers: .command)
-            Divider()
-            Button(L.s("Quit Pluck"), action: onQuit)
-                .keyboardShortcut("q", modifiers: .command)
-        } label: {
-            PlainIconGlyph(symbol: "gearshape", highlighted: hovering)
-        }
-        .menuStyle(.borderlessButton)
-        .menuIndicator(.hidden)
-        .fixedSize()
-        .onHover { on in
-            withAnimation(.easeOut(duration: 0.12)) { hovering = on }
-        }
-        .accessibilityLabel(L.s("Menu"))
-        .help(L.s("Menu"))
     }
 }
 

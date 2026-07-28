@@ -32,6 +32,19 @@ final class KeyEquivalentTests: XCTestCase {
         XCTAssertFalse(AppDelegate.isCommandOnly([.command, .control]))
     }
 
+    /// About and Quit moved out of the shelf's gear and onto the status item's right button,
+    /// which is where a menu-bar app is looked for. Settings is deliberately not repeated
+    /// here: the gear opens it in one click, and two doors to one window is one too many.
+    @MainActor
+    func testTheStatusItemsRightClickMenuCarriesAboutAndQuit() {
+        let menu = AppDelegate.makeStatusMenu(target: nil)
+        XCTAssertEqual(menu.items.map(\.title), [L.s("About Pluck"), "", L.s("Quit Pluck")])
+        XCTAssertTrue(menu.items[1].isSeparatorItem)
+        XCTAssertEqual(menu.items.last?.keyEquivalent, "q")
+        XCTAssertEqual(menu.items.last?.keyEquivalentModifierMask, .command)
+        XCTAssertEqual(menu.items.last?.action, #selector(NSApplication.terminate(_:)))
+    }
+
     func testNoCommandIsNotACommandShortcut() {
         XCTAssertFalse(AppDelegate.isCommandOnly([]))
         XCTAssertFalse(AppDelegate.isCommandOnly([.capsLock]))

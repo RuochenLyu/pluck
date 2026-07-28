@@ -244,6 +244,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let drop = StatusItemDropView(frame: button.bounds)
         drop.autoresizingMask = [.width, .height]
         drop.onClick = { [weak self] in self?.iconClicked() }
+        drop.onSecondaryClick = { [weak self] in self?.showStatusMenu() }
         drop.onDrop = { [weak self] payloads in self?.iconReceived(payloads) }
         drop.onDragTargeted = { [weak self] on in self?.showDropAffordance(on) }
         button.addSubview(drop)
@@ -258,8 +259,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             content: ShelfView(
                 model: model,
                 dropTarget: shelf.dropTarget,
-                onQuit: { NSApp.terminate(nil) },
-                onAbout: { [weak self] in self?.showAbout() },
                 onSettings: { [weak self] in self?.showSettings() },
                 onMainWindow: { [weak self] in self?.showMainWindow() }
             )
@@ -280,6 +279,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
         openShelf()
+    }
+
+    /// Left button opens the shelf, right button opens a menu: the pattern every menu-bar
+    /// app on this machine follows, and the reason About and Quit no longer need a pull-down
+    /// inside the shelf. Only the two the shelf cannot hold — Settings has a gear of its own
+    /// there, and repeating it here would be a third route to one window.
+    ///
+    /// `statusItem.menu` is set for the duration of the click and cleared after: assigning it
+    /// permanently would make AppKit swallow the *left* click too, and the shelf would become
+    /// unreachable.
+    private func showStatusMenu() {
+        // The dismiss monitor has already closed the shelf for this same right click and
+        // armed the swallow, which would otherwise eat the next left click on the icon.
+        swallowIconClick = false
+        guard let item = statusItem, let button = item.button else { return }
+        item.menu = Self.makeStatusMenu(target: self)
+        button.performClick(nil)
+        item.menu = nil
+    }
+
+    /// Built by a static function so the shape of the menu — what is in it, in what order,
+    /// with which shortcut — is assertable without a menu bar to put it in.
+    static func makeStatusMenu(target: AnyObject?) -> NSMenu {
+        let menu = NSMenu()
+        menu.addItem(item(L.s("About Pluck"), #selector(showAbout), "", target: target))
+        menu.addItem(.separator())
+        menu.addItem(item(L.s("Quit Pluck"), #selector(NSApplication.terminate(_:)), "q"))
+        return menu
     }
 
     /// Dropping on the icon is the primary way in, so the shelf opens on release: the

@@ -283,3 +283,10 @@
 - **重抠**指名引擎**时不回落 Vision**：拖入时回落是对的（用户要的是把图抠出来），重抠时是错的（用户点的是"用 Matting 试试"，给他一张已有的 Vision 副本不是这个问题的较小答案）。因此模型加载/下载失败一律是这次任务失败 + 一条状态消息。顺带给 `PluckFailure` 补了 `modelUnavailable`——v0.3 那条"等 app 长出下载 UI 再给它们自己的文案"的欠账在这里还上。
 - **出身标注只标非默认引擎**：Vision 是默认也是绝大多数条目，全标等于在每一行印同一个词，标签就此不再被读。主窗口行副标题（尺寸 · 时间 · 引擎）与预览面板 Cutout 角标旁各一处。
 - **`RecentItem` / index.json 新增 `engineID` 与 `sourceID`，decode 容忍缺失**：`engineID` 记的是**实际跑的**引擎（`engine.id`）而不是偏好里写的，否则一次回落就会让条目谎称自己的出身；`sourceID` 是同一张图的血缘，让"这张图还没走过谁"在重启后仍然成立。两者都用 `decodeIfPresent` + 默认值（vision / 自己的 id）——旧 index 是用户的全部历史，合成的 `init(from:)` 会在第一个缺失键上抛错，而 `load` 把抛错读成"没有索引"，那就是**升级后的第一次启动把归档清空**。这条在 `CutoutArchive.Record` 上写成了规则，并有专门的旧格式测试。
+
+## 2026-07-28 — 齿轮直接开 Settings，About / Quit 搬到状态项右键菜单
+
+- **shelf 齿轮回到普通按钮，点击直开 Settings**：齿轮在这台机器上到处都意味着"设置"，中间夹一层只为多挂两项的下拉，等于让最常见的那次点击付两下。`ShelfMenuButton` 删除。
+- **About / Quit 搬到状态项右键菜单**（左键开面板、右键出菜单是菜单栏 app 的标准分工，也是用户找它们的地方）。Settings **不重复**放进去——齿轮已经一步到位，一个窗口两个门是多的那个。mainMenu 里三项原样保留：⌘, / ⌘Q 的解析仍然只走那里。
+- **实现走 `StatusItemDropView.onSecondaryClick` 而不是 `button.sendAction(on:)`**：拖放目标是铺在状态项按钮上的一层 NSView，命中测试把所有鼠标事件都给了它，按钮自己的 action 根本收不到。右键时临时挂上 `statusItem.menu` → `performClick` → 立刻摘掉；常驻挂菜单会让 AppKit 连左键一起吞掉，shelf 就再也打不开了。右键还要把 `swallowIconClick` 复位——dismiss monitor 已经为这同一次右键关掉了 shelf 并上了膛，否则下一次左键会被吃掉。
+

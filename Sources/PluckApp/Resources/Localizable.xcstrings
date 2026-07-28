@@ -541,17 +541,6 @@
         }
       }
     },
-    "Menu": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Menu"
-          }
-        }
-      }
-    },
     "Models": {
       "extractionState": "manual",
       "localizations": {
@@ -768,6 +757,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Select All"
+          }
+        }
+      }
+    },
+    "Settings": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Settings"
           }
         }
       }
