@@ -179,9 +179,9 @@ struct MainWindowView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(targeted ? AnyShapeStyle(Color.accentColor.opacity(0.08)) : AnyShapeStyle(.quaternary.opacity(0.4)))
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: Tokens.cardRadius, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
+            RoundedRectangle(cornerRadius: Tokens.cardRadius, style: .continuous)
                 .strokeBorder(
                     targeted ? AnyShapeStyle(.tint) : AnyShapeStyle(.separator),
                     style: StrokeStyle(lineWidth: targeted ? 1.5 : 1, dash: [6, 5])
@@ -202,7 +202,7 @@ struct MainWindowView: View {
     /// what makes the list a list — a group of related things — rather than a stack of bands
     /// running edge to edge under a drop strip that is also edge to edge.
     private var list: some View {
-        let shape = RoundedRectangle(cornerRadius: 12, style: .continuous)
+        let shape = RoundedRectangle(cornerRadius: Tokens.cardRadius, style: .continuous)
         return ScrollView {
             LazyVStack(spacing: 0) {
                 ForEach(rows) { row in
@@ -212,17 +212,16 @@ struct MainWindowView: View {
                     case .done(let item):
                         ResultRow(item: item, model: model, showsBatchStatus: batchIsRunning)
                     }
-                    if row.id != rows.last?.id {
-                        // Inset on both sides: flush with the text column at the leading
-                        // edge (12 of row padding, 44 of thumbnail, 12 of gap), clear of the
-                        // card's own rounded corner at the trailing one.
-                        Divider().padding(.leading, 68).padding(.trailing, 12)
-                    }
                 }
             }
+            // No inset separators between rows, and no rim around the card (visual language
+            // v2). Both were drawing lines to say something the fill and the spacing already
+            // said: the card's own tint marks where the list starts and stops, and a row is
+            // separated from its neighbour by the 8pt of air inside it — with a rounded
+            // hover fill under the pointer to make the boundary explicit at the one moment
+            // it matters, which is when the user is aiming at a particular row.
             .clipShape(shape)
             .background(shape.fill(.quaternary.opacity(0.35)))
-            .overlay { shape.strokeBorder(.separator.opacity(0.7), lineWidth: 0.5) }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
         }
@@ -255,8 +254,13 @@ struct MainWindowView: View {
                 // same voice saying "this is the thing in motion and the thing to press",
                 // which is how p2 draws them. It was changed to the system accent in an
                 // earlier pass by reading the rule as a headcount — that was the mistake.
+                // A large capsule, not a small rounded rect: it is the window's one primary
+                // verb, and v2's reference products all give the single committing action a
+                // body you could hit without looking. Coral stays — see below.
                 Button(L.s("Export All…")) { model.exportAll() }
                     .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+                    .buttonBorderShape(.capsule)
                     .tint(Palette.coral)
             }
         }
@@ -301,9 +305,9 @@ private struct DropStrip: View {
         .frame(maxWidth: .infinity)
         .padding(.vertical, 12)
         .background(targeted ? Color.accentColor.opacity(0.08) : .clear)
-        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: Tokens.rowRadius, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
+            RoundedRectangle(cornerRadius: Tokens.rowRadius, style: .continuous)
                 .strokeBorder(
                     targeted ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary.opacity(0.3)),
                     style: StrokeStyle(lineWidth: 1.5, dash: [6, 5])
@@ -374,8 +378,8 @@ private struct ResultRow: View {
             // answer belongs on the rows it is about.
             if hovering {
                 HoverActions {
-                    GlassCircleButton(symbol: "doc.on.doc", diameter: 26, label: L.s("Copy")) { model.copy(item) }
-                    GlassCircleButton(symbol: "arrow.down.to.line", diameter: 26, label: L.s("Save")) { model.save(item) }
+                    GlassCircleButton(symbol: "doc.on.doc", label: L.s("Copy")) { model.copy(item) }
+                    GlassCircleButton(symbol: "arrow.down.to.line", label: L.s("Save")) { model.save(item) }
                 }
                 .transition(.opacity)
             } else if isInCurrentBatch {
@@ -392,7 +396,17 @@ private struct ResultRow: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
         .contentShape(Rectangle())
-        .background(hovering ? AnyShapeStyle(.quaternary.opacity(0.5)) : AnyShapeStyle(.clear))
+        // The hover fill is the row divider now. Inset and rounded so it reads as a
+        // highlighted *thing* rather than as a band lit up across the card — an edge-to-edge
+        // fill inside a 14pt-radius container clips against the corner on the first and last
+        // row, which is how a full-width highlight announces that it is a rectangle.
+        .background {
+            if hovering {
+                RoundedRectangle(cornerRadius: Tokens.rowRadius, style: .continuous)
+                    .fill(.quaternary)
+                    .padding(.horizontal, 6)
+            }
+        }
         .onHover { on in withAnimation(.easeOut(duration: 0.12)) { hovering = on } }
         .onAppear { thumbnail = NSImage(data: item.thumbnailPNG) }
         // Double-click, like a row in any other list: a single click on a row that is also
@@ -451,6 +465,9 @@ private struct PendingRow: View {
     }
 }
 
+/// The shelf's card, at row scale: same white mount, same fine board, same radius family.
+/// The two surfaces show the same objects, and a cutout that is a card in one window and a
+/// bare clipped rectangle in the other is two answers to "what is this thing".
 private struct RowThumbnail: View {
     let image: NSImage?
     let dimmed: Bool
@@ -463,12 +480,18 @@ private struct RowThumbnail: View {
                     .resizable()
                     .interpolation(.high)
                     .scaledToFit()
-                    .padding(4)
+                    .padding(3)
                     .saturation(dimmed ? 0 : 1)
                     .opacity(dimmed ? 0.55 : 1)
             }
         }
+        .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
+        .padding(3)
         .frame(width: rowThumbnailSide, height: rowThumbnailSide)
-        .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+        .background(
+            Palette.cardSurface,
+            in: RoundedRectangle(cornerRadius: Tokens.thumbnailRadius, style: .continuous)
+        )
+        .pluckShadow(Tokens.cardShadow)
     }
 }

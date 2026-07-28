@@ -46,6 +46,14 @@ final class SettingsWindowController {
 /// One scrolling pane, two sections. Still not the tabbed toolbar §4.7 sketched: two
 /// sections that fit on one screen do not need a toolbar to switch between them, and a tab
 /// bar over two tabs is chrome that exists to look like other apps' chrome.
+///
+/// Visual language v2's "no hairlines" rule stops at this window's door, and deliberately.
+/// §4.7 grades the glass by surface: the panels are ours to draw, but Settings is a window
+/// the user goes *looking* for, and it should look like every other Settings window on the
+/// machine. So the grouped `Form` keeps its own boxes and whatever separators AppKit draws
+/// between rows — those are not ours to remove without reimplementing the form, which would
+/// trade the native thing the user came here to find for a house style.
+/// The rows *inside* it are ours, and those follow v2.
 struct SettingsView: View {
     let model: AppModel
     @Bindable var preferences: Preferences
@@ -187,7 +195,7 @@ private struct EngineRow<Control: View>: View {
             .accessibilityLabel(title)
             .accessibilityAddTraits(isSelected ? [.isSelected] : [])
 
-            IconTile(symbol: EngineLabels.symbol(id))
+            IconTile(symbol: EngineLabels.symbol(id), isSelected: isSelected)
 
             VStack(alignment: .leading, spacing: 5) {
                 Text(title).font(.headline)
@@ -213,8 +221,8 @@ private struct EngineRow<Control: View>: View {
             Spacer(minLength: 8)
             control
         }
-        .padding(.vertical, 6)
-        // The whole row, not just the 18pt circle: the circle is where the state is shown,
+        .padding(.vertical, 8)
+        // The whole row, not just the 22pt circle: the circle is where the state is shown,
         // and the name and the sentence beside it are what the user is actually reading when
         // they decide.
         .contentShape(Rectangle())
@@ -233,13 +241,13 @@ private struct SelectionMark: View {
             if isSelected {
                 Circle().fill(Palette.coral)
                 Image(systemName: "checkmark")
-                    .font(.system(size: 9, weight: .bold))
+                    .font(.system(size: 11, weight: .bold))
                     .foregroundStyle(.white)
             } else {
                 Circle().strokeBorder(.tertiary, lineWidth: 1)
             }
         }
-        .frame(width: 18, height: 18)
+        .frame(width: 22, height: 22)
         .opacity(isEnabled ? 1 : 0.4)
         .accessibilityHidden(true)
     }
@@ -249,17 +257,30 @@ private struct SelectionMark: View {
 /// this app has no licence to wear, and BiRefNet has no mark at all. A tinted glyph of the
 /// *edge* each engine cuts does the same job — something for the eye to land on — without
 /// borrowing anyone's identity.
+///
+/// The tile is washed with coral at 8→16%, and the selected row's glyph is coral outright.
+/// This does not spend the one-tint-per-screen budget (§4.7): an 8% diagonal wash is a
+/// surface tint, the way a Dropover tile is a surface, and the countable *tinted element*
+/// in this window is still the selection mark. What the wash buys is a column of tiles that
+/// belongs to Pluck rather than three grey squares that could be from any preferences pane.
 private struct IconTile: View {
     let symbol: String
+    let isSelected: Bool
 
     var body: some View {
-        RoundedRectangle(cornerRadius: 8, style: .continuous)
-            .fill(.quaternary.opacity(0.6))
-            .frame(width: 30, height: 30)
+        RoundedRectangle(cornerRadius: Tokens.rowRadius, style: .continuous)
+            .fill(
+                LinearGradient(
+                    colors: [Palette.coral.opacity(0.08), Palette.coral.opacity(0.16)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            )
+            .frame(width: 36, height: 36)
             .overlay {
                 Image(systemName: symbol)
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundStyle(.secondary)
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundStyle(isSelected ? AnyShapeStyle(Palette.coral) : AnyShapeStyle(.secondary))
             }
             .accessibilityHidden(true)
     }
