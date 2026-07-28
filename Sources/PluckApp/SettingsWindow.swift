@@ -199,15 +199,14 @@ private struct ModelRowView: View {
     }
 
     /// The technical identity of the row, in the order someone reads it: the model's real
-    /// name, its licence, its size, its speed. A failure replaces the lot — a row that says
-    /// "83 MB · MIT" while the download is broken is answering a question nobody asked.
+    /// name, its licence, its size. A failure replaces the lot — a row that says "83 MB ·
+    /// MIT" while the download is broken is answering a question nobody asked.
     private var caption: String {
         if case .failed(let reason) = row.state { return reason }
         return [
             row.descriptor.displayName,
             row.descriptor.license,
-            EngineLabels.megabytes(row.descriptor.bytes),
-            EngineLabels.paceDetail(row.id)
+            EngineLabels.megabytes(row.descriptor.bytes)
         ].joined(separator: " · ")
     }
 

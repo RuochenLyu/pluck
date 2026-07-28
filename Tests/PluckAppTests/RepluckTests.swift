@@ -165,7 +165,7 @@ final class RepluckTests: XCTestCase {
         let options = await model.engineOptions(for: first)
 
         XCTAssertEqual(options.map(\.id), ["birefnet-lite", "birefnet-lite-matting"])
-        XCTAssertEqual(options.map(\.label), [L.s("Detail"), L.s("Matting")])
+        XCTAssertEqual(options.map(\.label), [L.s("Clean Cut"), L.s("Fine Edges")])
         // Not installed, so the parenthetical is what the click will cost in bytes.
         XCTAssertEqual(options.first?.hint, EngineLabels.megabytes(83000000))
         XCTAssertFalse(options.contains { $0.id == EngineCatalog.defaultEngineID })
@@ -219,7 +219,25 @@ final class RepluckTests: XCTestCase {
     /// row, which is how a label stops being read.
     func testOnlyANonDefaultEngineMarksItsResults() {
         XCTAssertNil(EngineLabels.mark(EngineCatalog.defaultEngineID))
-        XCTAssertEqual(EngineLabels.mark("birefnet-lite-matting"), L.s("Matting"))
+        XCTAssertEqual(EngineLabels.mark("birefnet-lite-matting"), L.s("Fine Edges"))
+    }
+
+    /// The preview's corner is one capsule, not a capsule plus a capsule: two pills of equal
+    /// weight left the engine name reading as a label for the thing beside it.
+    func testTheCutoutBadgeFoldsTheEngineIntoOneCapsule() {
+        XCTAssertEqual(EngineLabels.cutoutBadge(EngineCatalog.defaultEngineID), L.s("Cutout"))
+        XCTAssertTrue(EngineLabels.cutoutBadge("birefnet-lite").hasPrefix(L.s("Cutout")))
+        XCTAssertTrue(EngineLabels.cutoutBadge("birefnet-lite").hasSuffix(L.s("Clean Cut")))
+    }
+
+    /// A duration is a claim about the user's machine, and this app has never measured one.
+    /// The parenthetical is now reserved for the download, which is a fact about the bytes.
+    func testOnlyAnEngineThatStillHasToBeDownloadedCarriesAParenthetical() {
+        let installed = AppModel.EngineOption(id: "a", label: "Clean Cut", hint: nil, installed: true)
+        let missing = AppModel.EngineOption(id: "b", label: "Fine Edges", hint: "83 MB", installed: false)
+        XCTAssertEqual(installed.menuTitle, "Clean Cut")
+        XCTAssertTrue(missing.menuTitle.contains("83 MB"))
+        XCTAssertTrue(missing.menuTitle.hasPrefix("Fine Edges"))
     }
 
     private func waitUntil(

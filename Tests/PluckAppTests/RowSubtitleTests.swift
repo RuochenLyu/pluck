@@ -37,8 +37,8 @@ final class RowSubtitleTests: XCTestCase {
     /// `EngineLabels.mark` decides that, and nil has to leave the line exactly as it was.
     func testANamedEngineIsAppendedAndNothingIsAppendedWithoutOne() {
         XCTAssertEqual(
-            RowSubtitle.text(width: 640, height: 480, createdAt: made, engine: L.s("Matting"), now: made),
-            "640 × 480 · \(L.s("Just now")) · \(L.s("Matting"))"
+            RowSubtitle.text(width: 640, height: 480, createdAt: made, engine: L.s("Fine Edges"), now: made),
+            "640 × 480 · \(L.s("Just now")) · \(L.s("Fine Edges"))"
         )
         XCTAssertEqual(
             RowSubtitle.text(width: 640, height: 480, createdAt: made, engine: nil, now: made),

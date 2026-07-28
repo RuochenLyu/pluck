@@ -268,7 +268,9 @@ struct CutoutPreviewView: View {
         comparison
             .overlay(alignment: .top) { dragBand }
             .overlay(alignment: .bottomLeading) { sideLabel(L.s("Original"), visible: Self.labels(at: fraction).original) }
-            .overlay(alignment: .bottomTrailing) { cutoutLabel(visible: Self.labels(at: fraction).cutout) }
+            .overlay(alignment: .bottomTrailing) {
+                sideLabel(EngineLabels.cutoutBadge(item.engineID), visible: Self.labels(at: fraction).cutout)
+            }
             .overlay(alignment: .topTrailing) { closeButton.padding(8) }
             .overlay(alignment: .bottom) { toolbar }
             .onHover { on in pointerInside = on }
@@ -368,28 +370,10 @@ struct CutoutPreviewView: View {
         return (original: fraction > clearance, cutout: fraction < 1 - clearance)
     }
 
-    /// The cutout's own corner, plus who made it — but only when that is not the default
-    /// engine. With two cutouts of one photo now able to sit side by side in the grid, "which
-    /// of the two am I looking at" is a question the panel has to be able to answer without
-    /// the user remembering the order they clicked in.
-    private func cutoutLabel(visible: Bool) -> some View {
-        HStack(spacing: 0) {
-            if let mark = EngineLabels.mark(item.engineID) {
-                Text(mark)
-                    .font(.system(size: 10, weight: .medium))
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal, 7)
-                    .padding(.vertical, 3)
-                    .background(.thinMaterial, in: Capsule())
-                    .padding(.trailing, -4)
-                    .opacity(visible ? 1 : 0)
-                    .animation(.easeOut(duration: 0.15), value: visible)
-                    .allowsHitTesting(false)
-            }
-            sideLabel(L.s("Cutout"), visible: visible)
-        }
-    }
-
+    /// One capsule per half. The cutout side folds in who made it when that is not the
+    /// default engine (`EngineLabels.cutoutBadge`): with two cutouts of one photo able to sit
+    /// side by side in the grid, "which of the two am I looking at" is a question the panel
+    /// has to answer without the user remembering the order they clicked in.
     private func sideLabel(_ text: String, visible: Bool) -> some View {
         Text(text)
             .font(.system(size: 11, weight: .medium))
@@ -450,9 +434,7 @@ struct CutoutPreviewView: View {
     private var repluckMenu: some View {
         Menu {
             ForEach(options) { option in
-                Button(String(format: L.s("%1$@ (%2$@)"), option.label, option.hint)) {
-                    model.repluck(item, with: option.id)
-                }
+                Button(option.menuTitle) { model.repluck(item, with: option.id) }
             }
         } label: {
             // Not the macOS 15 `arrow.trianglehead.*` family: the deployment target is 14,

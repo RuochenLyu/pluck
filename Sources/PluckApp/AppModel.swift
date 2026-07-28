@@ -261,10 +261,19 @@ final class AppModel {
     struct EngineOption: Identifiable, Equatable, Sendable {
         let id: String
         let label: String
-        /// The parenthetical: how long it takes, or how big it is if it is not here yet.
-        /// A download is the thing worth knowing before the click, so it wins the slot.
-        let hint: String
+        /// What the click will cost in bytes, and nil once it costs nothing. An engine that
+        /// is already on disk has nothing left to warn about — the parenthetical used to
+        /// hold a duration ("~1–2 s") that was a guess about the user's machine, and a menu
+        /// where every entry carries a parenthetical trains the eye to skip all of them,
+        /// including the one that says 83 MB.
+        let hint: String?
         let installed: Bool
+
+        /// How the re-pluck menu says it.
+        var menuTitle: String {
+            guard let hint else { return label }
+            return String(format: L.s("%1$@ (%2$@)"), label, hint)
+        }
     }
 
     /// The entries currently being re-plucked, keyed by the cutout the request came from —
@@ -289,7 +298,7 @@ final class AppModel {
                     id: descriptor.id,
                     label: EngineLabels.name(descriptor.id, fallback: descriptor.model?.displayName),
                     hint: descriptor.installed
-                        ? EngineLabels.pace(descriptor.id)
+                        ? nil
                         : EngineLabels.megabytes(descriptor.model?.bytes ?? 0),
                     installed: descriptor.installed
                 )

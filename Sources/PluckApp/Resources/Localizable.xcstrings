@@ -112,6 +112,28 @@
         }
       }
     },
+    "Clean Cut": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clean Cut"
+          }
+        }
+      }
+    },
+    "Clean, solid edges — products and objects.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clean, solid edges — products and objects."
+          }
+        }
+      }
+    },
     "Clear": {
       "extractionState": "manual",
       "localizations": {
@@ -200,17 +222,6 @@
         }
       }
     },
-    "Crisp, solid edges. Translucent things come out opaque.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Crisp, solid edges. Translucent things come out opaque."
-          }
-        }
-      }
-    },
     "Cut": {
       "extractionState": "manual",
       "localizations": {
@@ -233,6 +244,17 @@
         }
       }
     },
+    "Cutout · %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cutout · %@"
+          }
+        }
+      }
+    },
     "Delete": {
       "extractionState": "manual",
       "localizations": {
@@ -240,17 +262,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Delete"
-          }
-        }
-      }
-    },
-    "Detail": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Detail"
           }
         }
       }
@@ -398,6 +409,28 @@
         }
       }
     },
+    "Fine Edges": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fine Edges"
+          }
+        }
+      }
+    },
+    "Finer edges — hair, fur, glass.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Finer edges — hair, fur, glass."
+          }
+        }
+      }
+    },
     "Getting the model ready — this takes a few seconds the first time.": {
       "extractionState": "manual",
       "localizations": {
@@ -504,17 +537,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "MIT License"
-          }
-        }
-      }
-    },
-    "Matting": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Matting"
           }
         }
       }
@@ -761,17 +783,6 @@
         }
       }
     },
-    "Soft hair and true translucency — glass stays see-through.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Soft hair and true translucency — glass stays see-through."
-          }
-        }
-      }
-    },
     "Something went wrong plucking this image.": {
       "extractionState": "manual",
       "localizations": {
@@ -882,17 +893,6 @@
         }
       }
     },
-    "instant": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "instant"
-          }
-        }
-      }
-    },
     "or press ⌘V to paste": {
       "extractionState": "manual",
       "localizations": {
@@ -900,28 +900,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "or press ⌘V to paste"
-          }
-        }
-      }
-    },
-    "~1–2 s": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "~1–2 s"
-          }
-        }
-      }
-    },
-    "~1–2 s per image": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "~1–2 s per image"
           }
         }
       }
