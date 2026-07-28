@@ -52,43 +52,23 @@ final class ShelfPanelController {
         panel.animationBehavior = .utilityWindow
         panel.onCancel = { [weak self] in self?.close() }
 
-        // The rounded material container is ours to draw now that there is no window frame.
+        // The rounded, blurred container is ours to draw now that there is no window frame —
+        // real Liquid Glass on macOS 26, `.hudWindow` below it (`PanelBackdrop`, which is
+        // where the reasoning for both lives).
         //
-        // `.hudWindow`, not `.popover` (visual language v2). Both were put over the same
-        // wallpaper and compared against p3: `.popover` is the material an NSPopover uses
-        // and is nearly opaque — the panel reads as a light grey box that happens to be
-        // floating. `.hudWindow` passes far more of what is behind it, which is the whole
-        // point of the reference: in p3 the panel is tinted by the blue wallpaper under it,
-        // and Yoink's shelf does the same. It follows the effective appearance, so this is
-        // not a "dark HUD" — it is light glass in light mode and dark glass in dark mode.
-        //
-        // It is also the drag destination for the whole shelf. AppKit looks for a
-        // registered view by hit-testing and then walking *up* the superview chain, so
-        // sitting under the hosting view costs nothing — and unlike SwiftUI's `onDrop`
-        // it receives the real pasteboard, file URLs and all.
+        // This view is no longer the blurred thing itself, only the drag destination and the
+        // box the backdrop is installed into. That split is what let the backdrop change
+        // substance without the drop path noticing: AppKit finds a registered destination by
+        // hit-testing and then walking *up* the superview chain, so it reaches this view
+        // whether the glass above it is an `NSGlassEffectView` or an `NSVisualEffectView` —
+        // and unlike SwiftUI's `onDrop` it receives the real pasteboard, file URLs and all.
         let backdrop = ShelfBackdropView(frame: NSRect(origin: .zero, size: size))
         backdrop.dropTarget = dropTarget
         backdrop.onDrop = { [weak self] payloads in self?.onDrop?(payloads) }
-        backdrop.material = .hudWindow
-        backdrop.state = .active
-        backdrop.blendingMode = .behindWindow
         backdrop.autoresizingMask = [.width, .height]
-        // `.behindWindow` blur is composited by the window server outside the layer tree,
-        // so `cornerRadius` + `masksToBounds` does not touch it — the corners stay square
-        // and opaque. `maskImage` is the only knob that reaches it.
-        backdrop.maskImage = Self.cornerMask(radius: Self.cornerRadius)
 
         let host = NSHostingView(rootView: content)
-        host.frame = backdrop.bounds
-        host.autoresizingMask = [.width, .height]
-        host.wantsLayer = true
-        host.layer?.backgroundColor = NSColor.clear.cgColor
-        // The SwiftUI side still needs its own clip: the mask shapes the material, not
-        // the views drawn on top of it.
-        host.layer?.cornerRadius = Self.cornerRadius
-        host.layer?.masksToBounds = true
-
-        backdrop.addSubview(host)
+        PanelBackdrop.install(content: host, in: backdrop, cornerRadius: Self.cornerRadius)
         panel.contentView = backdrop
 
         self.panel = panel
@@ -110,22 +90,6 @@ final class ShelfPanelController {
 
     func close() {
         panel?.orderOut(nil)
-    }
-
-    /// A rounded rect just big enough to hold two corners, with cap insets so AppKit
-    /// stretches the flat middle to whatever size the shelf ends up. Circular corners
-    /// rather than `.continuous`: the mask is a drawn path, the SwiftUI rim is a
-    /// `RoundedRectangle`, and the two shapes have to agree or the rim gets clipped.
-    private static func cornerMask(radius: CGFloat) -> NSImage {
-        let edge = radius * 2 + 1
-        let image = NSImage(size: NSSize(width: edge, height: edge), flipped: false) { rect in
-            NSColor.black.setFill()
-            NSBezierPath(roundedRect: rect, xRadius: radius, yRadius: radius).fill()
-            return true
-        }
-        image.capInsets = NSEdgeInsets(top: radius, left: radius, bottom: radius, right: radius)
-        image.resizingMode = .stretch
-        return image
     }
 
     /// Centred under the status item, clamped into the visible frame. Without the clamp a
@@ -165,8 +129,11 @@ final class DropTarget {
     var isTargeted = false
 }
 
-/// The shelf's material container, doubling as its drag destination.
-final class ShelfBackdropView: NSVisualEffectView {
+/// The shelf's drag destination, and the box its glass backdrop is installed into.
+///
+/// A plain `NSView`: what the shelf is *made of* is `PanelBackdrop`'s decision and changes
+/// with the OS, while what it *accepts* does not.
+final class ShelfBackdropView: NSView {
     var onDrop: (([DroppedPayload]) -> Void)?
     weak var dropTarget: DropTarget?
 

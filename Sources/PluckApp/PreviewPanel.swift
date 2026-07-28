@@ -196,16 +196,16 @@ final class PreviewPanelController {
         panel.hidesOnDeactivate = false
         panel.onCancel = { [weak self] in self?.close() }
 
+        // The same backdrop the shelf gets, for the same reason: on macOS 26 the rounded
+        // corner is `NSGlassEffectView`'s to own, which also means it survives
+        // `setContentSize` — the panel is resized to each cutout's aspect ratio on every
+        // open, and a hand-rounded layer had to be told about that. The glass is mostly
+        // *behind* opaque content here (the checkerboard is content, §4.7, so it does not
+        // become translucent to show it off); what it buys is the lens edge around the
+        // picture and a corner that is the system's shape rather than an approximation of it.
         let container = NSView(frame: NSRect(origin: .zero, size: size))
-        container.wantsLayer = true
-        container.layer?.cornerRadius = Self.cornerRadius
-        container.layer?.cornerCurve = .continuous
-        container.layer?.masksToBounds = true
-
         let host = NSHostingView(rootView: PreviewRoot(content: root))
-        host.frame = container.bounds
-        host.autoresizingMask = [.width, .height]
-        container.addSubview(host)
+        PanelBackdrop.install(content: host, in: container, cornerRadius: Self.cornerRadius)
         panel.contentView = container
 
         self.panel = panel

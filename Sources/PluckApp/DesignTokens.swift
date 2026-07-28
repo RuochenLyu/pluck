@@ -58,6 +58,23 @@ enum Tokens {
     static let hoverLift: CGFloat = 1.02
     static let pressScale: CGFloat = 0.96
     static let hoverDuration: Double = 0.15
+
+    // MARK: Liquid Glass (macOS 26+)
+
+    /// How close two glass shapes have to be before the system merges them into one lens
+    /// (`GlassEffectContainer` / `NSGlassEffectContainerView.spacing`).
+    ///
+    /// Set to the gap actually used between siblings — the preview's toolbar controls sit
+    /// 4pt apart, the shelf's hover pair 6pt — so a row of glass reads as one object rather
+    /// than as a line of separate pills that happen to touch. Larger values start pulling in
+    /// neighbours that were meant to stay apart.
+    static let glassMergeSpacing: CGFloat = 8
+
+    /// Elevation under a glass surface. Liquid Glass draws its own edge lighting and a
+    /// contact shadow of its own, so ours only has to say "this is floating" — at
+    /// `controlShadow`'s weight the two stack into a dark halo, which is the giveaway that
+    /// a macOS 14 shadow was left on a macOS 26 control.
+    static let glassShadow = ShadowSpec(opacity: 0.10, radius: 4, y: 1)
 }
 
 struct ShadowSpec {
