@@ -74,6 +74,26 @@ final class CutoutArchiveTests: XCTestCase {
         )
     }
 
+    /// The sweep acts only on the word of an index that decoded. A missing or corrupt
+    /// index means "we know nothing", and deleting on ignorance is how one bad byte in a
+    /// JSON file becomes an empty archive at the next launch.
+    func testAMissingOrCorruptIndexSweepsNothing() throws {
+        let a = try archive.store(processed(1), id: UUID())
+        let b = try archive.store(processed(2), id: UUID())
+
+        XCTAssertTrue(archive.load(limit: 20).isEmpty, "no index, so nothing to restore")
+        for item in [a, b] {
+            XCTAssertTrue(
+                FileManager.default.fileExists(atPath: item.fileURL.path),
+                "an absent index must not read as \u{201C}everything is an orphan\u{201D}"
+            )
+        }
+
+        try Data("not json".utf8).write(to: archive.root.appendingPathComponent("index.json"))
+        XCTAssertTrue(archive.load(limit: 20).isEmpty)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: a.fileURL.path))
+    }
+
     /// The index says what the order was; the directory says what exists. Where they
     /// disagree the directory wins — an entry whose PNG was deleted underneath us must not
     /// come back as a cell whose every button fails.

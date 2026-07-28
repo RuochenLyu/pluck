@@ -90,7 +90,13 @@ struct CutoutArchive: Sendable {
         decoder.dateDecodingStrategy = .iso8601
         let index = (try? Data(contentsOf: indexURL)).flatMap { try? decoder.decode(Index.self, from: $0) }
         let items = (index?.items ?? []).compactMap { $0.item(in: root) }.prefix(limit).map { $0 }
-        discardDirectories(outside: items)
+        // Sweep orphans only on the word of an index that actually decoded. A missing or
+        // corrupt index used to read as "everything here is an orphan" — one bad byte in
+        // one JSON file and every cutout on disk was silently deleted at launch. Losing
+        // the sweep for one session is nothing; losing the archive is everything.
+        if index != nil {
+            discardDirectories(outside: items)
+        }
         return items
     }
 
@@ -113,7 +119,20 @@ struct CutoutArchive: Sendable {
         for item in items {
             let directory = item.fileURL.deletingLastPathComponent()
             guard roots.contains(directory.deletingLastPathComponent().standardizedFileURL.path) else { continue }
-            try? FileManager.default.removeItem(at: directory)
+            let isHistory = directory.deletingLastPathComponent().standardizedFileURL.path
+                == history.root.standardizedFileURL.path
+            // History goes to the Trash, not into the void: Clear and Delete run without a
+            // confirmation sheet, so the safety net has to live after the click instead of
+            // in front of it. Session entries are temp files and can simply go.
+            if isHistory {
+                do {
+                    try FileManager.default.trashItem(at: directory, resultingItemURL: nil)
+                } catch {
+                    try? FileManager.default.removeItem(at: directory)
+                }
+            } else {
+                try? FileManager.default.removeItem(at: directory)
+            }
         }
     }
 
