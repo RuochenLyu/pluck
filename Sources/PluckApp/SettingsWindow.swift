@@ -80,7 +80,10 @@ struct SettingsView: View {
                         .font(.callout)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
-                    Button(L.s("Clear recent cutouts")) { model.clearRecents() }
+                    // The same button as the ones on the engine rows. Left stock, it was the
+                    // one flat grey control in a window whose other buttons had become glass —
+                    // two vocabularies in one pane, which is worse than either alone.
+                    RowButton(L.s("Clear recent cutouts")) { model.clearRecents() }
                         .disabled(model.recents.items.isEmpty)
                 } header: {
                     Text(L.s("History")).font(.headline)
@@ -338,15 +341,42 @@ private struct ModelRowView: View {
                 ProgressView(value: fraction ?? 0, total: 1)
                     .progressViewStyle(.linear)
                     .frame(width: 90)
-                Button(L.s("Cancel")) { store.cancel(row.id) }
+                RowButton(L.s("Cancel")) { store.cancel(row.id) }
             }
         case .installed:
             // No "installed" tick beside Delete. The row offering Delete *is* the statement
             // that it is here, and the selection circle beside it is now live — two more
             // signals than the tick was carrying on its own.
-            Button(L.s("Delete")) { store.delete(row.id, preferences: preferences) }
+            RowButton(L.s("Delete")) { store.delete(row.id, preferences: preferences) }
         case .available, .failed:
-            Button(L.s("Download")) { store.download(row.id) }
+            RowButton(L.s("Download")) { store.download(row.id) }
+        }
+    }
+}
+
+/// The one place glass gets into Settings.
+///
+/// The window itself stays native — §4.7 grades the glass by surface, and Settings is a
+/// window the user goes *looking* for, so its `Form`, its grouped boxes and the separators
+/// AppKit draws between rows are not ours to replace with a house style. But the trailing
+/// control on an engine row is ours, and on macOS 26 `.glass` is simply what a secondary
+/// button in a list looks like now — leaving it `.bordered` would make this the one window in
+/// the app still wearing the old control, which is the opposite of what "native" was for.
+private struct RowButton: View {
+    let title: String
+    let action: () -> Void
+
+    init(_ title: String, action: @escaping () -> Void) {
+        self.title = title
+        self.action = action
+    }
+
+    @ViewBuilder
+    var body: some View {
+        if #available(macOS 26.0, *) {
+            Button(title, action: action).buttonStyle(.glass)
+        } else {
+            Button(title, action: action)
         }
     }
 }

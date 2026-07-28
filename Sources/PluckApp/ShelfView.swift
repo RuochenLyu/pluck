@@ -132,7 +132,10 @@ struct ShelfView: View {
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 8)
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: Tokens.rowRadius, style: .continuous))
+            // A second lens inside the panel's own. On 26 that reads correctly — the strip
+            // is a separate floating object, and glass over glass is how the system stacks
+            // them — where a *material* over a material only ever doubled the blur.
+            .pluckGlass(in: RoundedRectangle(cornerRadius: Tokens.rowRadius, style: .continuous), fallback: .regularMaterial)
             .padding(Self.inset - 8)
             .transition(.opacity)
             .accessibilityElement(children: .combine)
@@ -213,7 +216,8 @@ struct ShelfView: View {
 /// keeps, because it is not dividing anything: it is the shape of an absence.
 ///
 /// A touch stronger than the quarter-opacity it used to be. The panel is more transparent
-/// now (`.hudWindow`), and a 25%-secondary dash over a busy wallpaper disappeared entirely.
+/// now — real glass on macOS 26, `.hudWindow` below it — and a 25%-secondary dash over a busy
+/// wallpaper disappeared entirely.
 private struct DashedOutline: View {
     var cornerRadius: CGFloat
     var accented: Bool

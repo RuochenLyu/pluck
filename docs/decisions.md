@@ -307,3 +307,17 @@
 - **Settings 图标砖的淡珊瑚渐变不计入"每屏一个染色元素"**：8%→16% 的对角洗色是**表面色**，不是被染色的元素；这一屏可数的染色元素仍然只有珊瑚选中勾（选中行的 symbol 用珊瑚是同一个元素的延伸）。买到的是一列属于 Pluck 的砖，而不是三个哪个设置面板里都有的灰方块。
 - **Settings 不适用零细线**：§4.7 的玻璃分级按表面分级——面板是我们自己画的，而 Settings 是用户**主动去找**的窗口，应该长得像这台机器上别的设置窗口。grouped `Form` 自带的分组盒子与行分隔保留：要去掉它们就得把 Form 重新实现一遍，等于拿用户来这里要找的那个原生感去换一套自家风格。
 - **数字集中在 `DesignTokens.swift`**：半径（面板 20 / 卡 14 / 行 10 / 缩略图 8）、阴影三档、棋盘格参数、控件尺寸全部一处定义，注释写清"这些数字来自 p3 与参考产品的对照，改这里=改全局"。同时把三条能解释这些数字的规则写在文件头（无细线、半径随表面递减、控件不小于 32pt），否则下一个人只会看到一堆魔数。
+
+## 2026-07-28 — Liquid Glass：26+ 用真玻璃，14 回落材质，内容层永不上玻璃
+
+- **背景**：维护者对着实机截图的判断是面板"还是纯色背景"，没有 macOS 最新那种半透明模糊玻璃质感；而且上一轮 v2 只修了 shelf，其他表面没跟上。查下来原因很直接：**全程用的是 macOS 14 时代的 `NSVisualEffectView` / `Material`**。`Material` 只做背后内容的模糊，Liquid Glass 还做折射与边缘高光，后者才是"透镜浮在壁纸上"而不是"磨砂卡片贴在壁纸上"的那个差别。本机 SDK 是 MacOSX26.5，四组 API（AppKit `NSGlassEffectView` / `NSGlassEffectContainerView`，SwiftUI `.glassEffect(_:in:)` / `GlassEffectContainer` / `.buttonStyle(.glass)` / `.glassProminent`）先写了个 probe 包确认能编译，再铺开。
+- **一律 `if #available(macOS 26.0, *)` 双写，不用 deprecated 绕过**：部署目标仍是 macOS 14，而 14 上没有任何东西能模拟折射。两个分支就是两套设计，只在**形状与尺寸**上一致：26 是透镜，14 是材质。没有第三种写法——弱链接加运行时 `NSClassFromString` 能少写一遍，但会把"这个控件在 14 上长什么样"变成没人复核过的问题。
+- **玻璃的边界是分层，不是浓度（§4.7 的收紧版）**：容器与控件用玻璃，**内容层一律不加**。抠图结果、棋盘格、和承载它们的卡片保持实色——卡面如果是玻璃，就等于在一张"卖点是能透过去看"的图后面把壁纸又模糊一遍，两层透明叠在一起谁也读不清。这条现在写在 `Glass.swift` 的文件头上，并且由"用哪个 API"来强制：`pluckGlass` / `GlassGroup` / `PanelBackdrop` 是玻璃的三个入口，内容层的代码里不出现它们。
+- **AppKit 侧：背板与拖放目标拆开**。shelf 的 `ShelfBackdropView` 过去**自己就是**那块 `NSVisualEffectView`，于是"面板由什么做成"和"面板接受什么拖放"绑死在一个类上。现在它是普通 `NSView`，只管拖放，玻璃由 `PanelBackdrop.install` 装进去——AppKit 找拖放目标是命中测试之后**沿 superview 链上走**，所以上面那层是 `NSGlassEffectView` 还是 `NSVisualEffectView` 都到得了。`NSGlassEffectView` 用 `contentView` 而不是 `addSubview` 装载：头文件明说只有 `contentView` 保证在效果层里，别的子视图 z-order 不保证。
+- **圆角归玻璃管**：26 上 `NSGlassEffectView.cornerRadius` 同时定形与裁剪，`maskImage` 和手写 layer 圆角一起退休（14 分支照旧，`.behindWindow` 的模糊在图层树之外合成，只有 `maskImage` 够得着）。副作用是预览面板按图片长宽比 `setContentSize` 时圆角自动跟着走，不必再手工同步。
+- **玻璃上不再叠 macOS 14 的阴影**：Liquid Glass 自带接触阴影与边缘光，再压一层 `controlShadow` 会变成一圈黑晕——这是"14 的阴影被留在 26 的控件上"最明显的痕迹。新增 `Tokens.glassShadow`（0.10 / 4 / y1），26 分支统一用它。`.interactive()` 玻璃自己会在按下时缩放发亮，所以 `PressableButtonStyle` 在 26 上停用自己的缩放（`scales: false`），一个手势只演一次。
+- **一条工具栏是一块玻璃，不是三块**：预览工具胶囊在 26 上是单个 `.glassEffect(.regular, in: Capsule())`，里面的 Copy/Save 仍是带 hover 高亮的裸 glyph——`.buttonStyle(.glass)` 挨个套会是玻璃叠玻璃，而系统自己的工具栏就是"一条透镜 + 若干 glyph"。真正独立站在图片上的控件（卡片 hover 的 Copy/Save、预览关闭钮、对比手柄）才用整块玻璃，其中成对出现的用 `GlassEffectContainer`（`Tokens.glassMergeSpacing`）让两块透镜在出现时汇成一个物体。
+- **引擎 chip 必须换实现，不是换材质**：截图核对时发现 26 上 `.menuStyle(.borderlessButton)` 不再遵守 `.menuIndicator(.hidden)`、并且丢掉 label 自己的背景——chip 渲染成一个前面挂着孤零零 chevron 的说明文字，完全不像可按。26 分支改成 `.menuStyle(.button)` + `.buttonStyle(.glass)` + 胶囊边框，chevron 交还系统；14 分支原样保留手绘 chevron + `.quaternary` 胶囊。这条是"逐面截图核对"这个验收方式抓出来的，纯读代码看不出来。
+- **主窗口仍是标准窗口材质**（§4.7 玻璃分级不变：背后可能是任意窗口而非壁纸，可读性优先）。它拿到的是**控件语言**而不是更多玻璃：Export All 在 26 上是 `.glassProminent` + 珊瑚 tint（形状与 tint 都不变，只是从平面胶囊变成染色透镜），行 hover 的圆钮本来就走 `GlassCircleButton`。行 hover 填充与投放条虚线**不上玻璃**——它们身后是不透明的窗口底，玻璃在那里没有东西可折射，只会变成一块灰。
+- **Settings 上玻璃的只有按钮**：Form 的原生分组与自带分隔保留（沿用 v2 的理由），但 Download / Delete / Cancel / Clear recent cutouts 一律换 `.buttonStyle(.glass)`（26）。理由是反过来的：在 26 上 `.bordered` 已经是旧控件，只有这一个窗口留着它，"原生"就变成了"过时"。四个按钮一起换，避免一屏里两套按钮语言。
+- **菜单不动**：引擎切换菜单与状态项右键菜单都是系统菜单，26 自带新观感，代码里没有自绘样式挡着，确认即可。

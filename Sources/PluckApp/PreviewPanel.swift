@@ -379,7 +379,10 @@ struct CutoutPreviewView: View {
             .font(.system(size: 11, weight: .medium))
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
-            .background(.thinMaterial, in: Capsule())
+            // Same substance as the toolbar capsule it shares the picture with, one grade
+            // lighter below 26 — these two words are a caption, not a control, and the
+            // heaviest material available would make them the loudest thing on the photo.
+            .pluckGlass(in: Capsule(), fallback: .thinMaterial)
             .padding(8)
             .opacity(visible ? 1 : 0)
             .animation(.easeOut(duration: 0.15), value: visible)
@@ -418,11 +421,14 @@ struct CutoutPreviewView: View {
         }
         .padding(.horizontal, 5)
         .padding(.vertical, 5)
-        // Thick, and rimless. This capsule floats over the user's photograph — the one
-        // surface in the app with no idea what is behind it — so it takes the heaviest
-        // material available rather than a light one propped up by a white hairline.
-        .background(.thickMaterial, in: Capsule())
-        .pluckShadow(Tokens.controlShadow)
+        // One lens holding three controls, not three lenses in a row. `.buttonStyle(.glass)`
+        // on each of them would stack glass on glass — the capsule is already the glass, and
+        // the buttons inside it are glyphs with a hover highlight, which is how macOS 26
+        // draws its own toolbars. Below 26 it is the heaviest material available: this
+        // capsule floats over the user's photograph, the one surface in the app with no idea
+        // what is behind it, and a light material there needs a white hairline to survive.
+        .pluckGlass(in: Capsule())
+        .pluckShadow(isLiquid ? Tokens.glassShadow : Tokens.controlShadow)
         .padding(.bottom, 12)
         .opacity(pointerInside ? 1 : 0)
         .allowsHitTesting(pointerInside)
@@ -453,6 +459,23 @@ struct CutoutPreviewView: View {
                 }
             }
         } label: {
+            engineSwitcherLabel
+        }
+        .modifier(EngineSwitcherChrome())
+        .accessibilityLabel(L.s("Engine"))
+        .help(L.s("Which engine made this cutout"))
+    }
+
+    /// It is the only control in the row that is not a glyph, so it needs a body of its own:
+    /// a bare word beside two round buttons reads as a caption rather than as something to
+    /// press. What draws that body differs by system — see `EngineSwitcherChrome` — so the
+    /// label only draws what the chrome does not already provide.
+    @ViewBuilder private var engineSwitcherLabel: some View {
+        if #available(macOS 26.0, *) {
+            Text(currentEngineLabel)
+                .font(.system(size: 11, weight: .medium))
+                .frame(height: Tokens.toolbarControlSide - 10)
+        } else {
             HStack(spacing: 3) {
                 Text(currentEngineLabel)
                 Image(systemName: "chevron.down")
@@ -461,20 +484,11 @@ struct CutoutPreviewView: View {
             }
             .font(.system(size: 11, weight: .medium))
             .foregroundStyle(.primary)
-            // A filled capsule, because it is the only control in the row that is not a
-            // glyph: a bare word beside two round buttons reads as a caption, not as
-            // something to press. The fill is what says "pressable" now that v2 has taken
-            // borders away.
             .padding(.horizontal, 10)
             .frame(height: Tokens.toolbarControlSide)
             .background(.quaternary, in: Capsule())
             .contentShape(Capsule())
         }
-        .menuStyle(.borderlessButton)
-        .menuIndicator(.hidden)
-        .fixedSize()
-        .accessibilityLabel(L.s("Engine"))
-        .help(L.s("Which engine made this cutout"))
     }
 
     /// The options list is the better source while it has loaded — it carries the manifest's
@@ -494,11 +508,42 @@ struct CutoutPreviewView: View {
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(.primary)
                 .frame(width: 28, height: 28)
-                .background(.thickMaterial, in: Circle())
-                .pluckShadow(Tokens.controlShadow)
+                // Not `.interactive()`: the handle is dragged by the whole picture behind it
+                // rather than pressed, so it never sees a mouse-down of its own to react to.
+                .pluckGlass(in: Circle())
+                .pluckShadow(isLiquid ? Tokens.glassShadow : Tokens.controlShadow)
         }
         .position(x: width * fraction, y: height / 2)
         .allowsHitTesting(false)
         .accessibilityHidden(true)
+    }
+}
+
+/// The engine switcher's body, per system.
+///
+/// macOS 26 gets `.menuStyle(.button)` + `.buttonStyle(.glass)`: a real glass capsule with the
+/// system's own disclosure chevron, which is what a pop-up looks like on 26 and puts the chip
+/// in the same substance as the two glyph buttons beside it. Nested inside the toolbar's own
+/// lens on purpose — a control *in* a bar is how the system stacks glass, and it is the only
+/// thing in that bar with a boundary of its own to draw.
+///
+/// It cannot simply be `.borderlessButton` plus a hand-drawn chevron on both, which is what
+/// this was: on 26 that style stops honouring `.menuIndicator(.hidden)` and drops the label's
+/// own background, so the chip rendered as a bare caption with a stray chevron in front of it.
+private struct EngineSwitcherChrome: ViewModifier {
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if #available(macOS 26.0, *) {
+            content
+                .menuStyle(.button)
+                .buttonStyle(.glass)
+                .buttonBorderShape(.capsule)
+                .fixedSize()
+        } else {
+            content
+                .menuStyle(.borderlessButton)
+                .menuIndicator(.hidden)
+                .fixedSize()
+        }
     }
 }

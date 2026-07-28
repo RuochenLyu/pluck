@@ -257,11 +257,7 @@ struct MainWindowView: View {
                 // A large capsule, not a small rounded rect: it is the window's one primary
                 // verb, and v2's reference products all give the single committing action a
                 // body you could hit without looking. Coral stays — see below.
-                Button(L.s("Export All…")) { model.exportAll() }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.large)
-                    .buttonBorderShape(.capsule)
-                    .tint(Palette.coral)
+                ExportAllButton { model.exportAll() }
             }
         }
         .padding(.horizontal, 16)
@@ -279,6 +275,36 @@ struct MainWindowView: View {
             }
         }
         .font(.system(size: 12))
+    }
+}
+
+/// The window's one primary verb, in whichever prominent style the system has.
+///
+/// `.glassProminent` on macOS 26: it is the same shape and the same coral as
+/// `.borderedProminent` below it, drawn as a tinted lens instead of as a flat capsule, which
+/// is what puts it in the same family as the round glass buttons in the rows above it. The
+/// tint is still coral rather than the accent — §4.7's one-tint-per-screen rule is about not
+/// spending the accent on decoration, and p2 draws the progress bar and the committing action
+/// in the same voice on purpose.
+private struct ExportAllButton: View {
+    let action: () -> Void
+
+    @ViewBuilder
+    var body: some View {
+        if #available(macOS 26.0, *) {
+            base.buttonStyle(.glassProminent)
+        } else {
+            base.buttonStyle(.borderedProminent)
+        }
+    }
+
+    private var base: some View {
+        // A large capsule: v2's reference products all give the single committing action a
+        // body you could hit without looking.
+        Button(L.s("Export All…"), action: action)
+            .controlSize(.large)
+            .buttonBorderShape(.capsule)
+            .tint(Palette.coral)
     }
 }
 
