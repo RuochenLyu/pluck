@@ -6,8 +6,8 @@
       "displayName": "BiRefNet_lite",
       "file": "BiRefNetLite.mlpackage",
       "url": "https://github.com/RuochenLyu/pluck/releases/download/models-v1/BiRefNetLite.mlpackage.zip",
-      "sha256": "6cfaf0fbc48f12a2ab4ecff234e547f112676b61a73f5ec6d73d5de49b36e762",
-      "bytes": 82602435,
+      "sha256": "4614141d1e3ce84bd5713b995beabbb225e6e568522b296c4c7f48279228e817",
+      "bytes": 82601951,
       "license": "MIT",
       "source": "https://huggingface.co/ZhengPeng7/BiRefNet_lite",
       "inputSide": 1024
@@ -17,8 +17,8 @@
       "displayName": "BiRefNet_lite matting",
       "file": "BiRefNetLiteMatting.mlpackage",
       "url": "https://github.com/RuochenLyu/pluck/releases/download/models-v1/BiRefNetLiteMatting.mlpackage.zip",
-      "sha256": "94aff287434935030696ffe4a9097f1b0bc48c74701e0dbf371f1cd6ead0825e",
-      "bytes": 82478960,
+      "sha256": "7ea2236f7494ab7ac46b070847c00768cfd940249af62dd6ac1a367ed222f22a",
+      "bytes": 82478402,
       "license": "MIT",
       "source": "https://huggingface.co/ZhengPeng7/BiRefNet_lite-matting",
       "inputSide": 1024

@@ -55,10 +55,33 @@ for spec in "${MODELS[@]}"; do
       exit 1
     fi
     # --keepParent so the archive carries the .mlpackage directory itself; ModelRegistry
-    # extracts with the same tool and expects to find that name at the top level. ditto is
-    # also the only packer that keeps the bundle's extended attributes intact.
+    # extracts with the same tool and expects to find that name at the top level.
+    # --norsrc strips resource forks: without it every file drags an AppleDouble
+    # `._` twin into an archive that other people will open.
+    #
+    # MIT redistribution carries the licence with it (product-plan §4.8): each archive
+    # includes the upstream LICENSE and a NOTICE saying what these bytes are, where the
+    # original weights live, and how to reproduce the conversion.
     rm -f "$zip"
-    ditto -c -k --keepParent "$src" "$zip"
+    stage="$(mktemp -d)"
+    ditto "$src" "$stage/$bundle"
+    cp models/BiRefNet-LICENSE "$stage/LICENSE"
+    cat >"$stage/NOTICE.txt" <<NOTICE
+$display, converted to Core ML fp16 for Pluck (https://github.com/RuochenLyu/pluck).
+
+Original weights: $source
+Licence: MIT, Copyright (c) 2024 ZhengPeng — see LICENSE. The BiRefNet project
+(https://github.com/ZhengPeng7/BiRefNet) publishes code and released weights under
+MIT; the ${display} model card omits the licence tag, and the family's main card
+declares it explicitly.
+
+Conversion: Scripts/convert-birefnet.py in the Pluck repository (deform_conv2d
+rewritten in plain tensor ops; ImageNet normalization folded into the input layer;
+fp16). Numerical parity against the fp32 original is recorded in
+docs/research.md appendix A.6.
+NOTICE
+    ditto -c -k --norsrc "$stage" "$zip"
+    rm -rf "$stage"
   fi
 
   sha="$(shasum -a 256 "$zip" | cut -d' ' -f1)"
