@@ -253,16 +253,16 @@ struct CutoutPreviewView: View {
     @State private var fraction: CGFloat = 0.5
     @State private var before: NSImage?
     @State private var after: NSImage?
+    @State private var pointerInside = false
 
     var body: some View {
         comparison
             .overlay(alignment: .top) { dragBand }
-            // Transparent to the mouse so the drag band underneath keeps the whole strip:
-            // a label that visibly *is* the title bar but refuses to drag would be worse
-            // than no handle at all.
-            .overlay(alignment: .topLeading) { titleCapsule.padding(10).allowsHitTesting(false) }
-            .overlay(alignment: .topTrailing) { closeButton.padding(10) }
+            .overlay(alignment: .bottomLeading) { sideLabel(L.s("Original"), visible: Self.labels(at: fraction).original) }
+            .overlay(alignment: .bottomTrailing) { sideLabel(L.s("Cutout"), visible: Self.labels(at: fraction).cutout) }
+            .overlay(alignment: .topTrailing) { closeButton.padding(8) }
             .overlay(alignment: .bottom) { toolbar }
+            .onHover { on in pointerInside = on }
             .task(id: item.id) {
                 fraction = 0.5
                 // Both halves are files now, and `Data(contentsOf:)` blocks. Reading them
@@ -343,15 +343,26 @@ struct CutoutPreviewView: View {
         .frame(height: 44)
     }
 
-    private var titleCapsule: some View {
-        GlassCapsule {
-            Text(item.suggestedName)
-                .font(.callout)
-                .lineLimit(1)
-                .truncationMode(.middle)
-                .frame(maxWidth: 200, alignment: .leading)
-                .fixedSize(horizontal: true, vertical: false)
-        }
+    /// Which half is which, said once on each half instead of by a floating pill that named
+    /// the file and left "which side am I looking at" to be inferred from the wipe.
+    ///
+    /// A label goes away when the handle is about to run it over: the alternative is a
+    /// caption sitting on top of the seam it is describing.
+    static func labels(at fraction: CGFloat) -> (original: Bool, cutout: Bool) {
+        let clearance: CGFloat = 0.18
+        return (original: fraction > clearance, cutout: fraction < 1 - clearance)
+    }
+
+    private func sideLabel(_ text: String, visible: Bool) -> some View {
+        Text(text)
+            .font(.system(size: 11, weight: .medium))
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(.thinMaterial, in: Capsule())
+            .padding(8)
+            .opacity(visible ? 1 : 0)
+            .animation(.easeOut(duration: 0.15), value: visible)
+            .allowsHitTesting(false)
     }
 
     /// Always drawn, never revealed on hover. A borderless window has no other visible way
@@ -361,15 +372,28 @@ struct CutoutPreviewView: View {
         GlassCircleButton(symbol: "xmark", diameter: 24, label: L.s("Close"), action: onClose)
     }
 
+    /// A capsule that floats over the picture, not a band that cuts a strip off the bottom
+    /// of it: the panel is sized to the cutout's aspect ratio, and a full-width bar means
+    /// every preview is drawn with a grey ribbon across the part of the image nearest the
+    /// pointer.
+    ///
+    /// Shown while the pointer is in the panel. It stays in the hierarchy at zero opacity
+    /// rather than being removed, so ⌘S keeps working with the mouse elsewhere.
     private var toolbar: some View {
-        HStack(spacing: 14) {
-            GlassCircleButton(symbol: "doc.on.doc", diameter: 34, label: L.s("Copy")) { model.copy(item) }
-            GlassCircleButton(symbol: "arrow.down.to.line", diameter: 34, label: L.s("Save")) { model.save(item) }
+        HStack(spacing: 4) {
+            PlainIconButton(symbol: "doc.on.doc", size: 14, side: 30, label: L.s("Copy")) { model.copy(item) }
+            PlainIconButton(symbol: "arrow.down.to.line", size: 14, side: 30, label: L.s("Save")) { model.save(item) }
                 .keyboardShortcut("s", modifiers: .command)
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 10)
-        .background(.ultraThinMaterial)
+        .padding(.horizontal, 4)
+        .padding(.vertical, 4)
+        .background(.regularMaterial, in: Capsule())
+        .overlay { Capsule().strokeBorder(.white.opacity(0.25), lineWidth: 0.5) }
+        .shadow(color: .black.opacity(0.18), radius: 4, y: 1)
+        .padding(.bottom, 12)
+        .opacity(pointerInside ? 1 : 0)
+        .allowsHitTesting(pointerInside)
+        .animation(.easeOut(duration: 0.15), value: pointerInside)
     }
 
     private func handle(width: CGFloat, height: CGFloat) -> some View {

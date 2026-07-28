@@ -1,9 +1,10 @@
 import AppKit
 import SwiftUI
 
-/// Contents of the menu-bar shelf. No `Divider()` anywhere: §4.7 rule ② says regions are
-/// separated by spacing and material, and the bottom bar floats over the grid rather than
-/// sitting in a partitioned row.
+/// Contents of the menu-bar shelf. No `Divider()` in the layout: §4.7 rule ② says regions
+/// are separated by spacing and material, and the bottom bar floats over the grid rather
+/// than sitting in a partitioned row. (The one below is inside a pull-down menu, where a
+/// separator is AppKit's own vocabulary and not ours.)
 struct ShelfView: View {
     static let size = CGSize(width: 340, height: 452)
 
@@ -19,14 +20,16 @@ struct ShelfView: View {
     var onAbout: () -> Void
     /// The gear is back, and this time it opens something. It was removed in v0.1 because
     /// there was nothing to configure; the history switch and the offline statement are
-    /// enough to earn it.
+    /// enough to earn it. Quit and About moved inside it: a bar with a word-button, two
+    /// bordered icons and a gear was four controls competing for a strip that has one
+    /// primary job.
     var onSettings: () -> Void
     /// The way to the batch window. The shelf is a 340pt panel that dismisses on any click
     /// outside itself — fine for one image, wrong for forty rows the user wants to work
     /// through — so the two surfaces need a door between them.
     var onMainWindow: () -> Void
 
-    private let columns = Array(repeating: GridItem(.flexible(), spacing: 10), count: 3)
+    private let columns = Array(repeating: GridItem(.flexible(), spacing: 8), count: 3)
 
     var body: some View {
         VStack(spacing: 0) {
@@ -56,7 +59,7 @@ struct ShelfView: View {
     /// wide enough for one; borrowing it costs nothing, because the hint it replaces is
     /// advice the user has visibly just finished taking.
     private var dropHint: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 8) {
             Image(systemName: hintSymbol)
                 .font(.system(size: 15, weight: .regular))
                 .foregroundStyle(model.status?.kind == .warning ? AnyShapeStyle(.red) : AnyShapeStyle(.secondary))
@@ -67,7 +70,7 @@ struct ShelfView: View {
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
         }
-        .padding(.horizontal, 14)
+        .padding(.horizontal, 16)
         .frame(height: 52)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
         .padding(.horizontal, 12)
@@ -85,10 +88,14 @@ struct ShelfView: View {
         }
     }
 
+    /// A section label, not a heading: small caps at caption size says "the grid below is
+    /// Recent" without competing with the filenames and the drop hint for the eye.
     private var recentHeader: some View {
         HStack(spacing: 0) {
             Text(L.s("Recent"))
-                .font(.subheadline.weight(.medium))
+                .font(.caption.weight(.semibold))
+                .textCase(.uppercase)
+                .tracking(0.6)
                 .foregroundStyle(.secondary)
             Spacer(minLength: 8)
             if !model.recents.items.isEmpty {
@@ -96,7 +103,7 @@ struct ShelfView: View {
             }
         }
         .padding(.horizontal, 16)
-        .padding(.top, 14)
+        .padding(.top, 16)
         .padding(.bottom, 8)
     }
 
@@ -120,7 +127,7 @@ struct ShelfView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 ScrollView {
-                    LazyVGrid(columns: columns, spacing: 10) {
+                    LazyVGrid(columns: columns, spacing: 8) {
                         ForEach(cells) { cell in
                             switch cell {
                             case .pending(let pending):
@@ -135,9 +142,9 @@ struct ShelfView: View {
                             }
                         }
                     }
-                    .padding(.horizontal, 14)
+                    .padding(.horizontal, 12)
                     // Room for the floating bar, which overlaps the scroll area by design.
-                    .padding(.bottom, Self.barHeight + 10)
+                    .padding(.bottom, Self.barHeight + 12)
                 }
                 .scrollIndicators(.never)
             }
@@ -145,25 +152,50 @@ struct ShelfView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
+    /// Two controls, both borderless, both the same size. Everything that is not a door to
+    /// another surface lives behind the gear.
     private var bottomBar: some View {
-        HStack(spacing: 0) {
-            Button(L.s("Quit"), action: onQuit)
-                .buttonStyle(.plain)
-                .font(.callout)
-                .foregroundStyle(.secondary)
-                .keyboardShortcut("q", modifiers: .command)
-            Spacer(minLength: 8)
-            GlassCircleButton(symbol: "macwindow", label: L.s("Open main window"), action: onMainWindow)
-            GlassCircleButton(symbol: "info.circle", label: L.s("About Pluck"), action: onAbout)
-                .padding(.leading, 6)
-            GlassCircleButton(symbol: "gearshape", label: L.s("Settings"), action: onSettings)
-                .padding(.leading, 6)
+        HStack(spacing: 4) {
+            Spacer(minLength: 0)
+            PlainIconButton(symbol: "macwindow", label: L.s("Open main window"), action: onMainWindow)
+            ShelfMenuButton(onAbout: onAbout, onSettings: onSettings, onQuit: onQuit)
         }
-        .padding(.horizontal, 14)
+        .padding(.horizontal, 12)
         .frame(height: Self.barHeight)
         .background(.ultraThinMaterial)
     }
 
+}
+
+/// The gear, as a menu. ⌘, and ⌘Q are declared here rather than on a hidden button so the
+/// shelf shows the shortcuts it answers instead of the user having to know them.
+private struct ShelfMenuButton: View {
+    var onAbout: () -> Void
+    var onSettings: () -> Void
+    var onQuit: () -> Void
+
+    @State private var hovering = false
+
+    var body: some View {
+        Menu {
+            Button(L.s("About Pluck"), action: onAbout)
+            Button(L.s("Settings…"), action: onSettings)
+                .keyboardShortcut(",", modifiers: .command)
+            Divider()
+            Button(L.s("Quit Pluck"), action: onQuit)
+                .keyboardShortcut("q", modifiers: .command)
+        } label: {
+            PlainIconGlyph(symbol: "gearshape", highlighted: hovering)
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .onHover { on in
+            withAnimation(.easeOut(duration: 0.12)) { hovering = on }
+        }
+        .accessibilityLabel(L.s("Menu"))
+        .help(L.s("Menu"))
+    }
 }
 
 /// A grid slot, in whichever of its two lives it is currently in.
@@ -189,7 +221,9 @@ private struct ClearButton: View {
     var body: some View {
         Button(L.s("Clear"), action: action)
             .buttonStyle(.plain)
-            .font(.subheadline)
+            // Caption, like the section label it sits beside — but not small-capped: this
+            // one is pressable, and a label and a control that look identical are a trap.
+            .font(.caption)
             .foregroundStyle(hovering ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
             .onHover { hovering = $0 }
     }
@@ -212,19 +246,18 @@ private struct RecentCell: View {
                     .resizable()
                     .interpolation(.high)
                     .scaledToFit()
-                    .padding(6)
+                    .padding(8)
             }
         }
         .frame(height: height)
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         .overlay(alignment: .bottom) {
             if hovering {
-                HStack(spacing: 0) {
+                HoverActions {
                     GlassCircleButton(symbol: "doc.on.doc", diameter: 24, label: L.s("Copy")) { model.copy(item) }
-                    Spacer(minLength: 4)
                     GlassCircleButton(symbol: "arrow.down.to.line", diameter: 24, label: L.s("Save")) { model.save(item) }
                 }
-                .padding(7)
+                .padding(8)
             }
         }
         // The one coral moment in the grid: a re-pluck that de-duplicated into this cell.
@@ -261,7 +294,7 @@ private struct PendingCell: View {
                     .resizable()
                     .interpolation(.high)
                     .scaledToFit()
-                    .padding(6)
+                    .padding(8)
                     .saturation(0)
                     .opacity(0.55)
             }

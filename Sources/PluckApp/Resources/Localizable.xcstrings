@@ -298,6 +298,17 @@
         }
       }
     },
+    "Menu": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Menu"
+          }
+        }
+      }
+    },
     "No image found — copy or drop a picture first.": {
       "extractionState": "manual",
       "localizations": {
@@ -327,6 +338,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Open main window"
+          }
+        }
+      }
+    },
+    "Original": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Original"
           }
         }
       }
@@ -408,17 +430,6 @@
         }
       }
     },
-    "Quit": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Quit"
-          }
-        }
-      }
-    },
     "Quit Pluck": {
       "extractionState": "manual",
       "localizations": {
@@ -481,17 +492,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Select All"
-          }
-        }
-      }
-    },
-    "Settings": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Settings"
           }
         }
       }

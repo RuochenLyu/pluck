@@ -107,4 +107,32 @@ final class PreviewPlacementTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(frame.minY, visible.minY)
         XCTAssertLessThanOrEqual(frame.maxY, visible.maxY)
     }
+
+    /// The two corner captions say which half is which. They are always up — except when
+    /// the wipe handle is about to run one over, which is the only case worth a rule.
+    func testBothSideLabelsShowWithTheHandleInTheMiddle() {
+        let labels = CutoutPreviewView.labels(at: 0.5)
+        XCTAssertTrue(labels.original)
+        XCTAssertTrue(labels.cutout)
+    }
+
+    /// Handle all the way left: there is no "before" half left to label.
+    func testTheOriginalLabelYieldsWhenTheHandleReachesIt() {
+        XCTAssertFalse(CutoutPreviewView.labels(at: 0).original)
+        XCTAssertTrue(CutoutPreviewView.labels(at: 0).cutout)
+    }
+
+    func testTheCutoutLabelYieldsWhenTheHandleReachesIt() {
+        XCTAssertFalse(CutoutPreviewView.labels(at: 1).cutout)
+        XCTAssertTrue(CutoutPreviewView.labels(at: 1).original)
+    }
+
+    /// Never both hidden: whatever the handle is doing, the panel keeps saying what at
+    /// least one side of it is.
+    func testAtLeastOneLabelSurvivesEveryHandlePosition() {
+        for step in 0...20 {
+            let labels = CutoutPreviewView.labels(at: CGFloat(step) / 20)
+            XCTAssertTrue(labels.original || labels.cutout, "fraction \(CGFloat(step) / 20)")
+        }
+    }
 }
