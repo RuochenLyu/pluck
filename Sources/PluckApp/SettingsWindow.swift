@@ -101,11 +101,18 @@ struct SettingsView: View {
     }
 }
 
-/// The engine picker and the models it picks from.
+/// The engine picker and the engines it picks from.
 ///
-/// One list, one row per manifest entry, three states per row. No "recommended" badge, no
-/// quality stars, no comparison table: the honest summary of the difference is "bigger,
-/// slower, better with hair", and that is what the row's own numbers say.
+/// One row per engine, led by what the thing is *for*. The two BiRefNet models are the same
+/// size, the same speed and the same licence — everything a row could say about them except
+/// the one thing that decides which to use, which is that lite cuts a decided edge and
+/// lite-matting keeps a soft one (research.md A.6). So the row leads with "Detail" and
+/// "Matting" and one sentence about what comes out; `BiRefNet_lite` and its licence drop to
+/// the caption, where the people who care about model provenance will still find them.
+///
+/// Vision is in the list too, without a control. It is not downloadable, so it used to be
+/// invisible here — which left the pane describing the two choices the user has to *make*
+/// and not the one they already have.
 private struct ModelsSection: View {
     @Bindable var store: ModelStore
     @Bindable var preferences: Preferences
@@ -113,15 +120,22 @@ private struct ModelsSection: View {
     var body: some View {
         Section {
             Picker(L.s("Engine"), selection: $preferences.engineID) {
-                Text(L.s("Apple Vision (built in)")).tag(EngineCatalog.defaultEngineID)
+                Text(EngineLabels.name(EngineCatalog.defaultEngineID)).tag(EngineCatalog.defaultEngineID)
                 ForEach(store.rows.filter(\.isInstalled)) { row in
-                    Text(row.descriptor.displayName).tag(row.id)
+                    Text(EngineLabels.name(row.id, fallback: row.descriptor.displayName)).tag(row.id)
                 }
             }
-            Text(L.s("Apple Vision is instant and built into macOS. A downloaded model is slower and kinder to hair and fur."))
-                .font(.callout)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
+
+            EngineRow(
+                id: EngineCatalog.defaultEngineID,
+                title: EngineLabels.name(EngineCatalog.defaultEngineID),
+                caption: String(
+                    format: L.s("%1$@ · %2$@"),
+                    L.s("Built into macOS"),
+                    EngineLabels.paceDetail(EngineCatalog.defaultEngineID)
+                ),
+                captionIsFailure: false
+            ) {}
 
             if store.registry == nil {
                 Text(L.s("This build carries no model list."))
@@ -137,18 +151,28 @@ private struct ModelsSection: View {
     }
 }
 
-private struct ModelRowView: View {
-    let row: ModelRow
-    let store: ModelStore
-    let preferences: Preferences
+/// The shape every engine row has: what it is for, then what it is made of, then whatever
+/// the user can do about it.
+private struct EngineRow<Control: View>: View {
+    let id: String
+    let title: String
+    let caption: String
+    let captionIsFailure: Bool
+    @ViewBuilder var control: Control
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
-                Text(row.descriptor.displayName)
-                Text(subtitle)
+                Text(title)
+                if let blurb = EngineLabels.blurb(id) {
+                    Text(blurb)
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Text(caption)
                     .font(.caption)
-                    .foregroundStyle(secondaryStyle)
+                    .foregroundStyle(captionIsFailure ? AnyShapeStyle(.red) : AnyShapeStyle(.tertiary))
                     .fixedSize(horizontal: false, vertical: true)
             }
             Spacer(minLength: 0)
@@ -156,20 +180,40 @@ private struct ModelRowView: View {
         }
         .padding(.vertical, 2)
     }
+}
 
-    private var subtitle: String {
-        switch row.state {
-        case .failed(let reason): reason
-        default: String(
-            format: L.s("%1$@ · %2$@"),
-            Self.megabytes(row.descriptor.bytes),
-            row.descriptor.license
-        )
+private struct ModelRowView: View {
+    let row: ModelRow
+    let store: ModelStore
+    let preferences: Preferences
+
+    var body: some View {
+        EngineRow(
+            id: row.id,
+            title: EngineLabels.name(row.id, fallback: row.descriptor.displayName),
+            caption: caption,
+            captionIsFailure: isFailed
+        ) {
+            control
         }
     }
 
-    private var secondaryStyle: AnyShapeStyle {
-        if case .failed = row.state { AnyShapeStyle(.red) } else { AnyShapeStyle(.secondary) }
+    /// The technical identity of the row, in the order someone reads it: the model's real
+    /// name, its licence, its size, its speed. A failure replaces the lot — a row that says
+    /// "83 MB · MIT" while the download is broken is answering a question nobody asked.
+    private var caption: String {
+        if case .failed(let reason) = row.state { return reason }
+        return [
+            row.descriptor.displayName,
+            row.descriptor.license,
+            EngineLabels.megabytes(row.descriptor.bytes),
+            EngineLabels.paceDetail(row.id)
+        ].joined(separator: " · ")
+    }
+
+    private var isFailed: Bool {
+        if case .failed = row.state { return true }
+        return false
     }
 
     @ViewBuilder private var control: some View {
@@ -194,9 +238,5 @@ private struct ModelRowView: View {
         case .available, .failed:
             Button(L.s("Download")) { store.download(row.id) }
         }
-    }
-
-    private static func megabytes(_ bytes: Int64) -> String {
-        String(format: L.s("%d MB"), Int((Double(bytes) / 1_000_000).rounded()))
     }
 }

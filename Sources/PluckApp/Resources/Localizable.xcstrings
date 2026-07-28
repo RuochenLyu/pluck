@@ -68,24 +68,13 @@
         }
       }
     },
-    "Apple Vision (built in)": {
+    "Apple Vision": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Apple Vision (built in)"
-          }
-        }
-      }
-    },
-    "Apple Vision is instant and built into macOS. A downloaded model is slower and kinder to hair and fur.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Apple Vision is instant and built into macOS. A downloaded model is slower and kinder to hair and fur."
+            "value": "Apple Vision"
           }
         }
       }
@@ -97,6 +86,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Background removal isn’t available on this Mac."
+          }
+        }
+      }
+    },
+    "Built into macOS": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Built into macOS"
           }
         }
       }
@@ -211,6 +211,17 @@
         }
       }
     },
+    "Crisp, solid edges. Translucent things come out opaque.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Crisp, solid edges. Translucent things come out opaque."
+          }
+        }
+      }
+    },
     "Cut": {
       "extractionState": "manual",
       "localizations": {
@@ -240,6 +251,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Delete"
+          }
+        }
+      }
+    },
+    "Detail": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Detail"
           }
         }
       }
@@ -431,6 +453,17 @@
         }
       }
     },
+    "Instant, built into macOS.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Instant, built into macOS."
+          }
+        }
+      }
+    },
     "Just now": {
       "extractionState": "manual",
       "localizations": {
@@ -471,6 +504,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "MIT License"
+          }
+        }
+      }
+    },
+    "Matting": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Matting"
           }
         }
       }
@@ -706,6 +750,17 @@
         }
       }
     },
+    "Soft hair and true translucency — glass stays see-through.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Soft hair and true translucency — glass stays see-through."
+          }
+        }
+      }
+    },
     "Something went wrong plucking this image.": {
       "extractionState": "manual",
       "localizations": {
@@ -805,6 +860,17 @@
         }
       }
     },
+    "instant": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "instant"
+          }
+        }
+      }
+    },
     "or press ⌘V to paste": {
       "extractionState": "manual",
       "localizations": {
@@ -812,6 +878,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "or press ⌘V to paste"
+          }
+        }
+      }
+    },
+    "~1–2 s": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "~1–2 s"
+          }
+        }
+      }
+    },
+    "~1–2 s per image": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "~1–2 s per image"
           }
         }
       }
