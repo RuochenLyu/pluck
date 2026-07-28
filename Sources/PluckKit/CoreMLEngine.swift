@@ -195,7 +195,7 @@ public final class CoreMLEngine: MattingEngine, @unchecked Sendable {
         default:
             throw PluckError.processingFailed(underlying: nil)
         }
-        return ImageBuffers.Gray(width: width, height: height, pixels: pixels)
+        return ImageBuffers.Gray(width: width, height: height, pixels: Data(pixels))
     }
 
     private static func quantize(_ value: Float) -> UInt8 {

@@ -38,27 +38,54 @@ public enum ImageLoader {
         // Camera JPEG/HEIC store rotation in EXIF; decoding the raw pixels would export a
         // sideways cutout. The thumbnail path is ImageIO's own orientation-applying decoder,
         // capped at the full pixel size so it is not actually a downscale.
-        if let transformed = orientedFullSize(source) { return transformed }
-
-        guard let image = CGImageSourceCreateImageAtIndex(source, 0, nil) else {
-            throw PluckError.imageLoadFailed(reason: "could not decode image")
+        let orientation = self.orientation(of: source)
+        guard orientation > 1 else {
+            guard let image = CGImageSourceCreateImageAtIndex(source, 0, nil) else {
+                throw PluckError.imageLoadFailed(reason: "could not decode image")
+            }
+            return image
         }
-        return image
+
+        guard let transformed = orientedFullSize(source) else {
+            // The unrotated pixels are still decodable here, and returning them is exactly
+            // the failure this path exists to prevent: a sideways cutout looks like a
+            // deliberate result, so it would be exported, printed and shipped. Refusing is
+            // the only outcome the caller can act on.
+            throw PluckError.imageLoadFailed(
+                reason: "could not apply the file's EXIF orientation (\(orientation))"
+            )
+        }
+        return transformed
     }
 
-    private static func orientedFullSize(_ source: CGImageSource) -> CGImage? {
+    private static func orientation(of source: CGImageSource) -> Int {
         guard let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
-              let orientation = properties[kCGImagePropertyOrientation] as? Int,
-              orientation > 1,
-              let width = properties[kCGImagePropertyPixelWidth] as? Int,
-              let height = properties[kCGImagePropertyPixelHeight] as? Int
-        else { return nil }
+              let orientation = properties[kCGImagePropertyOrientation] as? Int
+        else { return 1 }
+        return orientation
+    }
 
+    /// ImageIO's transform-applying decoder, asked for the image's own pixel size so that
+    /// "thumbnail" is a rotation and nothing else.
+    private static func orientedFullSize(_ source: CGImageSource) -> CGImage? {
+        guard let edge = longestEdge(of: source) else { return nil }
         let options: [CFString: Any] = [
             kCGImageSourceCreateThumbnailFromImageAlways: true,
             kCGImageSourceCreateThumbnailWithTransform: true,
-            kCGImageSourceThumbnailMaxPixelSize: max(width, height)
+            kCGImageSourceThumbnailMaxPixelSize: edge
         ]
         return CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary)
+    }
+
+    /// From the file's metadata when it has any, otherwise from the decoded image — a
+    /// missing `PixelWidth` is no reason to hand back an unrotated photo.
+    private static func longestEdge(of source: CGImageSource) -> Int? {
+        if let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+           let width = properties[kCGImagePropertyPixelWidth] as? Int,
+           let height = properties[kCGImagePropertyPixelHeight] as? Int {
+            return max(width, height)
+        }
+        guard let image = CGImageSourceCreateImageAtIndex(source, 0, nil) else { return nil }
+        return max(image.width, image.height)
     }
 }
