@@ -86,6 +86,19 @@ final class AppModel {
     /// a single row's own spinner already says everything a "0 of 1 done" bar would.
     private(set) var batch: BatchProgress?
 
+    /// The tickets the batch currently on screen owns — which, since a result inherits its
+    /// ticket's id, is also the id of every entry it has produced so far.
+    ///
+    /// The main window uses it to put "Done" on the rows *this* drop finished and nothing on
+    /// the rest. p2 draws a tick on every completed row, but the mockup's list is only ever
+    /// one batch; the real list is that batch sitting on top of restored history, and a
+    /// column of ticks reaching back to last week says only "these are cutouts", which is
+    /// what the window is.
+    private(set) var batchItemIDs: Set<UUID> = []
+
+    /// True while at least one job in the list is still being worked on.
+    var isBatchRunning: Bool { pendingItems.contains { $0.state == .running } }
+
     private(set) var feedback: StatusFeedback = .idle {
         didSet { onFeedbackChange?(feedback) }
     }
@@ -533,7 +546,10 @@ final class AppModel {
         // 2.2 seconds with its red rim (see `fail`), and a drop that arrives in that window
         // used to be counted onto the batch it had nothing to do with — one image reported
         // as "5 of 6".
-        if !pendingItems.contains(where: { $0.state == .running }) { batch = BatchProgress(total: 0, done: 0) }
+        if !pendingItems.contains(where: { $0.state == .running }) {
+            batch = BatchProgress(total: 0, done: 0)
+            batchItemIDs = []
+        }
         batch?.total += 1
         inFlight += 1
         feedback = .busy
@@ -541,6 +557,7 @@ final class AppModel {
         // "no subject found" sit over a drop that is going perfectly well.
         clearStatus()
         let pending = PendingItem(id: UUID(), name: name)
+        batchItemIDs.insert(pending.id)
         withAnimation(.easeOut(duration: 0.18)) {
             pendingItems.insert(pending, at: 0)
         }

@@ -85,54 +85,53 @@ struct SettingsView: View {
             // doubting user looks first is Settings. Out of the grouped box it used to sit
             // in: a boxed row reads as a setting, and this is a statement about the app.
             //
-            // Amended in v0.3 rather than quietly left standing: models are downloaded, so
-            // "makes no network requests" had stopped being true. The claim that matters —
-            // pictures never leave the Mac — is unchanged, and stating the one exception is
-            // what makes the rest believable.
-            Text(L.s("Your pictures never leave this Mac. Pluck has no account, no telemetry and no uploads; the only thing it ever downloads is a matting model you ask for by name."))
+            // Half of what it used to say — "the only thing it ever downloads is a matting
+            // model you ask for by name" — has moved up to the shield line under the model
+            // rows, where it is next to the thing it is about. Saying it twice would make
+            // both copies read as boilerplate.
+            Text(L.s("Your pictures never leave this Mac. Pluck has no account, no telemetry and no uploads."))
                 .font(.footnote)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.horizontal, 20)
                 .padding(.bottom, 20)
         }
-        .frame(width: 420, alignment: .leading)
+        .frame(width: 480, alignment: .leading)
         .fixedSize(horizontal: false, vertical: true)
     }
 }
 
-/// The engine picker and the engines it picks from.
+/// The engines, and the choice between them — which are now the same thing.
+///
+/// There was a `Picker` above this list, repeating in a pop-up menu the names of rows the
+/// user could already see. Two controls for one decision, and the one that *made* the
+/// decision was the one that showed the least: the picker could not say what an engine was
+/// for, and the row that could say it was not clickable. Selecting *is* the row now (p5),
+/// which also answers "why is this row here" for Vision — it has nothing to download, and it
+/// is still the choice most people are using.
 ///
 /// One row per engine, led by what the thing is *for*. The two BiRefNet models are the same
-/// size, the same speed and the same licence — everything a row could say about them except
-/// the one thing that decides which to use, which is that lite cuts a decided edge and
-/// lite-matting keeps a soft one (research.md A.6). So the row leads with "Detail" and
-/// "Matting" and one sentence about what comes out; `BiRefNet_lite` and its licence drop to
-/// the caption, where the people who care about model provenance will still find them.
-///
-/// Vision is in the list too, without a control. It is not downloadable, so it used to be
-/// invisible here — which left the pane describing the two choices the user has to *make*
-/// and not the one they already have.
+/// size and the same licence — everything a row could say about them except the one thing
+/// that decides which to use, which is that lite cuts a decided edge and lite-matting keeps
+/// a soft one (research.md A.6). So the row leads with "Clean Cut" and "Fine Edges" and one
+/// sentence about what comes out; `BiRefNet_lite` and its licence sit in the chips, where
+/// the people who care about model provenance will still find them.
 private struct ModelsSection: View {
     @Bindable var store: ModelStore
     @Bindable var preferences: Preferences
 
     var body: some View {
         Section {
-            Picker(L.s("Engine"), selection: $preferences.engineID) {
-                Text(EngineLabels.name(EngineCatalog.defaultEngineID)).tag(EngineCatalog.defaultEngineID)
-                ForEach(store.rows.filter(\.isInstalled)) { row in
-                    Text(EngineLabels.name(row.id, fallback: row.descriptor.displayName)).tag(row.id)
-                }
-            }
-
-            // No caption: the blurb already says instant and built-in, and a second line
-            // repeating both in different words is the row reading its own name tag aloud.
+            // No chips-and-blurb caption beyond "Built-in": Vision has no licence to declare
+            // and no bytes to warn about, and the blurb already says instant.
             EngineRow(
                 id: EngineCatalog.defaultEngineID,
                 title: EngineLabels.name(EngineCatalog.defaultEngineID),
-                caption: "",
-                captionIsFailure: false
+                chips: [L.s("Built-in")],
+                failure: nil,
+                isSelected: preferences.engineID == EngineCatalog.defaultEngineID,
+                isSelectable: true,
+                select: { preferences.engineID = EngineCatalog.defaultEngineID }
             ) {}
 
             if store.registry == nil {
@@ -145,40 +144,139 @@ private struct ModelsSection: View {
             }
         } header: {
             Text(L.s("Models")).font(.headline)
+        } footer: {
+            // The half of the old offline paragraph that is about *models* — said here,
+            // against the rows it is about, instead of in a block of small print under the
+            // window where it read as a disclaimer.
+            Label {
+                Text(L.s("Models are downloaded once, stored locally, and never phone home."))
+            } icon: {
+                Image(systemName: "shield")
+            }
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+            .padding(.top, 4)
         }
     }
 }
 
-/// The shape every engine row has: what it is for, then what it is made of, then whatever
-/// the user can do about it.
+/// The shape every engine row has (p5): the choice, a face, what it is for, and whatever the
+/// user can do about it.
 private struct EngineRow<Control: View>: View {
     let id: String
     let title: String
-    let caption: String
-    let captionIsFailure: Bool
+    let chips: [String]
+    /// Replaces the chips and the blurb when a download has gone wrong — a row that says
+    /// "MIT · 83 MB" while the download is broken is answering a question nobody asked.
+    let failure: String?
+    let isSelected: Bool
+    /// False for a model that is not on disk. It cannot be the default engine before it
+    /// exists, and a circle that accepts the click and then silently does nothing is worse
+    /// than one that is visibly not available yet.
+    let isSelectable: Bool
+    let select: () -> Void
     @ViewBuilder var control: Control
 
     var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 12) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                if let blurb = EngineLabels.blurb(id) {
-                    Text(blurb)
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                if !caption.isEmpty {
-                    Text(caption)
+        HStack(alignment: .top, spacing: 12) {
+            Button(action: select) {
+                SelectionMark(isSelected: isSelected, isEnabled: isSelectable)
+            }
+            .buttonStyle(.plain)
+            .disabled(!isSelectable)
+            .accessibilityLabel(title)
+            .accessibilityAddTraits(isSelected ? [.isSelected] : [])
+
+            IconTile(symbol: EngineLabels.symbol(id))
+
+            VStack(alignment: .leading, spacing: 5) {
+                Text(title).font(.headline)
+                if let failure {
+                    Text(failure)
                         .font(.caption)
-                        .foregroundStyle(captionIsFailure ? AnyShapeStyle(.red) : AnyShapeStyle(.tertiary))
+                        .foregroundStyle(.red)
                         .fixedSize(horizontal: false, vertical: true)
+                } else {
+                    if !chips.isEmpty {
+                        HStack(spacing: 6) {
+                            ForEach(chips, id: \.self) { Chip(text: $0) }
+                        }
+                    }
+                    if let blurb = EngineLabels.blurb(id) {
+                        Text(blurb)
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
             }
-            Spacer(minLength: 0)
+            Spacer(minLength: 8)
             control
         }
-        .padding(.vertical, 2)
+        .padding(.vertical, 6)
+        // The whole row, not just the 18pt circle: the circle is where the state is shown,
+        // and the name and the sentence beside it are what the user is actually reading when
+        // they decide.
+        .contentShape(Rectangle())
+        .onTapGesture { if isSelectable { select() } }
+    }
+}
+
+/// Coral, and the only tinted thing in this window (§4.7): the default engine is the one
+/// fact the pane exists to state.
+private struct SelectionMark: View {
+    let isSelected: Bool
+    let isEnabled: Bool
+
+    var body: some View {
+        ZStack {
+            if isSelected {
+                Circle().fill(Palette.coral)
+                Image(systemName: "checkmark")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(.white)
+            } else {
+                Circle().strokeBorder(.tertiary, lineWidth: 1)
+            }
+        }
+        .frame(width: 18, height: 18)
+        .opacity(isEnabled ? 1 : 0.4)
+        .accessibilityHidden(true)
+    }
+}
+
+/// A face for the row, in place of the vendor logos p5 draws: Apple's mark is a trademark
+/// this app has no licence to wear, and BiRefNet has no mark at all. A tinted glyph of the
+/// *edge* each engine cuts does the same job — something for the eye to land on — without
+/// borrowing anyone's identity.
+private struct IconTile: View {
+    let symbol: String
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: 8, style: .continuous)
+            .fill(.quaternary.opacity(0.6))
+            .frame(width: 30, height: 30)
+            .overlay {
+                Image(systemName: symbol)
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(.secondary)
+            }
+            .accessibilityHidden(true)
+    }
+}
+
+/// The technical identity of a row, in the order someone reads it: the model's real name,
+/// then its licence and its size. Small enough to be skipped by everyone it is not for.
+private struct Chip: View {
+    let text: String
+
+    var body: some View {
+        Text(text)
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 7)
+            .padding(.vertical, 2)
+            .background(.quaternary.opacity(0.6), in: Capsule())
     }
 }
 
@@ -191,28 +289,22 @@ private struct ModelRowView: View {
         EngineRow(
             id: row.id,
             title: EngineLabels.name(row.id, fallback: row.descriptor.displayName),
-            caption: caption,
-            captionIsFailure: isFailed
+            chips: [
+                row.descriptor.displayName,
+                "\(row.descriptor.license) · \(EngineLabels.megabytes(row.descriptor.bytes))"
+            ],
+            failure: failure,
+            isSelected: preferences.engineID == row.id,
+            isSelectable: row.isInstalled,
+            select: { preferences.engineID = row.id }
         ) {
             control
         }
     }
 
-    /// The technical identity of the row, in the order someone reads it: the model's real
-    /// name, its licence, its size. A failure replaces the lot — a row that says "83 MB ·
-    /// MIT" while the download is broken is answering a question nobody asked.
-    private var caption: String {
+    private var failure: String? {
         if case .failed(let reason) = row.state { return reason }
-        return [
-            row.descriptor.displayName,
-            row.descriptor.license,
-            EngineLabels.megabytes(row.descriptor.bytes)
-        ].joined(separator: " · ")
-    }
-
-    private var isFailed: Bool {
-        if case .failed = row.state { return true }
-        return false
+        return nil
     }
 
     @ViewBuilder private var control: some View {
@@ -228,12 +320,10 @@ private struct ModelRowView: View {
                 Button(L.s("Cancel")) { store.cancel(row.id) }
             }
         case .installed:
-            HStack(spacing: 8) {
-                Image(systemName: "checkmark.circle.fill")
-                    .foregroundStyle(.secondary)
-                    .accessibilityLabel(L.s("Installed"))
-                Button(L.s("Delete")) { store.delete(row.id, preferences: preferences) }
-            }
+            // No "installed" tick beside Delete. The row offering Delete *is* the statement
+            // that it is here, and the selection circle beside it is now live — two more
+            // signals than the tick was carrying on its own.
+            Button(L.s("Delete")) { store.delete(row.id, preferences: preferences) }
         case .available, .failed:
             Button(L.s("Download")) { store.download(row.id) }
         }

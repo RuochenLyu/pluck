@@ -190,24 +190,41 @@ struct MainWindowView: View {
         .padding(16)
     }
 
+    /// Whether the list is in the middle of a batch worth annotating (p2). One image needs
+    /// no row status: its own spinner is the whole story, and a tick that appears for a
+    /// second and then has to be explained away is worse than no tick.
+    private var batchIsRunning: Bool {
+        guard let batch = model.batch, batch.total > 1 else { return false }
+        return model.isBatchRunning
+    }
+
+    /// One inset card, not full-width rows on the window's own background (p2). The card is
+    /// what makes the list a list — a group of related things — rather than a stack of bands
+    /// running edge to edge under a drop strip that is also edge to edge.
     private var list: some View {
-        ScrollView {
+        let shape = RoundedRectangle(cornerRadius: 12, style: .continuous)
+        return ScrollView {
             LazyVStack(spacing: 0) {
                 ForEach(rows) { row in
                     switch row {
                     case .pending(let item):
                         PendingRow(item: item)
                     case .done(let item):
-                        ResultRow(item: item, model: model)
+                        ResultRow(item: item, model: model, showsBatchStatus: batchIsRunning)
                     }
                     if row.id != rows.last?.id {
-                        // Flush with the text column: 16 of row padding, 44 of thumbnail,
-                        // 12 of gap.
-                        Divider().padding(.leading, 72)
+                        // Inset on both sides: flush with the text column at the leading
+                        // edge (12 of row padding, 44 of thumbnail, 12 of gap), clear of the
+                        // card's own rounded corner at the trailing one.
+                        Divider().padding(.leading, 68).padding(.trailing, 12)
                     }
                 }
             }
-            .padding(.vertical, 4)
+            .clipShape(shape)
+            .background(shape.fill(.quaternary.opacity(0.35)))
+            .overlay { shape.strokeBorder(.separator.opacity(0.7), lineWidth: 0.5) }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
         }
         .scrollIndicators(.automatic)
     }
@@ -233,8 +250,14 @@ struct MainWindowView: View {
             }
             Spacer(minLength: 12)
             if !model.recents.items.isEmpty {
+                // Coral, as in p2. §4.7's one-tint-per-screen rule is about the accent not
+                // being spent on decoration; the progress bar and the primary action are the
+                // same voice saying "this is the thing in motion and the thing to press",
+                // which is how p2 draws them. It was changed to the system accent in an
+                // earlier pass by reading the rule as a headcount — that was the mistake.
                 Button(L.s("Export All…")) { model.exportAll() }
                     .buttonStyle(.borderedProminent)
+                    .tint(Palette.coral)
             }
         }
         .padding(.horizontal, 16)
@@ -261,10 +284,17 @@ private struct DropStrip: View {
     let targeted: Bool
 
     var body: some View {
-        HStack(spacing: 8) {
+        // The paste half is not decoration: ⌘V is how a screenshot gets in, and the strip is
+        // the only place in this window that can say so once the empty state is gone. Same
+        // two phrases as the empty state, so the window teaches one wording, not two.
+        HStack(spacing: 6) {
             Image(systemName: "square.and.arrow.down")
                 .font(.system(size: 13, weight: .regular))
             Text(L.s("Drop images here"))
+                .font(.callout)
+            Text(verbatim: "—")
+                .font(.callout)
+            Text(L.s("or press ⌘V to paste"))
                 .font(.callout)
         }
         .foregroundStyle(targeted ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
@@ -302,9 +332,16 @@ private let rowThumbnailSide: CGFloat = 44
 private struct ResultRow: View {
     let item: RecentItem
     let model: AppModel
+    /// Whether a batch is running at all. Whether *this* row belongs to it is a second
+    /// question, asked below.
+    var showsBatchStatus = false
 
     @State private var thumbnail: NSImage?
     @State private var hovering = false
+
+    private var isInCurrentBatch: Bool {
+        showsBatchStatus && model.batchItemIDs.contains(item.id)
+    }
 
     var body: some View {
         HStack(spacing: 12) {
@@ -329,18 +366,30 @@ private struct ResultRow: View {
                 .monospacedDigit()
             }
             Spacer(minLength: 8)
-            // No tick on the successful rows. Every row in this list succeeded — the ones
-            // that did not are `PendingRow`s wearing a red triangle — so a checkmark on
-            // each one is a column of punctuation that carries no information.
+            // The tick is scoped to the batch in flight, not to the list. Every row here
+            // succeeded — the ones that did not are `PendingRow`s wearing a red triangle —
+            // so ticking all of them is a column of punctuation that says "these are
+            // cutouts", which is what the window is for. While a drop is being worked
+            // through, though, "which of these five is finished" is a live question, and the
+            // answer belongs on the rows it is about.
             if hovering {
                 HoverActions {
                     GlassCircleButton(symbol: "doc.on.doc", diameter: 26, label: L.s("Copy")) { model.copy(item) }
                     GlassCircleButton(symbol: "arrow.down.to.line", diameter: 26, label: L.s("Save")) { model.save(item) }
                 }
                 .transition(.opacity)
+            } else if isInCurrentBatch {
+                Label {
+                    Text(L.s("Done"))
+                } icon: {
+                    Image(systemName: "checkmark")
+                }
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .transition(.opacity)
             }
         }
-        .padding(.horizontal, 16)
+        .padding(.horizontal, 12)
         .padding(.vertical, 8)
         .contentShape(Rectangle())
         .background(hovering ? AnyShapeStyle(.quaternary.opacity(0.5)) : AnyShapeStyle(.clear))
@@ -356,6 +405,13 @@ private struct ResultRow: View {
     }
 }
 
+/// p2 splits the unfinished rows into "Waiting" and a spinner. This one only spins.
+///
+/// Admission is `PluckQueue`'s, inside PluckKit, and it does not report which of the queued
+/// jobs is holding one of its two-to-four slots — the app knows only that a job has been
+/// handed over. Labelling the rows below some guessed cut-off "Waiting" would put a static
+/// word on images that are at that moment being processed, which is the same class of
+/// fiction as the mockup's per-image "60%". A spinner on everything unfinished is true.
 private struct PendingRow: View {
     let item: PendingItem
 
@@ -384,7 +440,7 @@ private struct PendingRow: View {
                     .padding(.trailing, 6)
             }
         }
-        .padding(.horizontal, 16)
+        .padding(.horizontal, 12)
         .padding(.vertical, 8)
         .task(id: item.thumbnail) {
             thumbnail = item.thumbnail.flatMap { NSImage(data: $0) }

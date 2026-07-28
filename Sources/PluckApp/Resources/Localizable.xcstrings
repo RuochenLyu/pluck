@@ -90,6 +90,17 @@
         }
       }
     },
+    "Built-in": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Built-in"
+          }
+        }
+      }
+    },
     "Cancel": {
       "extractionState": "manual",
       "localizations": {
@@ -266,6 +277,17 @@
         }
       }
     },
+    "Done": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Done"
+          }
+        }
+      }
+    },
     "Download": {
       "extractionState": "manual",
       "localizations": {
@@ -328,17 +350,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Edit"
-          }
-        }
-      }
-    },
-    "Engine": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Engine"
           }
         }
       }
@@ -475,17 +486,6 @@
         }
       }
     },
-    "Installed": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Installed"
-          }
-        }
-      }
-    },
     "Instant, built into macOS.": {
       "extractionState": "manual",
       "localizations": {
@@ -559,6 +559,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Models"
+          }
+        }
+      }
+    },
+    "Models are downloaded once, stored locally, and never phone home.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Models are downloaded once, stored locally, and never phone home."
           }
         }
       }
@@ -882,13 +893,13 @@
         }
       }
     },
-    "Your pictures never leave this Mac. Pluck has no account, no telemetry and no uploads; the only thing it ever downloads is a matting model you ask for by name.": {
+    "Your pictures never leave this Mac. Pluck has no account, no telemetry and no uploads.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Your pictures never leave this Mac. Pluck has no account, no telemetry and no uploads; the only thing it ever downloads is a matting model you ask for by name."
+            "value": "Your pictures never leave this Mac. Pluck has no account, no telemetry and no uploads."
           }
         }
       }
