@@ -32,20 +32,20 @@ final class BatchTests: XCTestCase {
     }
 
     private func model(
-        process: @escaping @Sendable (Data, String) async throws -> ProcessedImage
+        process: @escaping @Sendable (Data, String, any MattingEngine) async throws -> ProcessedImage
     ) -> AppModel {
         AppModel(pasteboard: MockPasteboard(), process: process)
     }
 
     func testAMultiFileDropCountsEveryFile() {
-        let model = model { _, _ in processed([1]) }
+        let model = model { _, _, _ in processed([1]) }
         model.handleDrop([.data(Data([1])), .data(Data([2])), .data(Data([3]))])
         XCTAssertEqual(model.batch?.total, 3)
         XCTAssertEqual(model.batch?.done, 0)
     }
 
     func testTheCounterReachesFull() async {
-        let model = model { data, _ in processed([data[0], 0]) }
+        let model = model { data, _, _ in processed([data[0], 0]) }
         model.handleDrop([.data(Data([1])), .data(Data([2])), .data(Data([3]))])
         await waitUntil("the batch to drain") { model.batch?.done == 3 }
         scratch = model.recents.items.map(\.fileURL)
@@ -55,7 +55,7 @@ final class BatchTests: XCTestCase {
     /// The case the count exists for. One bad file among three used to leave the bar short
     /// of the end for as long as the window stayed open, which reads as "still working".
     func testAFailureStillCountsAsDone() async {
-        let model = model { data, _ in
+        let model = model { data, _, _ in
             guard data[0] != 2 else { throw PluckError.noSubjectDetected }
             return processed([data[0], 0])
         }
@@ -68,7 +68,7 @@ final class BatchTests: XCTestCase {
     /// De-duplication resolves a job without producing an entry. It is still a file the
     /// user handed over and got an answer about.
     func testADuplicateCountsAsDone() async {
-        let model = model { _, _ in processed([7, 7]) }
+        let model = model { _, _, _ in processed([7, 7]) }
         model.handleDrop([.data(Data([1]))])
         await waitUntil("the first result") { model.recents.items.count == 1 }
         scratch = model.recents.items.map(\.fileURL)
@@ -83,7 +83,7 @@ final class BatchTests: XCTestCase {
     /// after the list has drained starts over. Otherwise the second drop of three files
     /// would show "3 of 6".
     func testADropAfterTheListDrainsStartsAFreshCount() async {
-        let model = model { data, _ in processed([data[0], 0]) }
+        let model = model { data, _, _ in processed([data[0], 0]) }
         model.handleDrop([.data(Data([1])), .data(Data([2]))])
         await waitUntil("the first batch") { model.batch?.done == 2 }
         model.handleDrop([.data(Data([3]))])
@@ -98,7 +98,7 @@ final class BatchTests: XCTestCase {
     /// lands inside that window is a new batch — counting it onto the old one reported one
     /// image as "5 of 6" and left the bar stuck part-way for as long as the user kept going.
     func testADropLandingWhileAFailedCellIsStillFadingStartsAFreshCount() async {
-        let model = model { _, _ in throw PluckError.noSubjectDetected }
+        let model = model { _, _, _ in throw PluckError.noSubjectDetected }
         model.handleDrop([.data(Data([1])), .data(Data([2]))])
         await waitUntil("both files to fail") { model.batch?.done == 2 }
         // The cells are still there — that is the whole point of the case.
@@ -113,7 +113,7 @@ final class BatchTests: XCTestCase {
     /// still running must join it, or a ten-file drag becomes ten batches of one.
     func testADropLandingWhileAJobIsRunningJoinsIt() async {
         let gate = Gate()
-        let model = model { _, _ in
+        let model = model { _, _, _ in
             await gate.wait()
             return processed([1])
         }

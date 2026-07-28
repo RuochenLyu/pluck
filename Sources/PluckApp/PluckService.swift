@@ -23,24 +23,33 @@ enum PluckService {
     static let thumbnailMaxEdge = 320
     static let previewMaxEdge = 1200
 
-    private static let pipeline = PluckPipeline()
-
     /// Deliberately *not* `PluckQueue.shared`. Placeholder thumbnails are the batch list's
     /// only "yes, I got that file" for as long as matting takes, so queueing them behind
     /// forty mattings would leave forty blank rows for a minute. Their own narrow queue
     /// keeps them off the cooperative pool without letting them starve the real work.
     private static let decoding = PluckQueue(width: 2, label: "com.aix4u.pluck.thumbnails")
 
-    static func process(data: Data, name: String) async throws -> ProcessedImage {
-        try await process(.data(data), name: name)
+    /// The engine is passed in rather than read from preferences here: resolving it can
+    /// mean a ten-second Core ML compile, which the caller has to be able to say something
+    /// about before the wait starts (`AppModel.engine(for:)`).
+    static func process(
+        data: Data,
+        name: String,
+        engine: any MattingEngine = VisionEngine()
+    ) async throws -> ProcessedImage {
+        try await process(.data(data), name: name, engine: engine)
     }
 
-    static func process(url: URL) async throws -> ProcessedImage {
-        try await process(.file(url), name: PluckSource.file(url).suggestedName ?? "")
+    static func process(url: URL, engine: any MattingEngine = VisionEngine()) async throws -> ProcessedImage {
+        try await process(.file(url), name: PluckSource.file(url).suggestedName ?? "", engine: engine)
     }
 
-    private static func process(_ source: PluckSource, name: String) async throws -> ProcessedImage {
-        let run = try await pipeline.run(source)
+    private static func process(
+        _ source: PluckSource,
+        name: String,
+        engine: any MattingEngine
+    ) async throws -> ProcessedImage {
+        let run = try await PluckPipeline(engine: engine).run(source)
         return ProcessedImage(
             pngData: try run.pngData(),
             thumbnailPNG: try Thumbnail.pngData(for: run.image, maxEdge: thumbnailMaxEdge),

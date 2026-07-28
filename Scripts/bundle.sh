@@ -52,6 +52,19 @@ xcrun xcstringstool compile \
     "$ROOT/Sources/PluckApp/Resources/Localizable.xcstrings"
 ls -d "$RESOURCES"/*.lproj > /dev/null
 
+# The model manifest is trusted because it arrives inside the signature, not because of
+# where it was found (product-plan §4.8): the signature vouches for the manifest, the
+# manifest pins the URL and the digest, and the digest judges the bytes. So it is copied
+# here, into the bundle being signed, rather than carried in SwiftPM's resource bundle —
+# which this script does not ship, and which a `swift build` leaves holding a dangling
+# symlink anyway. A dev shell run straight from `swift run` therefore offers no downloadable
+# models, which is the honest answer: nothing has vouched for that manifest.
+echo "==> copying the model manifest"
+cp "$ROOT/models/manifest.json" "$RESOURCES/manifest.json"
+# Not `plutil -lint`, which reads this as a plist and rejects it. A manifest that does not
+# parse would leave the shipped app silently offering no models at all.
+python3 -c 'import json,sys; json.load(open(sys.argv[1]))' "$RESOURCES/manifest.json"
+
 echo "==> drawing the icon"
 swift "$ROOT/Scripts/make-icon.swift" "$RESOURCES/AppIcon.icns"
 

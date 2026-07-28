@@ -70,7 +70,7 @@ final class PendingItemTests: XCTestCase {
 
     private func model(
         clipboard: Data? = Data([9]),
-        process: @escaping @Sendable (Data, String) async throws -> ProcessedImage
+        process: @escaping @Sendable (Data, String, any MattingEngine) async throws -> ProcessedImage
     ) -> AppModel {
         AppModel(
             pasteboard: MockPasteboard(stored: clipboard.map { ($0, "cat") }),
@@ -82,7 +82,7 @@ final class PendingItemTests: XCTestCase {
     /// placeholder only showed up after the first suspension the user would still see the
     /// silent gap this whole mechanism exists to remove.
     func testPlaceholderExistsBeforeTheFirstSuspensionPoint() {
-        let model = model { _, _ in processed([1]) }
+        let model = model { _, _, _ in processed([1]) }
         XCTAssertTrue(model.pendingItems.isEmpty)
         model.pluckClipboard()
         XCTAssertEqual(model.pendingItems.count, 1)
@@ -92,14 +92,14 @@ final class PendingItemTests: XCTestCase {
     }
 
     func testEachDroppedPayloadGetsItsOwnPlaceholder() {
-        let model = model { _, _ in processed([1]) }
+        let model = model { _, _, _ in processed([1]) }
         model.handleDrop([.data(Data([1])), .data(Data([2])), .data(Data([3]))])
         XCTAssertEqual(model.pendingItems.count, 3)
         XCTAssertEqual(Set(model.pendingItems.map(\.id)).count, 3)
     }
 
     func testSuccessRetiresThePlaceholderAndLeavesOneRecent() async {
-        let model = model { _, _ in processed([1, 2, 3]) }
+        let model = model { _, _, _ in processed([1, 2, 3]) }
         model.pluckClipboard()
         await waitUntil("the result to land") { model.recents.items.count == 1 }
         scratch = model.recents.items.map(\.fileURL)
@@ -111,7 +111,7 @@ final class PendingItemTests: XCTestCase {
     /// result minted a fresh one, SwiftUI would see a delete plus an unrelated insert and
     /// animate the cell moving instead of resolving where the user is looking.
     func testResultInheritsThePlaceholderIdentity() async {
-        let model = model { _, _ in processed([7, 7]) }
+        let model = model { _, _, _ in processed([7, 7]) }
         model.pluckClipboard()
         let ticket = model.pendingItems.first?.id
         await waitUntil("the result to land") { model.recents.items.count == 1 }
@@ -120,7 +120,7 @@ final class PendingItemTests: XCTestCase {
     }
 
     func testFailureMarksThePlaceholderThenRetiresIt() async {
-        let model = model { _, _ in throw PluckError.noSubjectDetected }
+        let model = model { _, _, _ in throw PluckError.noSubjectDetected }
         model.pluckClipboard()
         await waitUntil("the placeholder to turn red") { model.pendingItems.first?.failure != nil }
         XCTAssertTrue(model.recents.items.isEmpty)
@@ -132,7 +132,7 @@ final class PendingItemTests: XCTestCase {
     /// An empty clipboard never reaches the engine, but it did claim a cell — that cell
     /// has to come back, or ⌘V on nothing leaves a permanent ghost in the grid.
     func testEmptyClipboardStillRetiresItsPlaceholder() async {
-        let model = model(clipboard: nil) { _, _ in
+        let model = model(clipboard: nil) { _, _, _ in
             XCTFail("should not process without input")
             return processed([0])
         }
@@ -145,7 +145,7 @@ final class PendingItemTests: XCTestCase {
     /// what the status line says have to be the same failure, or the user reads one and
     /// acts on the other.
     func testTheReasonReachesBothTheCellAndTheStatusLine() async {
-        let model = model { _, _ in throw PluckError.imageLoadFailed(reason: "not a png") }
+        let model = model { _, _, _ in throw PluckError.imageLoadFailed(reason: "not a png") }
         model.pluckClipboard()
         await waitUntil("the failure to land") { model.pendingItems.first?.failure != nil }
         XCTAssertEqual(model.pendingItems.first?.failure, .unreadable)
@@ -155,11 +155,11 @@ final class PendingItemTests: XCTestCase {
     /// "No subject" and "that isn't an image" send the user to different fixes. Collapsing
     /// them into one apology is the behaviour this unit replaced.
     func testDifferentCausesProduceDifferentMessages() async {
-        let noSubject = model { _, _ in throw PluckError.noSubjectDetected }
+        let noSubject = model { _, _, _ in throw PluckError.noSubjectDetected }
         noSubject.pluckClipboard()
         await waitUntil("the first failure") { noSubject.statusMessage != nil }
 
-        let unreadable = model { _, _ in throw PluckError.imageLoadFailed(reason: "x") }
+        let unreadable = model { _, _, _ in throw PluckError.imageLoadFailed(reason: "x") }
         unreadable.pluckClipboard()
         await waitUntil("the second failure") { unreadable.statusMessage != nil }
 
@@ -170,7 +170,7 @@ final class PendingItemTests: XCTestCase {
     /// line at all — the user stops believing the strip.
     func testStartingNewWorkClearsTheOldComplaint() async {
         let pasteboard = MockPasteboard()
-        let model = AppModel(pasteboard: pasteboard) { _, _ in processed([1]) }
+        let model = AppModel(pasteboard: pasteboard) { _, _, _ in processed([1]) }
 
         model.pluckClipboard()
         await waitUntil("the failure") { model.statusMessage != nil }
@@ -186,7 +186,7 @@ final class PendingItemTests: XCTestCase {
     /// The bug users reported as "dragging a cutout back in does nothing": identical
     /// output bytes de-duplicate, which is correct, but it has to be visible.
     func testRePluckingTheSameImageHighlightsTheExistingCellInsteadOfAddingOne() async {
-        let model = model { _, _ in processed([1, 2, 3]) }
+        let model = model { _, _, _ in processed([1, 2, 3]) }
 
         model.pluckClipboard()
         await waitUntil("the first result") { model.recents.items.count == 1 }
@@ -211,7 +211,7 @@ final class PendingItemTests: XCTestCase {
     func testPastingACutoutBackInNeverReachesTheEngine() async {
         let passes = Counter()
         let pasteboard = MockPasteboard(stored: (Data([9]), "cat"))
-        let model = AppModel(pasteboard: pasteboard) { _, _ in
+        let model = AppModel(pasteboard: pasteboard) { _, _, _ in
             passes.bump()
             return processed([1, 2, 3])
         }
@@ -235,7 +235,7 @@ final class PendingItemTests: XCTestCase {
     /// icon. The bytes are the ones we wrote, so the fingerprint matches before any work.
     func testDroppingACutoutBackInPromotesItInsteadOfPluckingItAgain() async {
         let passes = Counter()
-        let model = AppModel(pasteboard: MockPasteboard(stored: (Data([9]), "cat"))) { _, _ in
+        let model = AppModel(pasteboard: MockPasteboard(stored: (Data([9]), "cat"))) { _, _, _ in
             passes.bump()
             return processed([4, 5, 6])
         }
@@ -258,7 +258,7 @@ final class PendingItemTests: XCTestCase {
     func testADifferentImageStillGetsPlucked() async {
         let passes = Counter()
         let pasteboard = MockPasteboard(stored: (Data([9]), "cat"))
-        let model = AppModel(pasteboard: pasteboard) { data, _ in
+        let model = AppModel(pasteboard: pasteboard) { data, _, _ in
             passes.bump()
             return processed([data[0], 0])
         }
@@ -275,7 +275,7 @@ final class PendingItemTests: XCTestCase {
     }
 
     func testClearEmptiesTheGrid() async {
-        let model = model { _, _ in processed([4, 5, 6]) }
+        let model = model { _, _, _ in processed([4, 5, 6]) }
         model.pluckClipboard()
         await waitUntil("the result to land") { model.recents.items.count == 1 }
         scratch = model.recents.items.map(\.fileURL)

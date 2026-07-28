@@ -103,7 +103,8 @@ final class AppModel {
     /// same reason `ClipboardPlucker` takes one: the placeholder lifecycle is a state
     /// machine worth testing, and it should not need Vision to run. The file path keeps
     /// `PluckService.process(url:)` because the URL is also where the name comes from.
-    private let process: @Sendable (Data, String) async throws -> ProcessedImage
+    private let process: @Sendable (Data, String, any MattingEngine) async throws -> ProcessedImage
+    private let engines: EngineProvider
     private var inFlight = 0
     private var feedbackToken = 0
     private var highlightToken = 0
@@ -112,10 +113,13 @@ final class AppModel {
     init(
         pasteboard: any ImagePasteboard = SystemPasteboard(),
         preferences: Preferences? = nil,
-        process: @escaping @Sendable (Data, String) async throws -> ProcessedImage = PluckService.process(data:name:)
+        engines: EngineProvider = .shared,
+        process: @escaping @Sendable (Data, String, any MattingEngine) async throws -> ProcessedImage
+            = PluckService.process(data:name:engine:)
     ) {
         self.pasteboard = pasteboard
         self.preferences = preferences
+        self.engines = engines
         self.process = process
         guard let preferences else { return }
         // Order matters: restore first, then subscribe. Seeding through `onChange` would
@@ -148,7 +152,7 @@ final class AppModel {
 
     func pluckClipboard() {
         let ticket = beginWork(name: L.s("Clipboard image"))
-        let plucker = ClipboardPlucker(pasteboard: pasteboard, process: process)
+        let process = process
         // The weak capture is hoisted into its own `@Sendable` closure: a `[weak self]`
         // binding is implicitly mutable, and Swift 6 refuses to let a nested concurrent
         // closure (here, `run`'s `onInput`) capture it directly.
@@ -160,38 +164,79 @@ final class AppModel {
             let fingerprint = PluckService.fingerprint(data)
             return await self?.accept(fingerprint: fingerprint, thumbnail: thumbnail, ticket: ticket) ?? false
         }
-        Task.detached(priority: .userInitiated) { [weak self] in
-            let (outcome, processed) = await plucker.run { data in await accept(data) }
-            await self?.deliver(ticket: ticket, outcome: outcome, processed: processed)
+        Task { [weak self] in
+            guard let self else { return }
+            let engine = await preparedEngine()
+            let plucker = ClipboardPlucker(pasteboard: pasteboard) { data, name in
+                try await process(data, name, engine)
+            }
+            Task.detached(priority: .userInitiated) { [weak self] in
+                let (outcome, processed) = await plucker.run { data in await accept(data) }
+                await self?.deliver(ticket: ticket, outcome: outcome, processed: processed)
+            }
         }
     }
 
     func handleDrop(_ payloads: [DroppedPayload]) {
         let process = process
-        for payload in payloads {
-            let ticket = beginWork(name: payload.displayName)
-            Task.detached(priority: .userInitiated) { [weak self] in
-                let thumbnail = await PluckService.inputThumbnail(of: payload)
-                let fingerprint = payload.bytes.map(PluckService.fingerprint)
-                let accepted = await self?.accept(fingerprint: fingerprint, thumbnail: thumbnail, ticket: ticket)
-                guard accepted == true else {
-                    await self?.deliver(ticket: ticket, outcome: .superseded, processed: nil)
-                    return
-                }
-                do {
-                    let processed: ProcessedImage
-                    switch payload {
-                    case .file(let url):
-                        processed = try await PluckService.process(url: url)
-                    case .data(let data):
-                        processed = try await process(data, L.s("Cutout"))
+        // Every placeholder goes in first, then the engine is resolved once for the whole
+        // drop. Resolving per image would compile the same model ten times over, and
+        // resolving before the placeholders would leave a ten-second gap in which the drop
+        // appears to have been ignored.
+        let tickets = payloads.map { beginWork(name: $0.displayName) }
+        Task { [weak self] in
+            guard let self else { return }
+            let engine = await preparedEngine()
+            for (payload, ticket) in zip(payloads, tickets) {
+                Task.detached(priority: .userInitiated) { [weak self] in
+                    let thumbnail = await PluckService.inputThumbnail(of: payload)
+                    let fingerprint = payload.bytes.map(PluckService.fingerprint)
+                    let accepted = await self?.accept(fingerprint: fingerprint, thumbnail: thumbnail, ticket: ticket)
+                    guard accepted == true else {
+                        await self?.deliver(ticket: ticket, outcome: .superseded, processed: nil)
+                        return
                     }
-                    await self?.deliver(ticket: ticket, outcome: .success, processed: processed)
-                } catch {
-                    await self?.deliver(ticket: ticket, outcome: .failure(PluckFailure(error)), processed: nil)
+                    do {
+                        let processed: ProcessedImage
+                        switch payload {
+                        case .file(let url):
+                            processed = try await PluckService.process(url: url, engine: engine)
+                        case .data(let data):
+                            processed = try await process(data, L.s("Cutout"), engine)
+                        }
+                        await self?.deliver(ticket: ticket, outcome: .success, processed: processed)
+                    } catch {
+                        await self?.deliver(ticket: ticket, outcome: .failure(PluckFailure(error)), processed: nil)
+                    }
                 }
             }
         }
+    }
+
+    /// The engine the user picked, loaded if it is not loaded yet.
+    ///
+    /// The first use of a downloaded model is a Core ML compile of a 94 MB package — 5–10
+    /// seconds in which nothing else visibly happens (roadmap risk, decisions.md 2026-07-28).
+    /// The placeholder cards are already on screen by then, so the wait has a location; this
+    /// adds the sentence that says what the wait is *for*, through the same status line
+    /// every other explanation goes through. No new UI, and nothing at all is said for
+    /// Vision or for a model that is already in memory — the common case must stay silent.
+    private func preparedEngine() async -> any MattingEngine {
+        let id = preferences?.engineID ?? EngineCatalog.defaultEngineID
+        var announced = false
+        if await !engines.isReady(id) {
+            report(.info, L.s("Getting the model ready — this takes a few seconds the first time."))
+            announced = true
+        }
+        let resolved = await engines.resolve(id)
+        if resolved.fellBackFrom != nil {
+            report(.warning, L.s("That model couldn’t be loaded — using Apple Vision for now."))
+        } else if announced {
+            // The "getting ready" line has done its job; leaving it up would have it
+            // outlive the wait it was explaining.
+            clearStatus()
+        }
+        return resolved.engine
     }
 
     func preview(_ item: RecentItem) {

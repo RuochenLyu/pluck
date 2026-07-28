@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import PluckKit
 
 /// Everything the app remembers about how the user wants it to behave. Small on purpose:
 /// each entry here is a promise to keep honouring a choice across launches, and an app
@@ -17,6 +18,23 @@ final class Preferences {
         static let previewOriginX = "pluck.preview.x"
         static let previewOriginY = "pluck.preview.y"
         static let exportDirectory = "pluck.exportDirectory"
+        static let engineID = "pluck.engineID"
+    }
+
+    /// Which matting engine new work goes through. Apple Vision by default — it is built in,
+    /// instant and costs nothing to keep; a downloaded model is something the user went and
+    /// asked for, so it is also something they can be assumed to want used.
+    ///
+    /// Stored as the engine's id rather than as an index or an enum: the list of engines is
+    /// the manifest plus what is on disk, and neither is fixed at compile time. An id whose
+    /// model has since been deleted resolves back to Vision at use time (`EngineProvider`)
+    /// rather than being scrubbed here — a preference that quietly rewrites itself is worse
+    /// than one that is briefly unsatisfiable.
+    var engineID: String {
+        didSet {
+            guard engineID != oldValue else { return }
+            defaults.set(engineID, forKey: Key.engineID)
+        }
     }
 
     /// Whether finished cutouts survive a quit. On by default: the grid is the app's only
@@ -63,8 +81,12 @@ final class Preferences {
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
-        defaults.register(defaults: [Key.keepsHistory: true])
+        defaults.register(defaults: [
+            Key.keepsHistory: true,
+            Key.engineID: EngineCatalog.defaultEngineID
+        ])
         keepsHistory = defaults.bool(forKey: Key.keepsHistory)
+        engineID = defaults.string(forKey: Key.engineID) ?? EngineCatalog.defaultEngineID
         if let path = defaults.string(forKey: Key.exportDirectory),
            FileManager.default.fileExists(atPath: path) {
             exportDirectory = URL(fileURLWithPath: path, isDirectory: true)

@@ -250,3 +250,23 @@
 - **PNG 输出现在携带输入的色彩空间**：此前所有输出被静默压进 DeviceRGB（事实上的 sRGB 语义），Display P3 照片的出画面色域被裁剪。现在工作空间跟随输入的 RGB profile（非法的位图目标 profile 回退 sRGB），`--background` 的 hex 颜色按 sRGB 解释后转入工作空间——同一个 #ff6600 在 P3 输出里仍是同一个颜色。对"把主体原样还给你"的工具，这是正确性而非增强。
 - **`--json` 的失败词汇表补全**：setup 阶段失败（坏参数/未知模型）此前 stdout 零输出，现在发一条 run 级记录（`ok:false` + slug + message）；条目级失败记录新增 `output` 与 `engine` 字段。面向 agent 的接口里，"失败但不说哪个文件、哪个引擎"等于要求调用方解析英文散文。
 - **shelf 面板即投放目标，引导是结构不是横幅**：对 12 款 menubar app（重点 Dropover/Yoink/Dropzone）两轮调研确认：无一家用常驻投放横幅。投放条删除；有内容时网格首格为虚线幽灵格（"下一张落在这里"+ ⌘V 提示），空态为同语法撑满版；底栏取消，控件并入标题行；状态消息改为仅在有话可说时出现的浮动材质条。缩略图右键菜单（Copy/Save As/Show Preview/Delete）补齐单项删除。产品差异注记：Dropover/Yoink 是"拖出即用完"的暂存架，Pluck 是"拖出后仍保留"的结果档案——因此不抄"拖出即移除"。
+
+## 2026-07-28 — 断点续传用手写 Range，信任仍然只来自哈希
+
+- **决策**：`ModelRegistry` 的下载改为可续传。字节边收边追加到 `Models/.downloads/<id>.partial`，重试时发 `Range: bytes=N-` + `If-Range`（首次响应的 ETag，没有 ETag 用 Last-Modified，两者都没有就整下）。206 追加，200 丢弃 partial 重来，416 丢弃后自动重试一次。`ModelDownloading` 协议随之改为 `download(from:into:onProgress:)`——目的地由调用方指定。
+- **不用 URLSession 的 `resumeData`**：它是不透明 blob，只在任务被**取消**时才产生（连接断了没有，进程死了更没有——而这恰好是 `pluck models pull` 最需要的两种中断），而且没有任何一部分可以在测试里断言。三个明文 HTTP 头可以：`Scripts/serve-models.py`（约 130 行 python stdlib）实现 Range/If-Range/ETag/206/200/416，集成测试起它、造 300 KB 资产、验证三个场景，全程 127.0.0.1，真网零依赖。
+- **校验逻辑一字不动**：续传只负责把字节凑对，"这是不是正确的字节"仍然是完整文件上的一次 SHA256。哈希失败时**删掉 partial**——对已经哈希错的字节继续追加，只能得到一个更长的错文件。这是唯一不允许续传的失败。
+- **partial 放在 `Models/.downloads/` 而不是 `/tmp`**：临时目录会被系统清理，也会被 Pluck 自己的启动清扫清掉，而那正好是用户最可能要续传的时刻（退出之后）。同卷还意味着安装是一次 rename 而不是 94 MB 的拷贝。
+- **下载器从 download task 换成 data task + delegate**：download task 失败时什么也不给——它收到的字节在系统临时文件里，失败即删，而那正是续传要保住的状态。现在每一块字节到达即落盘，90% 处被打断就留下 90%。
+- **实测**（真实 release 资产 82 MB）：pull → `kill -9`（51 MB）→ 再 pull，第二次进度从 61% 起跳并安装成功，说明服务器认了 range 且拼接后的哈希仍然通过。
+
+## 2026-07-28 — EngineCatalog 下沉 PluckKit，app 学会切引擎
+
+- **`EngineCatalog` 从 PluckCLI 移进 PluckKit**（`EngineDescriptor` 一起公开），CLI 侧只剩 `Engines.catalog = EngineCatalog.bundled(in: .module)` 这层薄壳与原样的输出格式。理由：CLI 和 app 要问的是同一个问题（"这台机器现在能用哪些引擎"），两份实现就是两次对"用户装了什么"给出不同答案的机会。
+- **app 的 manifest 由 `Scripts/bundle.sh` 拷进 `Contents/Resources/`，不进 SwiftPM 资源包**：SwiftPM 会把 target 里的符号链接原样拷成断链（实测断在 `.build/debug/Pluck_PluckApp.bundle/`），而两份实体 manifest 加一句"记得同步"不算方案。于是 manifest 走签名这一条路进 app——这本来就是 §4.8 的信任链原文：签名担保 manifest，manifest 钉死 URL 和哈希。**代价**：`swift run PluckApp` 起的开发壳没有可下载模型列表。这不是缺陷而是诚实答案——没有任何东西为那份 manifest 背书。
+- **`Preferences.engineID`（默认 `vision`）存的是 id 不是枚举**：引擎列表 = manifest + 磁盘现状，两者都不是编译期固定的。指向已删除模型的 id **不在这里被擦掉**，而是在使用时回落——一个会自己偷偷改写的偏好比一个暂时无法满足的偏好更糟。
+- **回落而不是报错**：`EngineProvider` 是 actor（首次加载 = 5–10 秒 Core ML 编译，必须只发生一次，第二个拖入者等第一个的 Task）。模型加载失败一律回落 Vision + 一条状态消息，不抛错——用户的图仍然完全可以抠。选中的引擎保持选中：下次拖入会再试一次，在 Settings 里重装完就自动恢复。
+- **加载中的提示复用现有 status 机制**：占位卡先进网格（拖入立刻有位置），然后一句"Getting the model ready…"，加载完即撤。Vision 和已加载模型这条路上一个字都不说——常见情况必须保持安静。
+- **Settings 的 Models 一节：删除就是删除，不进废纸篓**。废纸篓是给用户自己造的、可能想要回来的东西准备的；模型是一份 94 MB 的缓存，URL 就在 app 里，随时可以再下。留在废纸篓等于让"释放了 94 MB"实际上意味着"挪了 94 MB"。cutout 是反面例子——那是用户的成果，所以它才有确认。
+- **下载/取消/删除全部走 `ModelRegistry`**：app 内不出现第二份下载逻辑，也就不出现第二处可能把哈希校验写错的地方。取消保留 partial，再点 Download 是续传而不是重来。
+- **离线声明改写而不是留着**：旧文案"makes no network requests"在有模型下载之后就不再为真。新文案把真正的承诺（图片不离开这台 Mac）和唯一的例外（你点名要的模型）一起说出来——把唯一的例外说清楚，才是让其余部分可信的办法。

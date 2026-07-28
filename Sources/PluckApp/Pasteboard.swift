@@ -59,7 +59,8 @@ struct ClipboardPlucker: Sendable {
 
     init(
         pasteboard: any ImagePasteboard,
-        process: @escaping @Sendable (Data, String) async throws -> ProcessedImage = PluckService.process(data:name:)
+        process: @escaping @Sendable (Data, String) async throws -> ProcessedImage
+            = { data, name in try await PluckService.process(data: data, name: name) }
     ) {
         self.pasteboard = pasteboard
         self.process = process

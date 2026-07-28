@@ -1,6 +1,17 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "%1$@ · %2$@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ · %2$@"
+          }
+        }
+      }
+    },
     "%1$d of %2$d done": {
       "extractionState": "manual",
       "localizations": {
@@ -8,6 +19,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "%1$d of %2$d done"
+          }
+        }
+      }
+    },
+    "%d MB": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%d MB"
           }
         }
       }
@@ -46,6 +68,28 @@
         }
       }
     },
+    "Apple Vision (built in)": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apple Vision (built in)"
+          }
+        }
+      }
+    },
+    "Apple Vision is instant and built into macOS. A downloaded model is slower and kinder to hair and fur.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apple Vision is instant and built into macOS. A downloaded model is slower and kinder to hair and fur."
+          }
+        }
+      }
+    },
     "Background removal isn’t available on this Mac.": {
       "extractionState": "manual",
       "localizations": {
@@ -53,6 +97,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Background removal isn’t available on this Mac."
+          }
+        }
+      }
+    },
+    "Cancel": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancel"
           }
         }
       }
@@ -189,6 +244,17 @@
         }
       }
     },
+    "Download": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Download"
+          }
+        }
+      }
+    },
     "Drop images here": {
       "extractionState": "manual",
       "localizations": {
@@ -229,6 +295,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Edit"
+          }
+        }
+      }
+    },
+    "Engine": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Engine"
           }
         }
       }
@@ -299,6 +376,17 @@
         }
       }
     },
+    "Getting the model ready — this takes a few seconds the first time.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Getting the model ready — this takes a few seconds the first time."
+          }
+        }
+      }
+    },
     "GitHub": {
       "extractionState": "manual",
       "localizations": {
@@ -328,6 +416,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "History"
+          }
+        }
+      }
+    },
+    "Installed": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Installed"
           }
         }
       }
@@ -383,6 +482,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Menu"
+          }
+        }
+      }
+    },
+    "Models": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Models"
           }
         }
       }
@@ -460,17 +570,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Pluck Settings"
-          }
-        }
-      }
-    },
-    "Pluck works entirely offline. It makes no network requests and has no account, no telemetry and no uploads.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Pluck works entirely offline. It makes no network requests and has no account, no telemetry and no uploads."
           }
         }
       }
@@ -640,6 +739,28 @@
         }
       }
     },
+    "That model couldn’t be loaded — using Apple Vision for now.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "That model couldn’t be loaded — using Apple Vision for now."
+          }
+        }
+      }
+    },
+    "This build carries no model list.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This build carries no model list."
+          }
+        }
+      }
+    },
     "This cutout’s file is no longer on disk.": {
       "extractionState": "manual",
       "localizations": {
@@ -669,6 +790,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Version %@"
+          }
+        }
+      }
+    },
+    "Your pictures never leave this Mac. Pluck has no account, no telemetry and no uploads; the only thing it ever downloads is a matting model you ask for by name.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your pictures never leave this Mac. Pluck has no account, no telemetry and no uploads; the only thing it ever downloads is a matting model you ask for by name."
           }
         }
       }

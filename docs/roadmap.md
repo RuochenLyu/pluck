@@ -5,9 +5,9 @@
 
 ## 当前状态（2026-07-27 深夜）
 
-- 阶段：**v0.1 全部完成、发布链路跑通；v0.2 第一、二批已落地**（磁盘化 + 历史持久化 + 偏好存储 + Settings 窗口；并发闸 + 主窗口批量队列）。PluckKit（VisionEngine/Compositor/ImageLoader/**PluckPipeline**/**PluckQueue**）、`pluck` CLI、PluckApp 菜单栏 + 主窗口、CC0 测试图片集全部落地，**144 测试全绿**，Swift 6 零 warning。
+- 阶段：**v0.1 全部完成、发布链路跑通；v0.2 第一、二批已落地**（磁盘化 + 历史持久化 + 偏好存储 + Settings 窗口；并发闸 + 主窗口批量队列）。PluckKit（VisionEngine/Compositor/ImageLoader/**PluckPipeline**/**PluckQueue**）、`pluck` CLI、PluckApp 菜单栏 + 主窗口、CC0 测试图片集全部落地，**252 测试全绿**，Swift 6 零 warning。
 - **v0.2 验收状态（2026-07-28 早）**：解锁后已逐屏看过——Settings 窗口（两组、开关、Clear、离线说明）、主窗口空态（虚线投放区 + ⌘V 提示、Export All 正确隐藏）、主窗口列表态（缩略图 + 尺寸 + hover 出 Copy/Save）、多张时的按整图进度条、失败行（红三角 + "No subject found in this image."）、Export All 全链路（9 张落盘、重名让位成 `Cutout 2.png`…、底栏报 `✓ Exported 9 cutouts.`）。历史持久化早已实测：重启后 cutout 原样回来。**仍需维护者本机确认的只剩一项**：拖出到别的 app——自动化驱不动 macOS 拖放，这条只有人手能验。（开机自启已于 2026-07-28 整条删除，见 decisions.md。）
-- **v0.3 第一块已落地（2026-07-28）**：PluckKit 新增 `CoreMLEngine`（`.cpuAndGPU` 硬钉，async 加载 + 编译缓存）与 `ModelRegistry`（manifest / 下载 / SHA256 / 原子安装），`models/manifest.json` 收两条 lite 记录（sha256 与字节数由 `Scripts/package-models.sh` 从真实 zip 生成），CLI 的 `models list` / `models pull` / `--model` 全部接通。实测：手工装好模型后 `pluck fur-01.jpg --model birefnet-lite` 首次 55 秒（含 Core ML 编译）、之后 1.8 秒，未安装时 exit 3 并提示 `pluck models pull <id>`。**尚未做**：GitHub Release `models-v1` 未发布（manifest 里的 URL 因此暂时是 404），app 侧接线是下一个任务。
+- **v0.3 模型链路全部落地（2026-07-28）**：PluckKit 新增 `CoreMLEngine`（`.cpuAndGPU` 硬钉，async 加载 + 编译缓存）、`ModelRegistry`（manifest / 下载 / SHA256 / 原子安装 / **断点续传**）与下沉到 Kit 的 `EngineCatalog`；GitHub Release `models-v1` 已发布，`pluck models list` / `models pull` / `--model` 实测全通。**断点续传**用手写 `Range` + `If-Range`（不用 `resumeData`，理由见 decisions.md），本地 `Scripts/serve-models.py` 提供 206/200/416 与 ETag，集成测试真网零依赖；实测 82 MB 资产 pull 到 51 MB `kill -9`，再 pull 从 61% 续起并装成功。**app 侧接线完成**：`Preferences.engineID`（默认 vision）、`EngineProvider`（actor，首次编译只做一次，加载失败回落 Vision + 状态消息）、Settings 新增 Models 一节（引擎 Picker + 每模型 available/downloading/installed 三态，下载与删除全走 ModelRegistry），manifest 由 `Scripts/bundle.sh` 拷进签名 bundle。实测：`pluck fur-01.jpg --model birefnet-lite` 首次 55 秒（含 Core ML 编译）、之后 1.8 秒，未安装时 exit 3。**仍需维护者本机验收**：Settings Models 面板与引擎切换的视觉/交互（自动化驱不动 GUI）。
 - 交互现状：状态项本身是拖放目标 → 落下即开 shelf 面板（非激活 borderless NSPanel，网格内占位卡原地变结果卡）；预览面板贴 shelf 旁开、层级在其之上、顶部 44pt 条带可拖、关闭按钮常驻；shelf 底栏 `macwindow` 开主窗口——标准标题栏、一列 batch 行（缩略图 + 文件名 + 尺寸，hover 出 Copy/Save，整行可拖出）、多张时显示按整图计数的进度条、底栏 `Export All…`。
 - 打包：`./Scripts/bundle.sh` 产出可运行的 `Pluck.app`（Info.plist / 编译后的 String Catalog / icns / ad-hoc 签名），1.9 MB。
 - **发布链路已全程跑通（2026-07-27）**：`./Scripts/release.sh` 一次通过——Developer ID 签名（hardened runtime + timestamp）→ notarytool `Accepted`（提交 `7f7651b9`）→ stapler → 重新打包 → `spctl` 判定 `accepted / source=Notarized Developer ID`。zip 解压到别处二次判定同样通过，`stapler validate` 通过（票据已内嵌，用户首次启动不需要网络），启动 + SIGUSR1 实测存活。产物 `.build/Pluck.zip`，1.9 MB。
@@ -19,7 +19,7 @@
 
 - **v0.1（MVP，目标 1–2 周业余时间）**：PluckKit(VisionEngine) + CLI + 菜单栏拖放 + popover ⌘V 剪贴板闭环 + 结果预览滑块。签名 + notarize + GitHub Release + tap。
 - **v0.2**：~~历史持久化 + Settings~~ ✅、~~主窗口批量队列~~ ✅、~~结果浮层~~ ❌ 不做（2026-07-28 决定：不自动弹，用户自己点开看）、Finder Quick Action、Sparkle。
-- **v0.3**：~~CoreMLEngine~~ ✅、~~BiRefNet_lite 转换~~ ✅（连同 general/matting/lite-matting 全家，见 research.md A.5/A.6）、按需下载（CLI ✅；断点续传与 app 内 Models 面板进行中）、对比滑块、SKILL.md 定稿。Backlog（调研产出，未排期）：固定结果、全局快捷键唤出 shelf、修饰键拖出选格式（research.md 附录 B）。
+- **v0.3**：~~CoreMLEngine~~ ✅、~~BiRefNet_lite 转换~~ ✅（连同 general/matting/lite-matting 全家，见 research.md A.5/A.6）、~~按需下载~~ ✅（CLI + app Models 面板 + 断点续传）、对比滑块、SKILL.md 定稿。Backlog（调研产出，未排期）：固定结果、全局快捷键唤出 shelf、修饰键拖出选格式（research.md 附录 B）。
 - **v1.0**：边缘 decontamination 打磨、发丝 before/after 营销图、README/官网、发 HN + 少数派/V2EX。
 
 ## v0.2 动工前的技术债（2026-07-27，来自 v0.1 实现的上报）
