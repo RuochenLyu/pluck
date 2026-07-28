@@ -14,7 +14,7 @@ final class PreviewPanelController {
     /// that both cannot hold, the ceiling wins and the checkerboard takes up the slack.
     static let maxLongEdge: CGFloat = 560
     static let minShortEdge: CGFloat = 320
-    private static let cornerRadius: CGFloat = 16
+    private static let cornerRadius: CGFloat = Tokens.panelRadius
     /// Distance to the shelf, and to the edges of the usable screen.
     private static let gap: CGFloat = 10
     private static let margin: CGFloat = 8
@@ -390,7 +390,7 @@ struct CutoutPreviewView: View {
     /// out — Esc works but nothing on screen says so, and a control that appears only once
     /// the pointer is already in the right place cannot teach anyone where that is.
     private var closeButton: some View {
-        GlassCircleButton(symbol: "xmark", diameter: 24, label: L.s("Close"), action: onClose)
+        GlassCircleButton(symbol: "xmark", diameter: 28, label: L.s("Close"), action: onClose)
     }
 
     /// A capsule that floats over the picture, not a band that cuts a strip off the bottom
@@ -402,8 +402,8 @@ struct CutoutPreviewView: View {
     /// rather than being removed, so ⌘S keeps working with the mouse elsewhere.
     private var toolbar: some View {
         HStack(spacing: 4) {
-            PlainIconButton(symbol: "doc.on.doc", size: 14, side: 30, label: L.s("Copy")) { model.copy(item) }
-            PlainIconButton(symbol: "arrow.down.to.line", size: 14, side: 30, label: L.s("Save")) { model.save(item) }
+            PlainIconButton(symbol: "doc.on.doc", size: 16, side: Tokens.toolbarControlSide, label: L.s("Copy")) { model.copy(item) }
+            PlainIconButton(symbol: "arrow.down.to.line", size: 16, side: Tokens.toolbarControlSide, label: L.s("Save")) { model.save(item) }
                 .keyboardShortcut("s", modifiers: .command)
             if model.isRepluckRunning(item) {
                 // The same spinner the grid's placeholder cell is showing for this job, in
@@ -411,16 +411,18 @@ struct CutoutPreviewView: View {
                 // picture, and the status line carries a download if there is one.
                 ProgressView()
                     .controlSize(.small)
-                    .frame(width: 30, height: 30)
+                    .frame(width: Tokens.toolbarControlSide, height: Tokens.toolbarControlSide)
             } else if !options.isEmpty {
                 engineSwitcher
             }
         }
-        .padding(.horizontal, 4)
-        .padding(.vertical, 4)
-        .background(.regularMaterial, in: Capsule())
-        .overlay { Capsule().strokeBorder(.white.opacity(0.25), lineWidth: 0.5) }
-        .shadow(color: .black.opacity(0.18), radius: 4, y: 1)
+        .padding(.horizontal, 5)
+        .padding(.vertical, 5)
+        // Thick, and rimless. This capsule floats over the user's photograph — the one
+        // surface in the app with no idea what is behind it — so it takes the heaviest
+        // material available rather than a light one propped up by a white hairline.
+        .background(.thickMaterial, in: Capsule())
+        .pluckShadow(Tokens.controlShadow)
         .padding(.bottom, 12)
         .opacity(pointerInside ? 1 : 0)
         .allowsHitTesting(pointerInside)
@@ -459,9 +461,14 @@ struct CutoutPreviewView: View {
             }
             .font(.system(size: 11, weight: .medium))
             .foregroundStyle(.primary)
-            .padding(.horizontal, 7)
-            .frame(height: 30)
-            .contentShape(Rectangle())
+            // A filled capsule, because it is the only control in the row that is not a
+            // glyph: a bare word beside two round buttons reads as a caption, not as
+            // something to press. The fill is what says "pressable" now that v2 has taken
+            // borders away.
+            .padding(.horizontal, 10)
+            .frame(height: Tokens.toolbarControlSide)
+            .background(.quaternary, in: Capsule())
+            .contentShape(Capsule())
         }
         .menuStyle(.borderlessButton)
         .menuIndicator(.hidden)
@@ -487,9 +494,8 @@ struct CutoutPreviewView: View {
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(.primary)
                 .frame(width: 28, height: 28)
-                .background(.regularMaterial, in: Circle())
-                .overlay { Circle().strokeBorder(.white.opacity(0.45), lineWidth: 0.5) }
-                .shadow(color: .black.opacity(0.3), radius: 4, y: 1)
+                .background(.thickMaterial, in: Circle())
+                .pluckShadow(Tokens.controlShadow)
         }
         .position(x: width * fraction, y: height / 2)
         .allowsHitTesting(false)

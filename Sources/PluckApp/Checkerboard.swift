@@ -8,8 +8,12 @@ import SwiftUI
 /// under a dark UI is the brightest thing on screen and reads as a bug in the cutout rather
 /// than as "nothing here". The values come from the system's own dark greys so the board
 /// sits at the same depth as the surfaces around it.
+///
+/// Fine and faint (visual language v2): 6pt squares at roughly 5% contrast in both
+/// appearances. The old 8pt board at 13% was drawing a pattern the eye had to look *past*
+/// to find the cutout — p3's board is barely there, and the subject floats on it.
 struct Checkerboard: View {
-    var square: CGFloat = 8
+    var square: CGFloat = Tokens.checkerSquare
 
     @Environment(\.colorScheme) private var scheme
 
@@ -42,7 +46,7 @@ struct Checkerboard: View {
     static func colors(for scheme: ColorScheme) -> (base: NSColor, square: NSColor) {
         switch scheme {
         case .dark: (base: .pluckHex(0x2C2C2E), square: .pluckHex(0x3A3A3C))
-        default: (base: .white, square: NSColor(srgbRed: 0.87, green: 0.87, blue: 0.87, alpha: 1))
+        default: (base: .white, square: .pluckHex(0xF3F3F3))
         }
     }
 }

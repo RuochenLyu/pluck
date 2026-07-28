@@ -39,7 +39,7 @@ struct ShelfView: View {
     static let size = CGSize(width: 340, height: 452)
 
     private static let cellHeight: CGFloat = 92
-    private static let inset: CGFloat = 16
+    private static let inset: CGFloat = Tokens.panelInset
 
     let model: AppModel
     /// Driven by the panel's AppKit drag destination — the whole shelf is the drop target,
@@ -79,7 +79,7 @@ struct ShelfView: View {
                 // panel's mask image, which is a plain rounded rect.
                 // Accent, like every other drag-targeting response; coral is reserved
                 // for the dedup highlight, the one moment that is genuinely ours.
-                RoundedRectangle(cornerRadius: 16)
+                RoundedRectangle(cornerRadius: Tokens.panelRadius)
                     .strokeBorder(Color.accentColor, lineWidth: 2)
                     .background(Color.accentColor.opacity(0.08))
                     .allowsHitTesting(false)
@@ -109,7 +109,7 @@ struct ShelfView: View {
             PlainIconButton(symbol: "gearshape", label: L.s("Settings"), action: onSettings)
         }
         .padding(.horizontal, Self.inset)
-        .padding(.top, 12)
+        .padding(.top, Tokens.panelTopInset)
         .padding(.bottom, 8)
     }
 
@@ -132,8 +132,8 @@ struct ShelfView: View {
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 8)
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-            .padding(Self.inset - 4)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: Tokens.rowRadius, style: .continuous))
+            .padding(Self.inset - 8)
             .transition(.opacity)
             .accessibilityElement(children: .combine)
         }
@@ -201,15 +201,19 @@ struct ShelfView: View {
         .multilineTextAlignment(.center)
         .padding(.horizontal, 20)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .overlay { DashedOutline(cornerRadius: 12, accented: dropTarget.isTargeted) }
+        .overlay { DashedOutline(cornerRadius: Tokens.cardRadius, accented: dropTarget.isTargeted) }
         .padding(.horizontal, Self.inset)
         .padding(.bottom, Self.inset)
         .accessibilityElement(children: .combine)
     }
 }
 
-/// The dashed container, in both its sizes. Secondary at a quarter opacity: it has to read
-/// as a held-open space rather than as a control with a border.
+/// The dashed container, in both its sizes. It has to read as a held-open space rather than
+/// as a control with a border — and it is the one dashed line v2's "no hairlines" rule
+/// keeps, because it is not dividing anything: it is the shape of an absence.
+///
+/// A touch stronger than the quarter-opacity it used to be. The panel is more transparent
+/// now (`.hudWindow`), and a 25%-secondary dash over a busy wallpaper disappeared entirely.
 private struct DashedOutline: View {
     var cornerRadius: CGFloat
     var accented: Bool
@@ -217,7 +221,7 @@ private struct DashedOutline: View {
     var body: some View {
         RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
             .strokeBorder(
-                accented ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(Color.secondary.opacity(0.25)),
+                accented ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(Color.secondary.opacity(0.35)),
                 style: StrokeStyle(lineWidth: 1.5, dash: [4, 3])
             )
     }
@@ -235,7 +239,7 @@ private struct GhostSlot: View {
     var body: some View {
         VStack(spacing: 2) {
             Image(systemName: "plus")
-                .font(.system(size: 20, weight: .light))
+                .font(.system(size: 24, weight: .light))
                 .foregroundStyle(accented ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(.secondary))
             Text(L.s("⌘V"))
                 .font(.caption2)
@@ -243,7 +247,10 @@ private struct GhostSlot: View {
         }
         .frame(maxWidth: .infinity)
         .frame(height: height)
-        .overlay { DashedOutline(cornerRadius: 10, accented: accented) }
+        // Same radius as the cards it stands in line with: the ghost is a slot in the grid,
+        // and a slot with a tighter corner than the things that land in it reads as a
+        // different kind of object.
+        .overlay { DashedOutline(cornerRadius: Tokens.cardRadius, accented: accented) }
         .allowsHitTesting(false)
         .accessibilityHidden(true)
     }
@@ -280,6 +287,32 @@ private struct ClearButton: View {
     }
 }
 
+/// The mount every grid slot sits on (visual language v2, from p3).
+///
+/// A cutout used to be a checkerboard rectangle clipped to a radius, floating directly on
+/// the panel — which meant the grid was a set of holes in the glass. p3 draws the opposite:
+/// solid light cards, with the board and the subject *inside* them. That reading is what
+/// makes a transparent PNG look like an object you can pick up, and it is also what gives
+/// the hover lift something to lift.
+private struct CutoutCard<Content: View>: View {
+    let height: CGFloat
+    var lifted: Bool = false
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        content
+            .clipShape(RoundedRectangle(cornerRadius: Tokens.thumbnailRadius, style: .continuous))
+            .padding(Tokens.cardPadding)
+            .frame(height: height)
+            .background(
+                Palette.cardSurface,
+                in: RoundedRectangle(cornerRadius: Tokens.cardRadius, style: .continuous)
+            )
+            .pluckShadow(lifted ? Tokens.cardHoverShadow : Tokens.cardShadow)
+            .scaleEffect(lifted ? Tokens.hoverLift : 1)
+    }
+}
+
 private struct RecentCell: View {
     let item: RecentItem
     let model: AppModel
@@ -290,35 +323,40 @@ private struct RecentCell: View {
     @State private var hovering = false
 
     var body: some View {
-        ZStack {
-            Checkerboard()
-            if let thumbnail {
-                Image(nsImage: thumbnail)
-                    .resizable()
-                    .interpolation(.high)
-                    .scaledToFit()
-                    .padding(8)
+        CutoutCard(height: height, lifted: hovering) {
+            ZStack {
+                Checkerboard()
+                if let thumbnail {
+                    Image(nsImage: thumbnail)
+                        .resizable()
+                        .interpolation(.high)
+                        .scaledToFit()
+                        .padding(4)
+                }
             }
         }
-        .frame(height: height)
-        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-        .overlay(alignment: .bottom) {
+        // Bottom-trailing, not centred: p3 puts the pair in the corner, which leaves the
+        // middle of the picture — the part the user is looking at to decide — uncovered.
+        .overlay(alignment: .bottomTrailing) {
             if hovering {
                 HoverActions {
-                    GlassCircleButton(symbol: "doc.on.doc", diameter: 24, label: L.s("Copy")) { model.copy(item) }
-                    GlassCircleButton(symbol: "arrow.down.to.line", diameter: 24, label: L.s("Save")) { model.save(item) }
+                    GlassCircleButton(symbol: "doc.on.doc", label: L.s("Copy")) { model.copy(item) }
+                    GlassCircleButton(symbol: "arrow.down.to.line", label: L.s("Save")) { model.save(item) }
                 }
-                .padding(8)
+                .padding(Tokens.cardPadding)
+                .transition(.opacity)
             }
         }
         // The one coral moment in the grid: a re-pluck that de-duplicated into this cell.
         .overlay {
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
+            RoundedRectangle(cornerRadius: Tokens.cardRadius, style: .continuous)
                 .strokeBorder(Palette.coral, lineWidth: 2)
                 .opacity(highlighted ? 1 : 0)
         }
         .animation(.easeInOut(duration: 0.22), value: highlighted)
-        .onHover { hovering = $0 }
+        .onHover { on in
+            withAnimation(.easeOut(duration: Tokens.hoverDuration)) { hovering = on }
+        }
         .onAppear { thumbnail = NSImage(data: item.thumbnailPNG) }
         .onTapGesture { model.preview(item) }
         .onDrag { item.dragProvider() }
@@ -348,40 +386,40 @@ private struct PendingCell: View {
     @State private var showsSpinner = false
 
     var body: some View {
-        ZStack {
-            Checkerboard()
-            if let thumbnail {
-                Image(nsImage: thumbnail)
-                    .resizable()
-                    .interpolation(.high)
-                    .scaledToFit()
-                    .padding(8)
-                    .saturation(0)
-                    .opacity(0.55)
-            }
-            if item.state == .running {
-                sweepLight
-                if showsSpinner {
-                    ProgressView()
-                        .controlSize(.small)
+        CutoutCard(height: height) {
+            ZStack {
+                Checkerboard()
+                if let thumbnail {
+                    Image(nsImage: thumbnail)
+                        .resizable()
+                        .interpolation(.high)
+                        .scaledToFit()
+                        .padding(4)
+                        .saturation(0)
+                        .opacity(0.55)
+                }
+                if item.state == .running {
+                    sweepLight
+                    if showsSpinner {
+                        ProgressView()
+                            .controlSize(.small)
+                            .transition(.opacity)
+                    }
+                }
+                // The rim says "this one"; the glyph says "this failed". Without it the cell
+                // is only distinguishable from the de-duplication flash by its colour, and
+                // the two are three grid slots and 900ms apart.
+                if item.failure != nil {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(.red)
+                        .shadow(color: .black.opacity(0.35), radius: 3, y: 1)
                         .transition(.opacity)
                 }
             }
-            // The rim says "this one"; the glyph says "this failed". Without it the cell is
-            // only distinguishable from the de-duplication flash by its colour, and the two
-            // are three grid slots and 900ms apart.
-            if item.failure != nil {
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(.red)
-                    .shadow(color: .black.opacity(0.35), radius: 3, y: 1)
-                    .transition(.opacity)
-            }
         }
-        .frame(height: height)
-        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
+            RoundedRectangle(cornerRadius: Tokens.cardRadius, style: .continuous)
                 .strokeBorder(.red, lineWidth: 2)
                 .opacity(item.failure == nil ? 0 : 1)
         }

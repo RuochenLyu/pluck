@@ -22,14 +22,30 @@ extension NSWindow.Level {
     static let pluckPreview = NSWindow.Level(rawValue: NSWindow.Level.popUpMenu.rawValue + 1)
 }
 
+/// Presses. `.buttonStyle(.plain)` gives no press feedback at all, and a 32pt target that
+/// does not acknowledge the mouse-down is the one place a large soft control feels worse
+/// than a small system one.
+struct PressableButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? Tokens.pressScale : 1)
+            .animation(.easeOut(duration: 0.1), value: configuration.isPressed)
+    }
+}
+
 /// Wordless round icon button on material — the primary-action shape in p3/p4.
 ///
 /// "Glass" is `Material`, not `glassEffect`: `.glass` / `GlassEffectContainer` are
-/// macOS 26 API and the deployment target is macOS 14. `.regularMaterial` plus a hairline
-/// rim and a soft shadow is what reads as glass on 14.
+/// macOS 26 API and the deployment target is macOS 14. `.thickMaterial` plus a soft shadow
+/// is what reads as glass on 14.
+///
+/// The hairline rim it used to wear is gone (visual language v2): Dropover and Yoink draw
+/// no rims at all, and on a 32pt button the material and the shadow already separate it
+/// from whatever is behind. Thick rather than regular material is what replaces the rim's
+/// share of the contrast.
 struct GlassCircleButton: View {
     let symbol: String
-    var diameter: CGFloat = 28
+    var diameter: CGFloat = Tokens.controlSide
     let label: String
     let action: () -> Void
 
@@ -38,18 +54,15 @@ struct GlassCircleButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: symbol)
-                .font(.system(size: (diameter * 0.42).rounded(), weight: .medium))
+                .font(.system(size: (diameter * 0.47).rounded(), weight: .medium))
                 .foregroundStyle(.primary)
                 .frame(width: diameter, height: diameter)
-                .background(.regularMaterial, in: Circle())
-                .overlay {
-                    Circle().strokeBorder(.white.opacity(hovering ? 0.55 : 0.25), lineWidth: 0.5)
-                }
-                .shadow(color: .black.opacity(hovering ? 0.28 : 0.18), radius: hovering ? 5 : 3, y: 1)
+                .background(.thickMaterial, in: Circle())
+                .pluckShadow(hovering ? Tokens.cardHoverShadow : Tokens.controlShadow)
                 .scaleEffect(hovering ? 1.06 : 1)
                 .contentShape(Circle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PressableButtonStyle())
         .onHover { on in
             withAnimation(.easeOut(duration: 0.12)) { hovering = on }
         }
@@ -60,46 +73,46 @@ struct GlassCircleButton: View {
 
 /// Copy and Save, drawn on top of a cutout that has hover under the pointer.
 ///
-/// The scrim is the point. These buttons sit over the user's own picture, which can be a
-/// white product shot or a black one, and a material circle alone disappears into about
-/// half of them — so the pair gets a plate of its own rather than each glyph fighting for
-/// contrast separately.
+/// It used to carry a scrim, on the theory that a material circle disappears into a white
+/// product shot. The thick-material 32pt buttons carry their own contrast now, and the
+/// scrim was the last plate-behind-a-plate left in the grid: p3 puts the two circles
+/// straight on the picture, and so does this.
 struct HoverActions<Content: View>: View {
     @ViewBuilder var content: Content
 
     var body: some View {
-        HStack(spacing: 8) { content }
-            .padding(4)
-            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        HStack(spacing: 6) { content }
     }
 }
 
 /// The unadorned icon control: a glyph, a hover highlight, and nothing else. Chrome-free
-/// because the surfaces that use it — the shelf's bottom bar, the preview's floating
+/// because the surfaces that use it — the shelf's title line, the preview's floating
 /// capsule — already have a material of their own, and a bordered box inside a material
 /// bar is a second frame drawn around a button that never needed one.
+///
+/// The hover highlight is a circle, not a rounded square: at 32pt a squircle behind a
+/// 15pt glyph is a visible box, and the panel's other pressable shapes (the glass action
+/// buttons) are round. One family of shapes per surface.
 struct PlainIconGlyph: View {
     let symbol: String
     var size: CGFloat = 15
-    var side: CGFloat = 28
+    var side: CGFloat = Tokens.controlSide
     var highlighted: Bool
-
-    private var shape: RoundedRectangle { RoundedRectangle(cornerRadius: 6, style: .continuous) }
 
     var body: some View {
         Image(systemName: symbol)
             .font(.system(size: size, weight: .medium))
             .foregroundStyle(.primary)
             .frame(width: side, height: side)
-            .background(shape.fill(.quaternary).opacity(highlighted ? 1 : 0))
-            .contentShape(shape)
+            .background(Circle().fill(.quaternary).opacity(highlighted ? 1 : 0))
+            .contentShape(Circle())
     }
 }
 
 struct PlainIconButton: View {
     let symbol: String
     var size: CGFloat = 15
-    var side: CGFloat = 28
+    var side: CGFloat = Tokens.controlSide
     let label: String
     let action: () -> Void
 
@@ -109,7 +122,7 @@ struct PlainIconButton: View {
         Button(action: action) {
             PlainIconGlyph(symbol: symbol, size: size, side: side, highlighted: hovering)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PressableButtonStyle())
         .onHover { on in
             withAnimation(.easeOut(duration: 0.12)) { hovering = on }
         }

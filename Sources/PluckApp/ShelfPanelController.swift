@@ -26,7 +26,7 @@ final class ShelfPanelController {
     private static let gap: CGFloat = 6
     /// Keep-off margin from the edges of the usable screen.
     private static let margin: CGFloat = 8
-    private static let cornerRadius: CGFloat = 16
+    private static let cornerRadius: CGFloat = Tokens.panelRadius
 
     func install(content: ShelfView) {
         let size = ShelfView.size
@@ -38,6 +38,11 @@ final class ShelfPanelController {
         )
         panel.isOpaque = false
         panel.backgroundColor = .clear
+        // The system's window shadow, not a drawn one. v2 asks for a deeper, softer drop
+        // (roughly 32–40 blur at 22–28%) and that is already what AppKit gives a floating
+        // panel at this level; drawing our own would mean an oversized transparent window
+        // with the shadow painted inside it, which breaks the drag destination's bounds and
+        // buys a shadow the user cannot tell apart from the system's.
         panel.hasShadow = true
         panel.level = .pluckShelf
         panel.hidesOnDeactivate = false
@@ -47,9 +52,15 @@ final class ShelfPanelController {
         panel.animationBehavior = .utilityWindow
         panel.onCancel = { [weak self] in self?.close() }
 
-        // The rounded material container is ours to draw now that there is no window
-        // frame: `.popover` material behind the window is what an NSPopover uses, so the
-        // shelf keeps the same substance it had before.
+        // The rounded material container is ours to draw now that there is no window frame.
+        //
+        // `.hudWindow`, not `.popover` (visual language v2). Both were put over the same
+        // wallpaper and compared against p3: `.popover` is the material an NSPopover uses
+        // and is nearly opaque — the panel reads as a light grey box that happens to be
+        // floating. `.hudWindow` passes far more of what is behind it, which is the whole
+        // point of the reference: in p3 the panel is tinted by the blue wallpaper under it,
+        // and Yoink's shelf does the same. It follows the effective appearance, so this is
+        // not a "dark HUD" — it is light glass in light mode and dark glass in dark mode.
         //
         // It is also the drag destination for the whole shelf. AppKit looks for a
         // registered view by hit-testing and then walking *up* the superview chain, so
@@ -58,7 +69,7 @@ final class ShelfPanelController {
         let backdrop = ShelfBackdropView(frame: NSRect(origin: .zero, size: size))
         backdrop.dropTarget = dropTarget
         backdrop.onDrop = { [weak self] payloads in self?.onDrop?(payloads) }
-        backdrop.material = .popover
+        backdrop.material = .hudWindow
         backdrop.state = .active
         backdrop.blendingMode = .behindWindow
         backdrop.autoresizingMask = [.width, .height]
