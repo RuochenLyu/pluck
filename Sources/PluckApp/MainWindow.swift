@@ -128,6 +128,13 @@ struct MainWindowView: View {
             if rows.isEmpty {
                 dropZone
             } else {
+                // The strip survives the first drop. A window whose drop affordance
+                // disappears the moment it has one row in it teaches the user that the
+                // list is now a list and not a target — and then the second image goes
+                // back through the menu bar.
+                DropStrip(targeted: dropTarget.isTargeted)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 12)
                 list
             }
             bottomBar
@@ -138,7 +145,7 @@ struct MainWindowView: View {
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
                     .strokeBorder(Palette.coral, lineWidth: 2)
                     .background(Palette.coral.opacity(0.06))
-                    .padding(3)
+                    .padding(4)
                     .allowsHitTesting(false)
             }
         }
@@ -149,7 +156,7 @@ struct MainWindowView: View {
     /// per image with no callback, so the per-row "60%" in the mockup would be a spinner
     /// wearing a number.
     private func progress(_ batch: BatchProgress) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 8) {
             Text(String(format: L.s("%1$d of %2$d done"), batch.done, batch.total))
                 .font(.callout)
                 .foregroundStyle(.secondary)
@@ -158,28 +165,34 @@ struct MainWindowView: View {
                 .progressViewStyle(.linear)
                 .tint(Palette.coral)
         }
-        .padding(.horizontal, 20)
+        .padding(.horizontal, 16)
         .padding(.top, 16)
-        .padding(.bottom, 10)
+        .padding(.bottom, 12)
     }
 
     private var dropZone: some View {
-        VStack(spacing: 10) {
+        let targeted = dropTarget.isTargeted
+        return VStack(spacing: 8) {
             Image(systemName: "square.and.arrow.down")
                 .font(.system(size: 40, weight: .light))
-                .foregroundStyle(.secondary)
-                .padding(.bottom, 6)
+                .foregroundStyle(targeted ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
+                .padding(.bottom, 4)
             Text(L.s("Drop images here"))
                 .font(.title2.weight(.semibold))
+                .foregroundStyle(targeted ? AnyShapeStyle(.tint) : AnyShapeStyle(.primary))
             Text(L.s("or press ⌘V to paste"))
                 .font(.callout)
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(.quaternary.opacity(0.4), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .background(targeted ? AnyShapeStyle(Color.accentColor.opacity(0.08)) : AnyShapeStyle(.quaternary.opacity(0.4)))
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .strokeBorder(.separator, style: StrokeStyle(lineWidth: 1, dash: [6, 5]))
+                .strokeBorder(
+                    targeted ? AnyShapeStyle(.tint) : AnyShapeStyle(.separator),
+                    style: StrokeStyle(lineWidth: targeted ? 1.5 : 1, dash: [6, 5])
+                )
         }
         .padding(16)
     }
@@ -195,7 +208,9 @@ struct MainWindowView: View {
                         ResultRow(item: item, model: model)
                     }
                     if row.id != rows.last?.id {
-                        Divider().padding(.leading, 76)
+                        // Flush with the text column: 16 of row padding, 44 of thumbnail,
+                        // 12 of gap.
+                        Divider().padding(.leading, 72)
                     }
                 }
             }
@@ -204,19 +219,29 @@ struct MainWindowView: View {
         .scrollIndicators(.automatic)
     }
 
+    /// The offline claim used to live here. It is a standing fact about the product, not a
+    /// status, and it is already stated in Settings and in About — repeating it under every
+    /// batch made it wallpaper. What the bar can usefully say is how much is in the list,
+    /// and what just happened when something did.
     private var bottomBar: some View {
         HStack(spacing: 8) {
-            statusIcon
-            Text(model.status?.text ?? L.s("100% offline — photos never leave this Mac"))
-                .font(.callout)
-                .foregroundStyle(model.status?.kind == .warning ? AnyShapeStyle(.red) : AnyShapeStyle(.secondary))
-                .lineLimit(1)
-                .truncationMode(.tail)
+            if let status = model.status {
+                statusIcon(status.kind)
+                Text(status.text)
+                    .font(.caption)
+                    .foregroundStyle(status.kind == .warning ? AnyShapeStyle(.red) : AnyShapeStyle(.secondary))
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+            } else {
+                Text(L.s("\(model.recents.items.count) cutouts"))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
+            }
             Spacer(minLength: 12)
             if !model.recents.items.isEmpty {
                 Button(L.s("Export All…")) { model.exportAll() }
                     .buttonStyle(.borderedProminent)
-                    .tint(Palette.coral)
             }
         }
         .padding(.horizontal, 16)
@@ -224,18 +249,44 @@ struct MainWindowView: View {
         .background(.bar)
     }
 
-    private var statusIcon: some View {
+    private func statusIcon(_ kind: StatusLine.Kind) -> some View {
         Group {
-            switch model.status?.kind {
+            switch kind {
             case .warning:
                 Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.red)
             case .info:
                 Image(systemName: "checkmark.circle").foregroundStyle(.secondary)
-            case nil:
-                Image(systemName: "lock.shield").foregroundStyle(.secondary)
             }
         }
-        .font(.system(size: 13))
+        .font(.system(size: 12))
+    }
+}
+
+/// The drop affordance that outlives the empty state: a dashed strip the eye can aim at,
+/// and the surface that answers a drag hovering over the window.
+private struct DropStrip: View {
+    let targeted: Bool
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "square.and.arrow.down")
+                .font(.system(size: 13, weight: .regular))
+            Text(L.s("Drop images here"))
+                .font(.callout)
+        }
+        .foregroundStyle(targeted ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 12)
+        .background(targeted ? Color.accentColor.opacity(0.08) : .clear)
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .strokeBorder(
+                    targeted ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary.opacity(0.3)),
+                    style: StrokeStyle(lineWidth: 1.5, dash: [6, 5])
+                )
+        }
+        .accessibilityElement(children: .combine)
     }
 }
 
@@ -274,23 +325,25 @@ private struct ResultRow: View {
                 // looks the whole thing up in the catalog (where it can never be) and
                 // grouping-formats the numbers on the way, so a 1024px image reports
                 // itself as "1,024". Pixel counts are not prose.
-                Text(verbatim: "\(item.pixelWidth) × \(item.pixelHeight)")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .monospacedDigit()
+                Text(verbatim: RowSubtitle.text(
+                    width: item.pixelWidth,
+                    height: item.pixelHeight,
+                    createdAt: item.createdAt
+                ))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .monospacedDigit()
             }
             Spacer(minLength: 8)
+            // No tick on the successful rows. Every row in this list succeeded — the ones
+            // that did not are `PendingRow`s wearing a red triangle — so a checkmark on
+            // each one is a column of punctuation that carries no information.
             if hovering {
-                HStack(spacing: 6) {
+                HoverActions {
                     GlassCircleButton(symbol: "doc.on.doc", diameter: 26, label: L.s("Copy")) { model.copy(item) }
                     GlassCircleButton(symbol: "arrow.down.to.line", diameter: 26, label: L.s("Save")) { model.save(item) }
                 }
                 .transition(.opacity)
-            } else {
-                Image(systemName: "checkmark")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(.secondary)
-                    .padding(.trailing, 6)
             }
         }
         .padding(.horizontal, 16)
@@ -299,7 +352,10 @@ private struct ResultRow: View {
         .background(hovering ? AnyShapeStyle(.quaternary.opacity(0.5)) : AnyShapeStyle(.clear))
         .onHover { on in withAnimation(.easeOut(duration: 0.12)) { hovering = on } }
         .onAppear { thumbnail = NSImage(data: item.thumbnailPNG) }
-        .onTapGesture { model.preview(item) }
+        // Double-click, like a row in any other list: a single click on a row that is also
+        // a drag source has to stay free, or a drag that starts a pixel late opens a panel
+        // over the window the user was dragging out of.
+        .onTapGesture(count: 2) { model.preview(item) }
         .onDrag { item.dragProvider() }
         .accessibilityElement(children: .combine)
         .accessibilityLabel(item.suggestedName)
@@ -357,7 +413,7 @@ private struct RowThumbnail: View {
                     .resizable()
                     .interpolation(.high)
                     .scaledToFit()
-                    .padding(3)
+                    .padding(4)
                     .saturation(dimmed ? 0 : 1)
                     .opacity(dimmed ? 0.55 : 1)
             }

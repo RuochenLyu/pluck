@@ -12,13 +12,25 @@
         }
       }
     },
-    "100% offline — photos never leave this Mac": {
+    "%lld cutouts": {
       "extractionState": "manual",
       "localizations": {
         "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "100% offline — photos never leave this Mac"
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld cutout"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld cutouts"
+                }
+              }
+            }
           }
         }
       }
@@ -74,6 +86,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Clear recent cutouts"
+          }
+        }
+      }
+    },
+    "Clipboard": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clipboard"
           }
         }
       }
@@ -276,6 +299,28 @@
         }
       }
     },
+    "GitHub": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "GitHub"
+          }
+        }
+      }
+    },
+    "High-quality matting: BiRefNet (MIT)": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "High-quality matting: BiRefNet (MIT)"
+          }
+        }
+      }
+    },
     "History": {
       "extractionState": "manual",
       "localizations": {
@@ -287,6 +332,17 @@
         }
       }
     },
+    "Just now": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Just now"
+          }
+        }
+      }
+    },
     "Keep recent cutouts between launches": {
       "extractionState": "manual",
       "localizations": {
@@ -294,6 +350,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "Keep recent cutouts between launches"
+          }
+        }
+      }
+    },
+    "Lift subjects out of photos. Offline, free, open source.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lift subjects out of photos. Offline, free, open source."
+          }
+        }
+      }
+    },
+    "MIT License": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MIT License"
           }
         }
       }
@@ -562,13 +640,13 @@
         }
       }
     },
-    "lift subjects out of photos. Offline, free, open source.": {
+    "Version %@": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "lift subjects out of photos. Offline, free, open source."
+            "value": "Version %@"
           }
         }
       }

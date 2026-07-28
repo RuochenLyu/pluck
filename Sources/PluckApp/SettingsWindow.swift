@@ -49,34 +49,38 @@ struct SettingsView: View {
     @Bindable var preferences: Preferences
 
     var body: some View {
-        Form {
-            Section {
-                Toggle(L.s("Keep recent cutouts between launches"), isOn: $preferences.keepsHistory)
-                    .onChange(of: preferences.keepsHistory) { _, keeps in
-                        guard !keeps else { return }
-                        model.forgetStoredHistory()
-                    }
-                Text(L.s("Stored on this Mac in Application Support, and never uploaded. Turn this off and cutouts are kept only until you quit."))
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                Button(L.s("Clear recent cutouts")) { model.clearRecents() }
-                    .disabled(model.recents.items.isEmpty)
-            } header: {
-                Text(L.s("History"))
+        VStack(alignment: .leading, spacing: 0) {
+            Form {
+                Section {
+                    Toggle(L.s("Keep recent cutouts between launches"), isOn: $preferences.keepsHistory)
+                        .onChange(of: preferences.keepsHistory) { _, keeps in
+                            guard !keeps else { return }
+                            model.forgetStoredHistory()
+                        }
+                    Text(L.s("Stored on this Mac in Application Support, and never uploaded. Turn this off and cutouts are kept only until you quit."))
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Button(L.s("Clear recent cutouts")) { model.clearRecents() }
+                        .disabled(model.recents.items.isEmpty)
+                } header: {
+                    Text(L.s("History")).font(.headline)
+                }
             }
+            .formStyle(.grouped)
+            .fixedSize(horizontal: false, vertical: true)
 
-            Section {
-                // Not a boast — it is the one claim the whole product rests on, and the
-                // place a doubting user looks first is Settings.
-                Text(L.s("Pluck works entirely offline. It makes no network requests and has no account, no telemetry and no uploads."))
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
+            // Not a boast — it is the one claim the whole product rests on, and the place a
+            // doubting user looks first is Settings. Out of the grouped box it used to sit
+            // in: a boxed row reads as a setting, and this is a statement about the app.
+            Text(L.s("Pluck works entirely offline. It makes no network requests and has no account, no telemetry and no uploads."))
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.horizontal, 20)
+                .padding(.bottom, 20)
         }
-        .formStyle(.grouped)
-        .frame(width: 420)
+        .frame(width: 420, alignment: .leading)
         .fixedSize(horizontal: false, vertical: true)
     }
 }

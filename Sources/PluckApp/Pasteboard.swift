@@ -32,7 +32,11 @@ struct SystemPasteboard: ImagePasteboard {
         }
         for type in [NSPasteboard.PasteboardType.png, .tiff] {
             if let data = pasteboard.data(forType: type), !data.isEmpty {
-                return (data, L.s("Cutout"))
+                // What the row and the exported file will be called. "Cutout" named every
+                // pasted image after what Pluck was about to do to it, which in a list of
+                // twenty is twenty rows called the same thing; where it came from is the
+                // only fact about it anyone has.
+                return (data, L.s("Clipboard"))
             }
         }
         return nil

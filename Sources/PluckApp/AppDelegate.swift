@@ -15,6 +15,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let shelf = ShelfPanelController()
     private lazy var preview = PreviewPanelController(preferences: preferences)
     private let settings = SettingsWindowController()
+    private let about = AboutWindowController()
     private let mainWindow = MainWindowController()
 
     /// Set when a click already dismissed the shelf, so the status item's own `mouseDown`
@@ -357,14 +358,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func showAbout() {
         shelf.close()
-        NSApp.activate()
-        NSApp.orderFrontStandardAboutPanel(options: [
-            .applicationName: L.s("Pluck"),
-            .credits: NSAttributedString(
-                string: L.s("lift subjects out of photos. Offline, free, open source."),
-                attributes: [.font: NSFont.systemFont(ofSize: NSFont.smallSystemFontSize)]
-            )
-        ])
+        about.show()
     }
 
     private func apply(_ feedback: StatusFeedback) {
