@@ -134,6 +134,17 @@
         }
       }
     },
+    "Copy Image": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy Image"
+          }
+        }
+      }
+    },
     "Couldn’t save the cutout to disk — check free space.": {
       "extractionState": "manual",
       "localizations": {
@@ -541,6 +552,17 @@
         }
       }
     },
+    "Save As…": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Save As…"
+          }
+        }
+      }
+    },
     "Save cutout": {
       "extractionState": "manual",
       "localizations": {
@@ -570,6 +592,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Settings…"
+          }
+        }
+      }
+    },
+    "Show Preview": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show Preview"
           }
         }
       }

@@ -318,6 +318,15 @@ final class AppModel {
         discard(cleared)
     }
 
+    /// One entry, on the user's say-so. Same contract as Clear at a smaller scale: the row
+    /// goes and its files go with it, without a confirmation sheet — the grid is a shelf of
+    /// results that can be plucked again, not a library.
+    func discard(_ item: RecentItem) {
+        if highlightedItemID == item.id { highlightedItemID = nil }
+        let removed = withAnimation(.easeInOut(duration: 0.2)) { recents.remove(item.id) }
+        discard([removed].compactMap { $0 })
+    }
+
     private func discard(_ items: [RecentItem]) {
         guard !items.isEmpty else { return }
         Task.detached(priority: .utility) { CutoutArchive.discard(items) }

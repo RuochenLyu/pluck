@@ -151,6 +151,16 @@ final class RecentStore {
         return promoted.id
     }
 
+    /// Drops one entry, and hands it back for the same reason `clear` does: its files are
+    /// nobody else's to find once it has left the list.
+    @discardableResult
+    func remove(_ id: UUID) -> RecentItem? {
+        guard let index = items.firstIndex(where: { $0.id == id }) else { return nil }
+        let removed = items.remove(at: index)
+        onChange?(items)
+        return removed
+    }
+
     /// Returns the entries that were cleared so the caller can delete their files too —
     /// "photos never leave this Mac" also means they do not sit on it after the user has
     /// asked for them to be gone.

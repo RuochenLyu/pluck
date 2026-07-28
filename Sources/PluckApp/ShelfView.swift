@@ -352,6 +352,16 @@ private struct RecentCell: View {
         .onAppear { thumbnail = NSImage(data: item.thumbnailPNG) }
         .onTapGesture { model.preview(item) }
         .onDrag { item.dragProvider() }
+        // The hover buttons are two of these four and only appear under the pointer; the
+        // menu is where the other two live, and it is also the only one of the two
+        // vocabularies a keyboard or a right-hand-only user can reach.
+        .contextMenu {
+            Button(L.s("Copy Image")) { model.copy(item) }
+            Button(L.s("Save As…")) { model.save(item) }
+            Button(L.s("Show Preview")) { model.preview(item) }
+            Divider()
+            Button(L.s("Delete"), role: .destructive) { model.discard(item) }
+        }
         .accessibilityAddTraits(.isButton)
         .accessibilityLabel(L.s("Preview cutout"))
     }

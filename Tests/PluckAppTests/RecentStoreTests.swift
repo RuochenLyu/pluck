@@ -104,6 +104,28 @@ final class RecentStoreTests: XCTestCase {
         XCTAssertEqual(Set(cleared.map(\.fileURL)), Set([item(1), item(2)].map(\.fileURL)))
     }
 
+    /// Same contract as `clear`, one entry at a time: the context menu's Delete is the only
+    /// caller, and if the entry leaves without its files being named nobody ever deletes
+    /// them — the grid stops pointing at them and the launch sweep only knows the index.
+    func testRemoveReturnsTheEntrySoItsFilesCanGo() {
+        let store = RecentStore()
+        store.insert(item(1))
+        store.insert(item(2))
+        let target = store.items[1]
+        XCTAssertEqual(store.remove(target.id)?.fileURL, target.fileURL)
+        XCTAssertEqual(store.items.map(\.id), [store.items[0].id])
+    }
+
+    func testRemovingAnUnknownEntryChangesNothing() {
+        let store = RecentStore()
+        store.insert(item(1))
+        var writes = 0
+        store.onChange = { _ in writes += 1 }
+        XCTAssertNil(store.remove(UUID()))
+        XCTAssertEqual(store.items.count, 1)
+        XCTAssertEqual(writes, 0)
+    }
+
     /// Restoring is not inserting: the entries arrive already ordered and already
     /// de-duplicated, and running them back through `insert` would rewrite the index they
     /// were just read from, once per entry, before the first frame is drawn.

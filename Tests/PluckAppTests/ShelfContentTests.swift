@@ -1,3 +1,4 @@
+import Foundation
 import XCTest
 
 @testable import PluckApp
@@ -47,5 +48,40 @@ final class ShelfContentTests: XCTestCase {
     func testDeletingTheLastCutoutReturnsToTheInvitation() {
         XCTAssertEqual(ShelfContent.resolve(pending: 0, recents: 1), .grid)
         XCTAssertEqual(ShelfContent.resolve(pending: 0, recents: 0), .invitation)
+    }
+}
+
+/// Delete, the one destructive item in the new context menu. Everything else in that menu
+/// is a second doorway to a path the hover buttons already had; this is the only one that
+/// takes something away, and the only caller that removes a single entry rather than all.
+@MainActor
+final class ShelfDeleteTests: XCTestCase {
+    private func item(_ marker: UInt8) -> RecentItem {
+        let data = Data([marker])
+        let directory = URL(fileURLWithPath: "/tmp/PluckDeleteTests/\(marker)", isDirectory: true)
+        return RecentItem(
+            fingerprint: PluckService.fingerprint(data),
+            thumbnailPNG: data,
+            fileURL: directory.appendingPathComponent("cutout.png"),
+            originalURL: directory.appendingPathComponent("original.png"),
+            suggestedName: "cutout"
+        )
+    }
+
+    func testDeletingOneCutoutLeavesTheRestOfTheGridAlone() {
+        let model = AppModel()
+        let first = item(1)
+        let second = item(2)
+        model.recents.insert(first)
+        model.recents.insert(second)
+        model.discard(first)
+        XCTAssertEqual(model.recents.items.map { $0.id }, [second.id])
+    }
+
+    func testDeletingSomethingAlreadyGoneIsHarmless() {
+        let model = AppModel()
+        model.recents.insert(item(1))
+        model.discard(item(2))
+        XCTAssertEqual(model.recents.items.count, 1)
     }
 }
