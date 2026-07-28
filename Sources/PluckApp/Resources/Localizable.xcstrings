@@ -67,17 +67,6 @@
         }
       }
     },
-    "Built-in": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Built-in"
-          }
-        }
-      }
-    },
     "Cancel": {
       "extractionState": "manual",
       "localizations": {
@@ -239,17 +228,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Delete"
-          }
-        }
-      }
-    },
-    "Done": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Done"
           }
         }
       }
@@ -497,17 +475,6 @@
         }
       }
     },
-    "Just now": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Just now"
-          }
-        }
-      }
-    },
     "Keep recent cutouts between launches": {
       "extractionState": "manual",
       "localizations": {
@@ -515,6 +482,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Keep recent cutouts between launches"
+          }
+        }
+      }
+    },
+    "Kept only on this Mac. Turn this off and cutouts are forgotten when you quit.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kept only on this Mac. Turn this off and cutouts are forgotten when you quit."
           }
         }
       }
@@ -548,17 +526,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Models"
-          }
-        }
-      }
-    },
-    "Models are downloaded once, stored locally, and never phone home.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Models are downloaded once, stored locally, and never phone home."
           }
         }
       }
@@ -790,17 +757,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Something went wrong plucking this image."
-          }
-        }
-      }
-    },
-    "Stored on this Mac in Application Support, and never uploaded. Turn this off and cutouts are kept only until you quit.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Stored on this Mac in Application Support, and never uploaded. Turn this off and cutouts are kept only until you quit."
           }
         }
       }

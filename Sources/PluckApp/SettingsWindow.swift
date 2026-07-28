@@ -76,7 +76,12 @@ struct SettingsView: View {
                             guard !keeps else { return }
                             model.forgetStoredHistory()
                         }
-                    Text(L.s("Stored on this Mac in Application Support, and never uploaded. Turn this off and cutouts are kept only until you quit."))
+                    // One sentence, in the user's vocabulary. "Application Support" is a
+                    // directory name from a developer's mental model of the machine, and
+                    // "never uploaded" was the third statement of the privacy claim in a
+                    // window 300pt tall — the line at the bottom says it best and says it
+                    // once.
+                    Text(L.s("Kept only on this Mac. Turn this off and cutouts are forgotten when you quit."))
                         .font(.callout)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -96,10 +101,12 @@ struct SettingsView: View {
             // doubting user looks first is Settings. Out of the grouped box it used to sit
             // in: a boxed row reads as a setting, and this is a statement about the app.
             //
-            // Half of what it used to say — "the only thing it ever downloads is a matting
-            // model you ask for by name" — has moved up to the shield line under the model
-            // rows, where it is next to the thing it is about. Saying it twice would make
-            // both copies read as boilerplate.
+            // The *only* place it is made. There were three: a shield row under the model
+            // list ("stored locally, and never phone home"), a clause in the history blurb
+            // ("and never uploaded"), and this. Three statements of one promise do not add up
+            // to three times the credibility — they read as a disclaimer, which is what small
+            // print about privacy looks like when it is repeated. This is the widest of the
+            // three, so it is the one that stays.
             Text(L.s("Your pictures never leave this Mac. Pluck has no account, no telemetry and no uploads."))
                 .font(.footnote)
                 .foregroundStyle(.secondary)
@@ -125,20 +132,22 @@ struct SettingsView: View {
 /// size and the same licence — everything a row could say about them except the one thing
 /// that decides which to use, which is that lite cuts a decided edge and lite-matting keeps
 /// a soft one (research.md A.6). So the row leads with "Clean Cut" and "Fine Edges" and one
-/// sentence about what comes out; `BiRefNet_lite` and its licence sit in the chips, where
-/// the people who care about model provenance will still find them.
+/// sentence about what comes out; `BiRefNet_lite`, its licence and its size sit on one small
+/// tertiary line under the name, where the people who care about model provenance will still
+/// find them and nobody else has to.
 private struct ModelsSection: View {
     @Bindable var store: ModelStore
     @Bindable var preferences: Preferences
 
     var body: some View {
         Section {
-            // No chips-and-blurb caption beyond "Built-in": Vision has no licence to declare
-            // and no bytes to warn about, and the blurb already says instant.
+            // No caption at all: Vision has no licence to declare and no bytes to warn
+            // about, and its blurb already says it is built into macOS — a "Built-in" chip
+            // above that sentence was the sentence again, in a pill.
             EngineRow(
                 id: EngineCatalog.defaultEngineID,
                 title: EngineLabels.name(EngineCatalog.defaultEngineID),
-                chips: [L.s("Built-in")],
+                detail: nil,
                 failure: nil,
                 isSelected: preferences.engineID == EngineCatalog.defaultEngineID,
                 isSelectable: true,
@@ -155,18 +164,6 @@ private struct ModelsSection: View {
             }
         } header: {
             Text(L.s("Models")).font(.headline)
-        } footer: {
-            // The half of the old offline paragraph that is about *models* — said here,
-            // against the rows it is about, instead of in a block of small print under the
-            // window where it read as a disclaimer.
-            Label {
-                Text(L.s("Models are downloaded once, stored locally, and never phone home."))
-            } icon: {
-                Image(systemName: "shield")
-            }
-            .font(.footnote)
-            .foregroundStyle(.secondary)
-            .padding(.top, 4)
         }
     }
 }
@@ -176,9 +173,13 @@ private struct ModelsSection: View {
 private struct EngineRow<Control: View>: View {
     let id: String
     let title: String
-    let chips: [String]
-    /// Replaces the chips and the blurb when a download has gone wrong — a row that says
-    /// "MIT · 83 MB" while the download is broken is answering a question nobody asked.
+    /// The model's technical identity, on one line: real name, licence, size. It was three
+    /// pilled chips, which gave a row four competing type sizes and drew a lot of furniture
+    /// around the one part of it written for the few people who care about provenance. Small,
+    /// tertiary, unpilled — skippable by everyone it is not for, which is what it was for.
+    let detail: String?
+    /// Replaces the detail line and the blurb when a download has gone wrong — a row that
+    /// says "MIT · 83 MB" while the download is broken is answering a question nobody asked.
     let failure: String?
     let isSelected: Bool
     /// False for a model that is not on disk. It cannot be the default engine before it
@@ -208,10 +209,13 @@ private struct EngineRow<Control: View>: View {
                         .foregroundStyle(.red)
                         .fixedSize(horizontal: false, vertical: true)
                 } else {
-                    if !chips.isEmpty {
-                        HStack(spacing: 6) {
-                            ForEach(chips, id: \.self) { Chip(text: $0) }
-                        }
+                    if let detail {
+                        // Verbatim: it is a model id, a licence and a byte count, none of
+                        // which are prose and none of which are in the catalog.
+                        Text(verbatim: detail)
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                     if let blurb = EngineLabels.blurb(id) {
                         Text(blurb)
@@ -289,21 +293,6 @@ private struct IconTile: View {
     }
 }
 
-/// The technical identity of a row, in the order someone reads it: the model's real name,
-/// then its licence and its size. Small enough to be skipped by everyone it is not for.
-private struct Chip: View {
-    let text: String
-
-    var body: some View {
-        Text(text)
-            .font(.caption)
-            .foregroundStyle(.secondary)
-            .padding(.horizontal, 7)
-            .padding(.vertical, 2)
-            .background(.quaternary.opacity(0.6), in: Capsule())
-    }
-}
-
 private struct ModelRowView: View {
     let row: ModelRow
     let store: ModelStore
@@ -313,10 +302,7 @@ private struct ModelRowView: View {
         EngineRow(
             id: row.id,
             title: EngineLabels.name(row.id, fallback: row.descriptor.displayName),
-            chips: [
-                row.descriptor.displayName,
-                "\(row.descriptor.license) · \(EngineLabels.megabytes(row.descriptor.bytes))"
-            ],
+            detail: "\(row.descriptor.displayName) · \(row.descriptor.license) · \(EngineLabels.megabytes(row.descriptor.bytes))",
             failure: failure,
             isSelected: preferences.engineID == row.id,
             isSelectable: row.isInstalled,
