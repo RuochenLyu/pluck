@@ -9,34 +9,34 @@ import PluckKit
 /// into the binary and looks at what is already on disk.
 final class EngineCatalogTests: XCTestCase {
     func testManifestIsCompiledIntoTheBinary() throws {
-        let registry = try XCTUnwrap(EngineCatalog.registry, "the CLI must carry models/manifest.json")
+        let registry = try XCTUnwrap(Engines.catalog.registry, "the CLI must carry models/manifest.json")
         XCTAssertEqual(registry.manifest.models.map(\.id), ["birefnet-lite", "birefnet-lite-matting"])
     }
 
     func testVisionIsAlwaysInstalledAndIsTheDefault() {
-        XCTAssertEqual(EngineCatalog.defaultEngineID, "vision")
-        XCTAssertTrue(EngineCatalog.installed.contains { $0.id == "vision" && $0.installed })
-        XCTAssertTrue(EngineCatalog.descriptor(for: "vision")?.builtIn == true)
+        XCTAssertEqual(Engines.defaultEngineID, "vision")
+        XCTAssertTrue(Engines.catalog.installed.contains { $0.id == "vision" && $0.installed })
+        XCTAssertTrue(Engines.catalog.descriptor(for: "vision")?.builtIn == true)
     }
 
     func testEveryManifestModelIsListedExactlyOnce() throws {
-        let registry = try XCTUnwrap(EngineCatalog.registry)
+        let registry = try XCTUnwrap(Engines.catalog.registry)
         for model in registry.manifest.models {
-            let matches = EngineCatalog.all.filter { $0.id == model.id }
+            let matches = Engines.catalog.all.filter { $0.id == model.id }
             XCTAssertEqual(matches.count, 1, model.id)
             XCTAssertEqual(matches.first?.builtIn, false)
             XCTAssertEqual(matches.first?.installed, registry.isInstalled(model.id))
         }
-        XCTAssertEqual(EngineCatalog.all.count, EngineCatalog.installed.count + EngineCatalog.available.count)
+        XCTAssertEqual(Engines.catalog.all.count, Engines.catalog.installed.count + Engines.catalog.available.count)
     }
 
     /// One fallible lookup, not a nil beside a throw. "Never heard of it" and "not on this
     /// disk" are the same exit code and the same advice, and keeping them apart only gave
     /// the plan's check and the loader's check room to disagree.
     func testUnknownIdIsAMissingModel() async throws {
-        XCTAssertNil(EngineCatalog.descriptor(for: "nope"))
+        XCTAssertNil(Engines.catalog.descriptor(for: "nope"))
         do {
-            _ = try await EngineCatalog.engine(for: "nope")
+            _ = try await Engines.catalog.engine(for: "nope")
             XCTFail("an unknown id cannot produce an engine")
         } catch {
             XCTAssertEqual((error as? PluckError)?.kind, .modelMissing)
@@ -47,14 +47,14 @@ final class EngineCatalogTests: XCTestCase {
     /// engine is asked for, the file is gone. Deleting the real model to prove it would be
     /// rude, so this asserts on whichever half of the pair this machine can show.
     func testAModelWithNothingOnDiskIsMissingAtLoadTime() async throws {
-        let registry = try XCTUnwrap(EngineCatalog.registry)
+        let registry = try XCTUnwrap(Engines.catalog.registry)
         let uninstalled = registry.manifest.models.first { !registry.isInstalled($0.id) }
         try XCTSkipUnless(uninstalled != nil, "every manifest model is installed on this machine")
         let id = try XCTUnwrap(uninstalled).id
 
-        XCTAssertEqual(EngineCatalog.descriptor(for: id)?.installed, false)
+        XCTAssertEqual(Engines.catalog.descriptor(for: id)?.installed, false)
         do {
-            _ = try await EngineCatalog.engine(for: id)
+            _ = try await Engines.catalog.engine(for: id)
             XCTFail("an uninstalled model cannot produce an engine")
         } catch {
             XCTAssertEqual((error as? PluckError)?.kind, .modelMissing)
@@ -62,9 +62,9 @@ final class EngineCatalogTests: XCTestCase {
     }
 
     func testAvailabilityMessageNamesOnlyWhatWorksNow() {
-        let message = EngineCatalog.availabilityMessage
+        let message = Engines.catalog.availabilityMessage
         XCTAssertTrue(message.contains("vision"), message)
-        for engine in EngineCatalog.available {
+        for engine in Engines.catalog.available {
             XCTAssertFalse(message.contains(engine.id), message)
         }
     }
@@ -96,7 +96,7 @@ final class ModelsCommandTests: XCTestCase {
     /// Idempotence is the CLI's job as much as the registry's: an already-installed model
     /// exits 0 without a byte of traffic.
     func testPullingAnInstalledModelSucceedsWithoutDownloading() async throws {
-        let installed = EngineCatalog.installed.first { !$0.builtIn }
+        let installed = Engines.catalog.installed.first { !$0.builtIn }
         try XCTSkipUnless(installed != nil, "no downloadable model is installed on this machine")
         let command = try Models.Pull.parse([try XCTUnwrap(installed).id])
         try await command.run()

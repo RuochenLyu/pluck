@@ -49,7 +49,7 @@ struct Pluck: AsyncParsableCommand {
     var force = false
 
     @Option(name: .long, help: ArgumentHelp("Matting engine id.", valueName: "id"))
-    var model: String = EngineCatalog.defaultEngineID
+    var model: String = Engines.defaultEngineID
 
     @Option(
         name: .long,
@@ -102,7 +102,7 @@ struct Models: AsyncParsableCommand {
         var json = false
 
         func run() throws {
-            for engine in EngineCatalog.all {
+            for engine in Engines.catalog.all {
                 if json {
                     Terminal.stdout(JSONReport.object([
                         ("id", .string(engine.id)),
@@ -128,8 +128,8 @@ struct Models: AsyncParsableCommand {
         var force = false
 
         func run() async throws {
-            guard let registry = EngineCatalog.registry, let model = registry.descriptor(for: id) else {
-                Terminal.error("unknown model “\(id)”. \(EngineCatalog.availabilityMessage)")
+            guard let registry = Engines.catalog.registry, let model = registry.descriptor(for: id) else {
+                Terminal.error("unknown model “\(id)”. \(Engines.catalog.availabilityMessage)")
                 throw ExitCode(ExitStatus.modelProblem)
             }
             if !force, let installed = registry.localURL(for: id) {

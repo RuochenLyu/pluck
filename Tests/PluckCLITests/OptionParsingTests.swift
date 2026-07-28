@@ -199,7 +199,7 @@ final class RunPlanTests: XCTestCase {
 
     func testManifestModelThatIsNotInstalledPointsAtThePullCommand() throws {
         try XCTSkipUnless(
-            EngineCatalog.descriptor(for: "birefnet-lite")?.installed == false,
+            Engines.catalog.descriptor(for: "birefnet-lite")?.installed == false,
             "birefnet-lite is installed on this machine"
         )
         let error = try setupError { try plan(["a.jpg"], model: "birefnet-lite") }

@@ -12,10 +12,10 @@ struct Runner: Sendable {
         do {
             // Core ML compiles a freshly downloaded package on first use, which takes
             // 5–10 seconds; say so rather than looking hung, but only to a human.
-            if Terminal.stderrIsTTY, plan.engineID != EngineCatalog.defaultEngineID {
+            if Terminal.stderrIsTTY, plan.engineID != Engines.defaultEngineID {
                 Terminal.note("loading \(plan.engineID)…")
             }
-            engine = try await EngineCatalog.engine(for: plan.engineID)
+            engine = try await Engines.catalog.engine(for: plan.engineID)
         } catch {
             let failure = ItemFailure.from(error, context: plan.engineID)
             let outcomes = plan.items.map {

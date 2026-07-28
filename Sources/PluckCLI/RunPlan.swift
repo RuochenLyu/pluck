@@ -39,7 +39,7 @@ struct RunPlan: Equatable, Sendable {
             throw SetupError(message: "no input files. Usage: pluck <image>... [-o <dir>]", exitCode: 1)
         }
 
-        switch EngineCatalog.descriptor(for: model) {
+        switch Engines.catalog.descriptor(for: model) {
         case .some(let descriptor) where descriptor.installed:
             break
         case .some:
@@ -50,7 +50,7 @@ struct RunPlan: Equatable, Sendable {
             )
         case .none:
             throw SetupError(
-                message: "unknown model “\(model)”. \(EngineCatalog.availabilityMessage)",
+                message: "unknown model “\(model)”. \(Engines.catalog.availabilityMessage)",
                 exitCode: 3,
                 slug: SetupError.modelMissing
             )
