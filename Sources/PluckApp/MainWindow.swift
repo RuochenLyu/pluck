@@ -321,7 +321,8 @@ private struct ResultRow: View {
                 Text(verbatim: RowSubtitle.text(
                     width: item.pixelWidth,
                     height: item.pixelHeight,
-                    createdAt: item.createdAt
+                    createdAt: item.createdAt,
+                    engine: EngineLabels.mark(item.engineID)
                 ))
                 .font(.caption)
                 .foregroundStyle(.secondary)

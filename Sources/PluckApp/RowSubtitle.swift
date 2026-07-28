@@ -7,8 +7,21 @@ import Foundation
 /// prose — and "how long ago" is the kind of thing that is obviously right until the clock
 /// is one second past the boundary, so it takes a `now` and a test rather than a screenshot.
 enum RowSubtitle {
-    static func text(width: Int, height: Int, createdAt: Date, now: Date = Date()) -> String {
-        "\(dimensions(width: width, height: height)) · \(relative(createdAt, to: now))"
+    /// `engine` is the human name of the engine, or nil when there is nothing to say — which
+    /// is every cutout made by the default (`EngineLabels.mark`). Marking those would print
+    /// the same word on every row in a list where it is almost always the same word.
+    static func text(
+        width: Int,
+        height: Int,
+        createdAt: Date,
+        engine: String? = nil,
+        now: Date = Date()
+    ) -> String {
+        let parts = [
+            dimensions(width: width, height: height),
+            relative(createdAt, to: now)
+        ] + [engine].compactMap { $0 }
+        return parts.joined(separator: " · ")
     }
 
     static func dimensions(width: Int, height: Int) -> String {

@@ -32,4 +32,17 @@ final class RowSubtitleTests: XCTestCase {
         let text = RowSubtitle.text(width: 640, height: 480, createdAt: made, now: made)
         XCTAssertEqual(text, "640 × 480 · \(L.s("Just now"))")
     }
+
+    /// Provenance is appended only when there is a departure from the default to report;
+    /// `EngineLabels.mark` decides that, and nil has to leave the line exactly as it was.
+    func testANamedEngineIsAppendedAndNothingIsAppendedWithoutOne() {
+        XCTAssertEqual(
+            RowSubtitle.text(width: 640, height: 480, createdAt: made, engine: L.s("Matting"), now: made),
+            "640 × 480 · \(L.s("Just now")) · \(L.s("Matting"))"
+        )
+        XCTAssertEqual(
+            RowSubtitle.text(width: 640, height: 480, createdAt: made, engine: nil, now: made),
+            "640 × 480 · \(L.s("Just now"))"
+        )
+    }
 }

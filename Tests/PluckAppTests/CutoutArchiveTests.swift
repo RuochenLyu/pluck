@@ -1,3 +1,4 @@
+import PluckKit
 import XCTest
 
 @testable import PluckApp
@@ -104,6 +105,53 @@ final class CutoutArchiveTests: XCTestCase {
         try FileManager.default.removeItem(at: deleted.fileURL)
 
         XCTAssertEqual(archive.load(limit: 20).map(\.id), [alive.id])
+    }
+
+    /// The compatibility rail. An index written by a version that had never heard of engines
+    /// is the user's whole history, and a record type that throws on a missing key would turn
+    /// it into "no index" — which is an archive that empties itself on the launch after an
+    /// update. Absent means Vision (that is all the app could produce then) and a lineage of
+    /// one (nothing on disk claims to be a re-pluck of it).
+    func testAnIndexFromBeforeEnginesWereRecordedStillLoads() throws {
+        let id = UUID()
+        let item = try archive.store(processed(1), id: id)
+        let legacy = """
+            {"version":1,"items":[{
+              "id":"\(id.uuidString)",
+              "fingerprint":"\(item.fingerprint)",
+              "file":"hair-01.png",
+              "name":"hair-01",
+              "width":4,
+              "height":2,
+              "createdAt":"2026-07-27T10:00:00Z"
+            }]}
+            """
+        try Data(legacy.utf8).write(to: archive.root.appendingPathComponent("index.json"))
+
+        let restored = archive.load(limit: 20)
+
+        XCTAssertEqual(restored.map(\.id), [id], "one missing key must not cost the history")
+        XCTAssertEqual(restored.first?.engineID, EngineCatalog.defaultEngineID)
+        XCTAssertEqual(restored.first?.sourceID, id)
+    }
+
+    /// A re-pluck files a second cutout of one picture, and the two have to still be one
+    /// picture after a restart — that is the whole basis of "engines this image has not been
+    /// through" in the preview menu.
+    func testTheEngineAndTheLineageSurviveARestart() throws {
+        let source = try archive.store(processed(1), id: UUID())
+        let again = try archive.store(
+            processed(2, name: "hair-01"),
+            id: UUID(),
+            engineID: "birefnet-lite-matting",
+            sourceID: source.sourceID
+        )
+        archive.writeIndex([again, source])
+
+        let restored = archive.load(limit: 20)
+
+        XCTAssertEqual(restored.map(\.engineID), ["birefnet-lite-matting", EngineCatalog.defaultEngineID])
+        XCTAssertEqual(Set(restored.map(\.sourceID)), [source.id])
     }
 
     func testLoadHonoursTheCap() throws {

@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import PluckKit
 import UniformTypeIdentifiers
 
 /// One finished cutout, as a pointer to the three files `CutoutArchive` wrote for it.
@@ -25,6 +26,17 @@ struct RecentItem: Identifiable, Equatable, Sendable {
     let pixelWidth: Int
     let pixelHeight: Int
     let createdAt: Date
+    /// Which engine actually produced these pixels — the engine that ran, not the one the
+    /// preference named: a model that failed to load falls back to Vision, and an entry that
+    /// claimed otherwise would be the app lying about its own output.
+    let engineID: String
+    /// The picture this cutout came from, shared by every re-pluck of it. Its own id for a
+    /// cutout that arrived by drop or paste, so a lone entry is a lineage of one.
+    ///
+    /// Not derived from the filename or the input bytes: two drops of the same photo are two
+    /// pictures as far as the user is concerned, and "which engines have I already tried on
+    /// *this* thing" is a question about the entry in front of them.
+    let sourceID: UUID
 
     init(
         id: UUID = UUID(),
@@ -35,7 +47,9 @@ struct RecentItem: Identifiable, Equatable, Sendable {
         suggestedName: String,
         pixelWidth: Int = 0,
         pixelHeight: Int = 0,
-        createdAt: Date = Date()
+        createdAt: Date = Date(),
+        engineID: String = EngineCatalog.defaultEngineID,
+        sourceID: UUID? = nil
     ) {
         self.id = id
         self.fingerprint = fingerprint
@@ -46,6 +60,8 @@ struct RecentItem: Identifiable, Equatable, Sendable {
         self.pixelWidth = pixelWidth
         self.pixelHeight = pixelHeight
         self.createdAt = createdAt
+        self.engineID = engineID
+        self.sourceID = sourceID ?? id
     }
 
     /// nil when the file is gone — an external delete, or a write that failed at the time.

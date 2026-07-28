@@ -29,6 +29,32 @@ actor EngineProvider {
 
     var installedEngines: [EngineDescriptor] { catalog.installed }
 
+    /// Every engine this build knows about, in one fixed order: the built-in one, then the
+    /// manifest's own. `EngineCatalog.all` groups by installed-ness, which would have the
+    /// re-pluck menu reshuffle itself the moment a model finishes downloading — the list is
+    /// a set of choices about subject matter, and its order should not be a fact about disk.
+    var options: [EngineDescriptor] {
+        let order = [EngineCatalog.defaultEngineID] + (catalog.registry?.manifest.models.map(\.id) ?? [])
+        return catalog.all.sorted {
+            (order.firstIndex(of: $0.id) ?? order.count) < (order.firstIndex(of: $1.id) ?? order.count)
+        }
+    }
+
+    func isInstalled(_ id: String) -> Bool {
+        id == EngineCatalog.defaultEngineID || catalog.registry?.isInstalled(id) == true
+    }
+
+    /// Fetches a model on demand, through the same `ModelRegistry` Settings downloads with —
+    /// including its resume, its digest check and its one-rename install. The app must not
+    /// grow a second thing that writes into `Models/`.
+    func install(_ id: String) async throws {
+        guard let registry = catalog.registry else { throw PluckError.modelMissing(id: id) }
+        _ = try await registry.install(id)
+        // Bytes on disk are new bytes: anything this process compiled earlier under the same
+        // id (a deleted-then-refetched model) must not be served from memory.
+        forget(id)
+    }
+
     /// True when using this engine costs nothing but the matting itself.
     func isReady(_ id: String) -> Bool {
         id == EngineCatalog.defaultEngineID || loaded[id] != nil

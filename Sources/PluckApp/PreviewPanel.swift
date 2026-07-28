@@ -241,6 +241,14 @@ struct PreviewRoot: View {
     }
 }
 
+/// What the re-pluck menu's contents depend on. Two values, because the menu goes stale for
+/// two different reasons: the panel being pointed at a different cutout, and a re-pluck
+/// landing in the grid while this one is open.
+private struct EngineMenuKey: Equatable {
+    let item: UUID
+    let cutouts: Int
+}
+
 /// Before/after wipe. Two identically-fitted layers stacked, the top one masked to the
 /// right of the handle: because the cutout has exactly the source image's dimensions,
 /// `scaledToFit` in the same frame puts every pixel of both layers on top of each other,
@@ -254,15 +262,22 @@ struct CutoutPreviewView: View {
     @State private var before: NSImage?
     @State private var after: NSImage?
     @State private var pointerInside = false
+    @State private var options: [AppModel.EngineOption] = []
 
     var body: some View {
         comparison
             .overlay(alignment: .top) { dragBand }
             .overlay(alignment: .bottomLeading) { sideLabel(L.s("Original"), visible: Self.labels(at: fraction).original) }
-            .overlay(alignment: .bottomTrailing) { sideLabel(L.s("Cutout"), visible: Self.labels(at: fraction).cutout) }
+            .overlay(alignment: .bottomTrailing) { cutoutLabel(visible: Self.labels(at: fraction).cutout) }
             .overlay(alignment: .topTrailing) { closeButton.padding(8) }
             .overlay(alignment: .bottom) { toolbar }
             .onHover { on in pointerInside = on }
+            // Re-read when the grid changes, not only when the panel swaps item: finishing a
+            // re-pluck removes an engine from this list, and the menu must not still be
+            // offering it.
+            .task(id: EngineMenuKey(item: item.id, cutouts: model.recents.items.count)) {
+                options = await model.engineOptions(for: item)
+            }
             .task(id: item.id) {
                 fraction = 0.5
                 // Both halves are files now, and `Data(contentsOf:)` blocks. Reading them
@@ -353,6 +368,28 @@ struct CutoutPreviewView: View {
         return (original: fraction > clearance, cutout: fraction < 1 - clearance)
     }
 
+    /// The cutout's own corner, plus who made it — but only when that is not the default
+    /// engine. With two cutouts of one photo now able to sit side by side in the grid, "which
+    /// of the two am I looking at" is a question the panel has to be able to answer without
+    /// the user remembering the order they clicked in.
+    private func cutoutLabel(visible: Bool) -> some View {
+        HStack(spacing: 0) {
+            if let mark = EngineLabels.mark(item.engineID) {
+                Text(mark)
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
+                    .background(.thinMaterial, in: Capsule())
+                    .padding(.trailing, -4)
+                    .opacity(visible ? 1 : 0)
+                    .animation(.easeOut(duration: 0.15), value: visible)
+                    .allowsHitTesting(false)
+            }
+            sideLabel(L.s("Cutout"), visible: visible)
+        }
+    }
+
     private func sideLabel(_ text: String, visible: Bool) -> some View {
         Text(text)
             .font(.system(size: 11, weight: .medium))
@@ -384,6 +421,16 @@ struct CutoutPreviewView: View {
             PlainIconButton(symbol: "doc.on.doc", size: 14, side: 30, label: L.s("Copy")) { model.copy(item) }
             PlainIconButton(symbol: "arrow.down.to.line", size: 14, side: 30, label: L.s("Save")) { model.save(item) }
                 .keyboardShortcut("s", modifiers: .command)
+            if model.isRepluckRunning(item) {
+                // The same spinner the grid's placeholder cell is showing for this job, in
+                // the surface the user asked from. Nothing more: the placeholder carries the
+                // picture, and the status line carries a download if there is one.
+                ProgressView()
+                    .controlSize(.small)
+                    .frame(width: 30, height: 30)
+            } else if !options.isEmpty {
+                repluckMenu
+            }
         }
         .padding(.horizontal, 4)
         .padding(.vertical, 4)
@@ -394,6 +441,29 @@ struct CutoutPreviewView: View {
         .opacity(pointerInside ? 1 : 0)
         .allowsHitTesting(pointerInside)
         .animation(.easeOut(duration: 0.15), value: pointerInside)
+    }
+
+    /// The way to try this picture through another engine, on the surface where the result
+    /// of the last one is being looked at — which is the moment anyone forms an opinion
+    /// about an edge. It offers only what this picture has not been through: an engine
+    /// already in the grid for it has nothing new to produce.
+    private var repluckMenu: some View {
+        Menu {
+            ForEach(options) { option in
+                Button(String(format: L.s("%1$@ (%2$@)"), option.label, option.hint)) {
+                    model.repluck(item, with: option.id)
+                }
+            }
+        } label: {
+            // Not the macOS 15 `arrow.trianglehead.*` family: the deployment target is 14,
+            // where those symbols do not exist and the button would draw as nothing at all.
+            PlainIconGlyph(symbol: "arrow.triangle.2.circlepath", size: 14, side: 30, highlighted: false)
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .accessibilityLabel(L.s("Re-pluck with"))
+        .help(L.s("Re-pluck with"))
     }
 
     private func handle(width: CGFloat, height: CGFloat) -> some View {

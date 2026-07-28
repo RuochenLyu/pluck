@@ -150,7 +150,9 @@ agent 友好设计：`--json` 结构化输出、语义化 exit code（0 成功 /
 - ~~**结果浮层**（自动弹出版）~~ 2026-07-28 决定不做（见 decisions.md）：不自动弹，结果由用户点缩略图打开预览面板查看。预览面板保留本节的尺寸与操作设计（Copy/Save、before/after），去掉倒计时。
 - **shelf 结构（2026-07-28 定稿）**：无投放横幅、无底栏——面板整体即投放目标；有内容时网格首格为虚线"幽灵格"（+ 与 ⌘V 提示，"下一张落在这里"），空态为同语法撑满版；Clear/主窗口/齿轮菜单并入 RECENT 标题行；状态消息为浮动材质条，仅在有话可说时出现；缩略图右键菜单含单项 Delete。依据：对 Dropover/Yoink/Dropzone 等 12 款 menubar app 的两轮调研（decisions.md 同日）。
 - **批量队列**：行内 hover 出 Copy/Save，整行可拖拽单个结果。
-- **设置（2026-07-28 定稿）**：不做 toolbar tab——一屏放得下的两节不需要一根用来切换它们的工具栏。一个 Form，Models 一节（引擎 Picker + 每个 manifest 模型一行：名称、体积·license、available/downloading/installed 三态控件）在上，History 一节在下，离线声明在框外。引擎行用文字不用徽标（Apple logo 有商标问题）。
+- **设置（2026-07-28 定稿）**：不做 toolbar tab——一屏放得下的两节不需要一根用来切换它们的工具栏。一个 Form，Models 一节（引擎 Picker + 每个引擎一行）在上，History 一节在下，离线声明在框外。引擎行用文字不用徽标（Apple logo 有商标问题）。
+- **引擎的说法（2026-07-28 晚定稿）**：模型名对用户零信息量，两个 BiRefNet 又是**题材分工不是质量梯度**（研究 A.6），所以行首是人话标签（Vision / Detail / Matting）+ 一句题材描述，`BiRefNet_lite`·license·体积·速度降为 caption；Vision 也占一行（它没有下载控件，但它是用户已有的那个选择）。人话映射住在 app 层（`EngineLabels`），PluckKit 不掺用户文案，CLI 的 `--model <id>` 不变。
+- **预览面板的 Re-pluck 菜单（2026-07-28 晚）**：工具胶囊里第三个控件，列出**这张图还没走过的**引擎（未安装的显示体积，点了先下载）。结果作为新条目**并列插入**、面板切过去，旧条目原样保留——两种边缘是两个答案，覆盖会让对比要付一次重抠。结果的出身标注在主窗口行副标题与预览 Cutout 角标（非 Vision 才标）。
 
 ### 4.8 模型下载：托管、清单与校验
 

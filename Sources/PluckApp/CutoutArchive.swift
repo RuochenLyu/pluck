@@ -1,4 +1,5 @@
 import Foundation
+import PluckKit
 
 /// Where a finished cutout's bytes live — on disk, in exactly one copy.
 ///
@@ -40,7 +41,12 @@ struct CutoutArchive: Sendable {
     /// at them. The cutout keeps the picture's own name because that name shows up in
     /// Finder the moment the cell is dragged out; the other two are fixed names, since
     /// nothing user-facing ever sees them.
-    func store(_ processed: ProcessedImage, id: UUID) throws -> RecentItem {
+    func store(
+        _ processed: ProcessedImage,
+        id: UUID,
+        engineID: String = EngineCatalog.defaultEngineID,
+        sourceID: UUID? = nil
+    ) throws -> RecentItem {
         let directory = root.appendingPathComponent(id.uuidString, isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         let file = directory.appendingPathComponent(processed.suggestedName).appendingPathExtension("png")
@@ -57,7 +63,9 @@ struct CutoutArchive: Sendable {
             originalURL: original,
             suggestedName: processed.suggestedName,
             pixelWidth: processed.width,
-            pixelHeight: processed.height
+            pixelHeight: processed.height,
+            engineID: engineID,
+            sourceID: sourceID
         )
     }
 
@@ -162,6 +170,14 @@ struct CutoutArchive: Sendable {
         var items: [Record]
     }
 
+    /// One line of the index.
+    ///
+    /// New fields are decoded with `decodeIfPresent` and a default, and that is a rule rather
+    /// than a convenience: the index written by the previous version is the user's history,
+    /// and a synthesized `init(from:)` would throw on the first missing key — which `load`
+    /// turns into "no index", which is an archive that silently empties itself on the launch
+    /// after an update. `version` cannot save it either; bumping it means the same thing.
+    /// A field that cannot state what its absence means does not belong in here.
     private struct Record: Codable {
         var id: UUID
         var fingerprint: String
@@ -170,6 +186,12 @@ struct CutoutArchive: Sendable {
         var width: Int
         var height: Int
         var createdAt: Date
+        /// Absent in indexes written before engines could be chosen per cutout — everything
+        /// Pluck had made until then came out of Vision, so that is what their absence says.
+        var engineID: String
+        /// Absent for the same reason, and an entry with no recorded lineage is a lineage of
+        /// one: nothing else on disk claims to be a re-pluck of it.
+        var sourceID: UUID
 
         init(_ item: RecentItem) {
             id = item.id
@@ -179,6 +201,22 @@ struct CutoutArchive: Sendable {
             width = item.pixelWidth
             height = item.pixelHeight
             createdAt = item.createdAt
+            engineID = item.engineID
+            sourceID = item.sourceID
+        }
+
+        init(from decoder: any Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            id = try container.decode(UUID.self, forKey: .id)
+            fingerprint = try container.decode(String.self, forKey: .fingerprint)
+            file = try container.decode(String.self, forKey: .file)
+            name = try container.decode(String.self, forKey: .name)
+            width = try container.decode(Int.self, forKey: .width)
+            height = try container.decode(Int.self, forKey: .height)
+            createdAt = try container.decode(Date.self, forKey: .createdAt)
+            engineID = try container.decodeIfPresent(String.self, forKey: .engineID)
+                ?? EngineCatalog.defaultEngineID
+            sourceID = try container.decodeIfPresent(UUID.self, forKey: .sourceID) ?? id
         }
 
         func item(in root: URL) -> RecentItem? {
@@ -197,7 +235,9 @@ struct CutoutArchive: Sendable {
                 suggestedName: name,
                 pixelWidth: width,
                 pixelHeight: height,
-                createdAt: createdAt
+                createdAt: createdAt,
+                engineID: engineID,
+                sourceID: sourceID
             )
         }
     }

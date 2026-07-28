@@ -24,6 +24,11 @@ enum PluckFailure: Equatable, Sendable {
     /// The file behind an entry has gone missing since it was made. Rare and not the
     /// user's doing, but Copy and Save have to say something when it happens.
     case fileGone
+    /// A named model is not usable right now: not downloaded, not downloadable, or on disk
+    /// and refusing to load. One case rather than three because the user's next move is the
+    /// same for all of them — try the download again — and the app has a button for it in
+    /// two places now.
+    case modelUnavailable
     case unknown
 
     init(_ error: any Error) {
@@ -39,10 +44,7 @@ enum PluckFailure: Equatable, Sendable {
         case .engineUnavailable:
             self = .engineUnavailable
         case .modelMissing, .modelLoadFailed, .modelDownloadFailed, .manifestInvalid:
-            // v0.3 (CoreMLEngine) needs its own copy here, with a download affordance
-            // beside it. Until the app grows that UI, "download the model first" would
-            // point at a button that does not exist.
-            self = .unknown
+            self = .modelUnavailable
         case .processingFailed:
             self = .unknown
         }
@@ -58,6 +60,7 @@ enum PluckFailure: Equatable, Sendable {
         case .engineUnavailable: L.s("Background removal isn’t available on this Mac.")
         case .notWritten: L.s("Couldn’t save the cutout to disk — check free space.")
         case .fileGone: L.s("This cutout’s file is no longer on disk.")
+        case .modelUnavailable: L.s("That model isn’t available — try downloading it again.")
         case .unknown: L.s("Something went wrong plucking this image.")
         }
     }

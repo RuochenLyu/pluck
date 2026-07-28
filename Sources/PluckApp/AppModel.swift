@@ -167,12 +167,18 @@ final class AppModel {
         Task { [weak self] in
             guard let self else { return }
             let engine = await preparedEngine()
+            let engineID = engine.id
             let plucker = ClipboardPlucker(pasteboard: pasteboard) { data, name in
                 try await process(data, name, engine)
             }
             Task.detached(priority: .userInitiated) { [weak self] in
                 let (outcome, processed) = await plucker.run { data in await accept(data) }
-                await self?.deliver(ticket: ticket, outcome: outcome, processed: processed)
+                await self?.deliver(
+                    ticket: ticket,
+                    outcome: outcome,
+                    processed: processed,
+                    engineID: engineID
+                )
             }
         }
     }
@@ -187,6 +193,7 @@ final class AppModel {
         Task { [weak self] in
             guard let self else { return }
             let engine = await preparedEngine()
+            let engineID = engine.id
             for (payload, ticket) in zip(payloads, tickets) {
                 Task.detached(priority: .userInitiated) { [weak self] in
                     let thumbnail = await PluckService.inputThumbnail(of: payload)
@@ -204,7 +211,12 @@ final class AppModel {
                         case .data(let data):
                             processed = try await process(data, L.s("Cutout"), engine)
                         }
-                        await self?.deliver(ticket: ticket, outcome: .success, processed: processed)
+                        await self?.deliver(
+                            ticket: ticket,
+                            outcome: .success,
+                            processed: processed,
+                            engineID: engineID
+                        )
                     } catch {
                         await self?.deliver(ticket: ticket, outcome: .failure(PluckFailure(error)), processed: nil)
                     }
@@ -241,6 +253,128 @@ final class AppModel {
 
     func preview(_ item: RecentItem) {
         onPreviewRequest?(item)
+    }
+
+    // MARK: - Re-plucking
+
+    /// One engine offered for a second go at a picture, as the menu needs to say it.
+    struct EngineOption: Identifiable, Equatable, Sendable {
+        let id: String
+        let label: String
+        /// The parenthetical: how long it takes, or how big it is if it is not here yet.
+        /// A download is the thing worth knowing before the click, so it wins the slot.
+        let hint: String
+        let installed: Bool
+    }
+
+    /// The entries currently being re-plucked, keyed by the cutout the request came from —
+    /// so the panel showing it can say it is working, and so a second click on the same
+    /// menu cannot queue the same job twice.
+    private(set) var repluckingIDs: Set<UUID> = []
+
+    func isRepluckRunning(_ item: RecentItem) -> Bool { repluckingIDs.contains(item.id) }
+
+    /// Engines this picture has not been through yet.
+    ///
+    /// "This picture" is the lineage, not the entry: re-plucking with Matting leaves two
+    /// cutouts of one photo in the grid, and opening either of them should offer the same
+    /// remaining one rather than re-offering what the sibling already is.
+    func engineOptions(for item: RecentItem) async -> [EngineOption] {
+        let used = Set(recents.items.filter { $0.sourceID == item.sourceID }.map(\.engineID))
+            .union([item.engineID])
+        return await engines.options
+            .filter { !used.contains($0.id) }
+            .map { descriptor in
+                EngineOption(
+                    id: descriptor.id,
+                    label: EngineLabels.name(descriptor.id, fallback: descriptor.model?.displayName),
+                    hint: descriptor.installed
+                        ? EngineLabels.pace(descriptor.id)
+                        : EngineLabels.megabytes(descriptor.model?.bytes ?? 0),
+                    installed: descriptor.installed
+                )
+            }
+    }
+
+    /// Runs this cutout's source picture through another engine, and files the result beside
+    /// it instead of over it.
+    ///
+    /// Beside, because the two are not versions of one answer: lite's decided edge is the
+    /// right cutout for a logo and the wrong one for a wine glass, and the user cannot know
+    /// which they wanted until both are on screen. Overwriting would make the comparison
+    /// cost a re-pluck of whatever was replaced.
+    ///
+    /// The input is the entry's stored `original.png`, which was downsampled to 1200px on
+    /// the way in (`PluckService.previewMaxEdge`) — so a re-pluck of a 24-megapixel photo is
+    /// a 1200px cutout. Keeping a full-resolution copy of every input against the chance of
+    /// a second pass would multiply the archive's size for a feature most entries never use;
+    /// the honest fix is re-dropping the file, which costs one drag.
+    func repluck(_ item: RecentItem, with engineID: String) {
+        guard !repluckingIDs.contains(item.id) else { return }
+        repluckingIDs.insert(item.id)
+        let ticket = beginWork(name: item.suggestedName)
+        // The cutout's own thumbnail, so the placeholder cell shows the picture being worked
+        // on from the first frame — unlike a drop, nothing here has to be decoded first.
+        attach(thumbnail: item.thumbnailPNG, to: ticket)
+        let process = process
+        Task { [weak self] in
+            guard let self else { return }
+            defer { repluckingIDs.remove(item.id) }
+            guard await install(engineID) else {
+                finish(ticket: ticket, outcome: .failure(.modelUnavailable), item: nil)
+                return
+            }
+            let resolved = await engines.resolve(engineID)
+            // Falling back to Vision is right for a drop — the user wants their picture
+            // plucked — and wrong here: they named an engine, and a Vision copy of a cutout
+            // they already have is not a smaller version of that answer.
+            guard resolved.fellBackFrom == nil else {
+                finish(ticket: ticket, outcome: .failure(.modelUnavailable), item: nil)
+                return
+            }
+            let engine = resolved.engine
+            let name = item.suggestedName
+            let sourceID = item.sourceID
+            await Task.detached(priority: .userInitiated) { [weak self] in
+                guard let data = item.originalPNG() else {
+                    await self?.deliver(ticket: ticket, outcome: .failure(.fileGone), processed: nil)
+                    return
+                }
+                do {
+                    let processed = try await process(data, name, engine)
+                    await self?.deliver(
+                        ticket: ticket,
+                        outcome: .success,
+                        processed: processed,
+                        engineID: engine.id,
+                        sourceID: sourceID,
+                        previews: true
+                    )
+                } catch {
+                    await self?.deliver(
+                        ticket: ticket,
+                        outcome: .failure(PluckFailure(error)),
+                        processed: nil
+                    )
+                }
+            }.value
+        }
+    }
+
+    /// True once the model is on disk. Says so on the status line while it is not, because
+    /// 83 MB is long enough that a spinner alone reads as a hang.
+    private func install(_ id: String) async -> Bool {
+        guard await !engines.isInstalled(id) else { return true }
+        report(.info, String(format: L.s("Downloading %@…"), EngineLabels.name(id)))
+        do {
+            try await engines.install(id)
+            clearStatus()
+            return true
+        } catch {
+            // The reason reaches the user through the failed placeholder's own sentence,
+            // which `finish` puts on the same line this one is sitting on.
+            return false
+        }
     }
 
     func copy(_ item: RecentItem) {
@@ -436,7 +570,14 @@ final class AppModel {
     /// A write that fails is still a job that failed. The file *is* the entry (see
     /// `CutoutArchive`), so there is no in-memory copy to fall back on, and a cell whose
     /// Copy, Save, preview and drag all do nothing is worse than an honest error.
-    private nonisolated func deliver(ticket: UUID, outcome: PluckOutcome, processed: ProcessedImage?) async {
+    private nonisolated func deliver(
+        ticket: UUID,
+        outcome: PluckOutcome,
+        processed: ProcessedImage?,
+        engineID: String = EngineCatalog.defaultEngineID,
+        sourceID: UUID? = nil,
+        previews: Bool = false
+    ) async {
         guard case .success = outcome, let processed else {
             await finish(ticket: ticket, outcome: outcome, item: nil)
             return
@@ -444,14 +585,14 @@ final class AppModel {
         // Read per cutout rather than captured when the drop arrived, so flipping the
         // history preference takes effect on the next file rather than the next launch.
         let archive = await self.archive
-        guard let item = try? archive.store(processed, id: ticket) else {
+        guard let item = try? archive.store(processed, id: ticket, engineID: engineID, sourceID: sourceID) else {
             await finish(ticket: ticket, outcome: .failure(.notWritten), item: nil)
             return
         }
-        await finish(ticket: ticket, outcome: .success, item: item)
+        await finish(ticket: ticket, outcome: .success, item: item, previews: previews)
     }
 
-    private func finish(ticket: UUID, outcome: PluckOutcome, item: RecentItem?) {
+    private func finish(ticket: UUID, outcome: PluckOutcome, item: RecentItem?, previews: Bool = false) {
         inFlight = max(0, inFlight - 1)
         // Every exit from here is one image resolved, including the ones that failed and
         // the ones that turned out to be duplicates. A bar that only counted successes
@@ -493,6 +634,10 @@ final class AppModel {
         }
         discard(result.evicted)
         flash(.success)
+        // A re-pluck was asked for from the panel that is still showing the old cutout, so
+        // the panel is where the answer belongs. Only on a genuine insert: a promotion means
+        // the grid already held these exact bytes, and the cell it flashes is the answer.
+        if previews, result.promoted == nil { preview(item) }
     }
 
     /// A failed job keeps its cell for a beat with a red rim and puts its reason in the

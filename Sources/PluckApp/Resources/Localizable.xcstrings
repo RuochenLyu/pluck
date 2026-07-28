@@ -1,6 +1,17 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "%1$@ (%2$@)": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ (%2$@)"
+          }
+        }
+      }
+    },
     "%1$@ · %2$@": {
       "extractionState": "manual",
       "localizations": {
@@ -273,6 +284,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Download"
+          }
+        }
+      }
+    },
+    "Downloading %@…": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Downloading %@…"
           }
         }
       }
@@ -662,6 +684,17 @@
         }
       }
     },
+    "Re-pluck with": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Re-pluck with"
+          }
+        }
+      }
+    },
     "Recent": {
       "extractionState": "manual",
       "localizations": {
@@ -801,6 +834,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "That model couldn’t be loaded — using Apple Vision for now."
+          }
+        }
+      }
+    },
+    "That model isn’t available — try downloading it again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "That model isn’t available — try downloading it again."
           }
         }
       }
