@@ -12,17 +12,6 @@
         }
       }
     },
-    "%1$@ · %2$@": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$@ · %2$@"
-          }
-        }
-      }
-    },
     "%1$d of %2$d done": {
       "extractionState": "manual",
       "localizations": {
@@ -97,17 +86,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Background removal isn’t available on this Mac."
-          }
-        }
-      }
-    },
-    "Built into macOS": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Built into macOS"
           }
         }
       }

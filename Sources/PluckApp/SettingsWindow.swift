@@ -126,14 +126,12 @@ private struct ModelsSection: View {
                 }
             }
 
+            // No caption: the blurb already says instant and built-in, and a second line
+            // repeating both in different words is the row reading its own name tag aloud.
             EngineRow(
                 id: EngineCatalog.defaultEngineID,
                 title: EngineLabels.name(EngineCatalog.defaultEngineID),
-                caption: String(
-                    format: L.s("%1$@ · %2$@"),
-                    L.s("Built into macOS"),
-                    EngineLabels.paceDetail(EngineCatalog.defaultEngineID)
-                ),
+                caption: "",
                 captionIsFailure: false
             ) {}
 
@@ -170,10 +168,12 @@ private struct EngineRow<Control: View>: View {
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
-                Text(caption)
-                    .font(.caption)
-                    .foregroundStyle(captionIsFailure ? AnyShapeStyle(.red) : AnyShapeStyle(.tertiary))
-                    .fixedSize(horizontal: false, vertical: true)
+                if !caption.isEmpty {
+                    Text(caption)
+                        .font(.caption)
+                        .foregroundStyle(captionIsFailure ? AnyShapeStyle(.red) : AnyShapeStyle(.tertiary))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
             Spacer(minLength: 0)
             control
