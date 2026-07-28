@@ -167,17 +167,6 @@
         }
       }
     },
-    "Cutouts you make show up here.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Cutouts you make show up here."
-          }
-        }
-      }
-    },
     "Delete": {
       "extractionState": "manual",
       "localizations": {
@@ -658,6 +647,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "or press ⌘V to paste"
+          }
+        }
+      }
+    },
+    "⌘V": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "⌘V"
           }
         }
       }

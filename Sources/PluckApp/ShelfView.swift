@@ -1,15 +1,45 @@
 import AppKit
 import SwiftUI
 
-/// Contents of the menu-bar shelf. No `Divider()` in the layout: §4.7 rule ② says regions
-/// are separated by spacing and material, and the bottom bar floats over the grid rather
-/// than sitting in a partitioned row. (The one below is inside a pull-down menu, where a
-/// separator is AppKit's own vocabulary and not ours.)
+/// What the content area is showing. Pulled out of the view because it is the one layout
+/// decision with a rule worth stating: the ghost slot is either the first cell of a grid
+/// or, with nothing to sit in front of, the whole invitation.
+enum ShelfContent: Equatable {
+    /// Nothing plucked yet. The ghost grows to fill the area and carries the copy.
+    case invitation
+    /// Ghost slot, then placeholders, then results.
+    case grid
+
+    static func resolve(pending: Int, recents: Int) -> ShelfContent {
+        pending == 0 && recents == 0 ? .invitation : .grid
+    }
+
+    /// The section label names the grid below it, so with no grid there is nothing to name.
+    var showsSectionLabel: Bool { self == .grid }
+    /// The ghost is a cell only in the grid; in the empty state it *is* the content area.
+    var showsGhostCell: Bool { self == .grid }
+
+    /// Clear tracks the store, not the content: a shelf holding only in-flight placeholders
+    /// is a grid with nothing yet to clear.
+    static func showsClear(recents: Int) -> Bool { recents > 0 }
+}
+
+/// Contents of the menu-bar shelf.
+///
+/// There is no drop banner and no bottom bar. A survey of twelve menu-bar shelves
+/// (Dropover, Yoink, Dropzone, Paste, CleanShot X …) turns up no standing "drop here"
+/// strip in any of them: the panel *is* the target, and the invitation belongs in the
+/// structure rather than in a row of chrome above it. So the first grid slot is a dashed
+/// ghost — "the next one lands here" — and the three controls that used to need a bar of
+/// their own sit on the section label's line, which had a whole right half spare.
+///
+/// No `Divider()`: §4.7 rule ② says regions are separated by spacing and material. (The one
+/// below is inside a pull-down menu, where a separator is AppKit's own vocabulary.)
 struct ShelfView: View {
     static let size = CGSize(width: 340, height: 452)
 
     private static let cellHeight: CGFloat = 92
-    private static let barHeight: CGFloat = 52
+    private static let inset: CGFloat = 16
 
     let model: AppModel
     /// Driven by the panel's AppKit drag destination — the whole shelf is the drop target,
@@ -31,14 +61,17 @@ struct ShelfView: View {
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 8), count: 3)
 
+    private var content: ShelfContent {
+        .resolve(pending: model.pendingItems.count, recents: model.recents.items.count)
+    }
+
     var body: some View {
         VStack(spacing: 0) {
-            dropHint
-            recentHeader
-            grid
+            header
+            contentArea
         }
         .frame(width: Self.size.width, height: Self.size.height)
-        .overlay(alignment: .bottom) { bottomBar }
+        .overlay(alignment: .bottom) { statusStrip }
         .overlay {
             if dropTarget.isTargeted {
                 // Circular, not `.continuous`: this rim has to sit exactly inside the
@@ -54,59 +87,55 @@ struct ShelfView: View {
         .animation(.easeOut(duration: 0.12), value: dropTarget.isTargeted)
     }
 
-    /// One card, ≤64pt: the drop affordance is a hint, not an empty state — the empty
-    /// state belongs to the Recent grid below.
-    ///
-    /// It doubles as the status line. A failure needs a sentence and this is the only strip
-    /// wide enough for one; borrowing it costs nothing, because the hint it replaces is
-    /// advice the user has visibly just finished taking.
-    private var dropHint: some View {
+    /// The label and every control the shelf owns, on one line. The section label is a
+    /// label, not a heading — small caps at caption size says "the grid below is Recent"
+    /// without competing with the cutouts for the eye — and it leaves two thirds of the
+    /// line free, which is exactly the room the deleted bottom bar was asking for.
+    private var header: some View {
         HStack(spacing: 8) {
-            Image(systemName: hintSymbol)
-                .font(.system(size: 15, weight: .regular))
-                .foregroundStyle(model.status?.kind == .warning ? AnyShapeStyle(.red) : AnyShapeStyle(.secondary))
-            Text(model.statusMessage ?? L.s("Drop or paste images here"))
-                .font(.callout)
-                .foregroundStyle(.secondary)
-                .lineLimit(2)
-                .fixedSize(horizontal: false, vertical: true)
-            Spacer(minLength: 0)
-        }
-        .padding(.horizontal, 16)
-        .frame(height: 52)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .padding(.horizontal, 12)
-        .padding(.top, 12)
-        .accessibilityElement(children: .combine)
-    }
-
-    /// Export All reports through this line too, so "there is a message" no longer implies
-    /// "something went wrong" — the kind decides the glyph.
-    private var hintSymbol: String {
-        switch model.status?.kind {
-        case .warning: "exclamationmark.triangle.fill"
-        case .info: "checkmark.circle"
-        case nil: "square.and.arrow.down.on.square"
-        }
-    }
-
-    /// A section label, not a heading: small caps at caption size says "the grid below is
-    /// Recent" without competing with the filenames and the drop hint for the eye.
-    private var recentHeader: some View {
-        HStack(spacing: 0) {
-            Text(L.s("Recent"))
-                .font(.caption.weight(.semibold))
-                .textCase(.uppercase)
-                .tracking(0.6)
-                .foregroundStyle(.secondary)
+            if content.showsSectionLabel {
+                Text(L.s("Recent"))
+                    .font(.caption.weight(.semibold))
+                    .textCase(.uppercase)
+                    .tracking(0.6)
+                    .foregroundStyle(.secondary)
+            }
             Spacer(minLength: 8)
-            if !model.recents.items.isEmpty {
+            if ShelfContent.showsClear(recents: model.recents.items.count) {
                 ClearButton { model.clearRecents() }
             }
+            PlainIconButton(symbol: "macwindow", label: L.s("Open main window"), action: onMainWindow)
+            ShelfMenuButton(onAbout: onAbout, onSettings: onSettings, onQuit: onQuit)
         }
-        .padding(.horizontal, 16)
-        .padding(.top, 16)
+        .padding(.horizontal, Self.inset)
+        .padding(.top, 12)
         .padding(.bottom, 8)
+    }
+
+    /// A failure still needs a sentence, and the strip that used to hold one is gone. This
+    /// is the same line, minus the nine tenths of its life it spent repeating advice: it
+    /// exists only while there is something to say, floating over the grid rather than
+    /// reserving a band of the panel against the chance of bad news.
+    @ViewBuilder private var statusStrip: some View {
+        if let status = model.status {
+            HStack(spacing: 8) {
+                Image(systemName: status.kind == .warning ? "exclamationmark.triangle.fill" : "checkmark.circle")
+                    .font(.system(size: 13, weight: .regular))
+                    .foregroundStyle(status.kind == .warning ? AnyShapeStyle(.red) : AnyShapeStyle(.secondary))
+                Text(status.text)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .padding(Self.inset - 4)
+            .transition(.opacity)
+            .accessibilityElement(children: .combine)
+        }
     }
 
     /// Placeholders and results in one list, one identity space. Two sibling `ForEach`es
@@ -118,55 +147,105 @@ struct ShelfView: View {
         model.pendingItems.map(ShelfCell.pending) + model.recents.items.map(ShelfCell.done)
     }
 
-    private var grid: some View {
-        Group {
-            if model.pendingItems.isEmpty && model.recents.items.isEmpty {
-                Text(L.s("Cutouts you make show up here."))
-                    .font(.callout)
-                    .foregroundStyle(.tertiary)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 24)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else {
-                ScrollView {
-                    LazyVGrid(columns: columns, spacing: 8) {
-                        ForEach(cells) { cell in
-                            switch cell {
-                            case .pending(let pending):
-                                PendingCell(item: pending, height: Self.cellHeight)
-                            case .done(let item):
-                                RecentCell(
-                                    item: item,
-                                    model: model,
-                                    height: Self.cellHeight,
-                                    highlighted: model.highlightedItemID == item.id
-                                )
-                            }
-                        }
-                    }
-                    .padding(.horizontal, 12)
-                    // Room for the floating bar, which overlaps the scroll area by design.
-                    .padding(.bottom, Self.barHeight + 12)
-                }
-                .scrollIndicators(.never)
-            }
+    @ViewBuilder private var contentArea: some View {
+        switch content {
+        case .invitation: invitation
+        case .grid: grid
         }
+    }
+
+    private var grid: some View {
+        ScrollView {
+            LazyVGrid(columns: columns, spacing: 8) {
+                if content.showsGhostCell {
+                    GhostSlot(height: Self.cellHeight, accented: dropTarget.isTargeted)
+                }
+                ForEach(cells) { cell in
+                    switch cell {
+                    case .pending(let pending):
+                        PendingCell(item: pending, height: Self.cellHeight)
+                    case .done(let item):
+                        RecentCell(
+                            item: item,
+                            model: model,
+                            height: Self.cellHeight,
+                            highlighted: model.highlightedItemID == item.id
+                        )
+                    }
+                }
+            }
+            .padding(.horizontal, Self.inset)
+            .padding(.bottom, Self.inset)
+        }
+        .scrollIndicators(.never)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    /// Two controls, both borderless, both the same size. Everything that is not a door to
-    /// another surface lives behind the gear.
-    private var bottomBar: some View {
-        HStack(spacing: 4) {
-            Spacer(minLength: 0)
-            PlainIconButton(symbol: "macwindow", label: L.s("Open main window"), action: onMainWindow)
-            ShelfMenuButton(onAbout: onAbout, onSettings: onSettings, onQuit: onQuit)
+    /// The ghost slot at full size. Same grammar — dashed outline, no fill — so the first
+    /// cutout does not change the language of the panel, only the scale of it. A filled
+    /// panel would be the banner again, wearing the empty state as a disguise.
+    private var invitation: some View {
+        VStack(spacing: 6) {
+            Image(systemName: "square.and.arrow.down.on.square")
+                .font(.system(size: 26, weight: .regular))
+                .foregroundStyle(dropTarget.isTargeted ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(.secondary))
+                .padding(.bottom, 2)
+            Text(L.s("Drop or paste images here"))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+            Text(L.s("or press ⌘V to paste"))
+                .font(.caption)
+                .foregroundStyle(.tertiary)
         }
-        .padding(.horizontal, 12)
-        .frame(height: Self.barHeight)
-        .background(.ultraThinMaterial)
+        .multilineTextAlignment(.center)
+        .padding(.horizontal, 20)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .overlay { DashedOutline(cornerRadius: 12, accented: dropTarget.isTargeted) }
+        .padding(.horizontal, Self.inset)
+        .padding(.bottom, Self.inset)
+        .accessibilityElement(children: .combine)
     }
+}
 
+/// The dashed container, in both its sizes. Secondary at a quarter opacity: it has to read
+/// as a held-open space rather than as a control with a border.
+private struct DashedOutline: View {
+    var cornerRadius: CGFloat
+    var accented: Bool
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+            .strokeBorder(
+                accented ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(Color.secondary.opacity(0.25)),
+                style: StrokeStyle(lineWidth: 1.5, dash: [4, 3])
+            )
+    }
+}
+
+/// Where the next cutout will appear. Deliberately not a button: it makes no promise it can
+/// keep — there is nothing to open a file panel *for* — and a dashed rectangle that responds
+/// to a click would teach the user to click the one part of the shelf that does nothing.
+/// It joins the whole-panel accent when a drag is overhead, which is the only moment it has
+/// anything to say.
+private struct GhostSlot: View {
+    let height: CGFloat
+    let accented: Bool
+
+    var body: some View {
+        VStack(spacing: 2) {
+            Image(systemName: "plus")
+                .font(.system(size: 20, weight: .light))
+                .foregroundStyle(accented ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(.secondary))
+            Text(L.s("⌘V"))
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: height)
+        .overlay { DashedOutline(cornerRadius: 10, accented: accented) }
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
 }
 
 /// The gear, as a menu. ⌘, and ⌘Q are declared here rather than on a hidden button so the
