@@ -43,9 +43,11 @@ struct ShelfView: View {
             if dropTarget.isTargeted {
                 // Circular, not `.continuous`: this rim has to sit exactly inside the
                 // panel's mask image, which is a plain rounded rect.
+                // Accent, like every other drag-targeting response; coral is reserved
+                // for the dedup highlight, the one moment that is genuinely ours.
                 RoundedRectangle(cornerRadius: 16)
-                    .strokeBorder(Palette.coral, lineWidth: 2)
-                    .background(Palette.coral.opacity(0.08))
+                    .strokeBorder(Color.accentColor, lineWidth: 2)
+                    .background(Color.accentColor.opacity(0.08))
                     .allowsHitTesting(false)
             }
         }

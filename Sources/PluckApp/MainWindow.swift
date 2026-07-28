@@ -140,15 +140,8 @@ struct MainWindowView: View {
             bottomBar
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .overlay {
-            if dropTarget.isTargeted {
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .strokeBorder(Palette.coral, lineWidth: 2)
-                    .background(Palette.coral.opacity(0.06))
-                    .padding(4)
-                    .allowsHitTesting(false)
-            }
-        }
+        // No window-level rim: the drop strip already answers the drag, and two
+        // rectangles lighting up for one gesture is two voices saying one thing.
         .animation(.easeOut(duration: 0.12), value: dropTarget.isTargeted)
     }
 
