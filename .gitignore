@@ -26,3 +26,5 @@ models/weights/
 .venv/
 models/birefnet_lite_src/
 Scripts/__pycache__/
+# Weight symlinks inside vendored model-source dirs point at gitignored files
+models/*/model.safetensors

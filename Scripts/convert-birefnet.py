@@ -25,9 +25,11 @@ import torch
 import torch.nn.functional as F
 
 ROOT = Path(__file__).resolve().parent.parent
-SRC = ROOT / "models" / "birefnet_lite_src"
-OUT = ROOT / "models" / "weights" / "BiRefNetLite.mlpackage"
-SIDE = 1024  # BiRefNet_lite's training resolution
+# Defaults are the lite model; any sibling variant converts the same way:
+#   .venv/bin/python Scripts/convert-birefnet.py birefnet_general_src BiRefNetGeneral
+SRC = ROOT / "models" / (sys.argv[1] if len(sys.argv) > 1 else "birefnet_lite_src")
+OUT = ROOT / "models" / "weights" / f"{sys.argv[2] if len(sys.argv) > 2 else 'BiRefNetLite'}.mlpackage"
+SIDE = 1024  # the family's training resolution
 
 
 def deform_conv2d_traceable(input, offset, weight, bias=None, stride=(1, 1),
@@ -154,7 +156,9 @@ def main():
     model = AutoModelForImageSegmentation.from_pretrained(
         str(SRC), trust_remote_code=True, local_files_only=True
     )
-    model.eval()
+    # Some variants ship fp16 state dicts; trace in fp32 and let the converter
+    # decide precision (it writes fp16 into the mlpackage anyway).
+    model.float().eval()
 
     # transformers loads birefnet.py as a dynamic module under its own name;
     # it imported deform_conv2d by value, so the patch must land on that module.
@@ -205,6 +209,10 @@ def main():
         outputs=[ct.TensorType(name="mask")],
         minimum_deployment_target=ct.target.macOS14,
         compute_precision=ct.precision.FLOAT16,
+        # ct.convert loads the finished model once with default compute units,
+        # and ANE hangs (not fails — hangs) compiling the deform gather chain
+        # on the larger variants. Pin the load to the units we can actually use.
+        compute_units=ct.ComputeUnit.CPU_AND_GPU,
     )
     mlmodel.save(str(OUT))
     size_mb = sum(f.stat().st_size for f in OUT.rglob("*") if f.is_file()) / 1e6

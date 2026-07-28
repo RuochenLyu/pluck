@@ -233,3 +233,26 @@ roadmap 标了半个月的"最大不确定项"今天有了答案。`Scripts/conv
 复现：`Scripts/fetch-models.sh` 取权重和模型代码 → `.venv/bin/python Scripts/convert-birefnet.py`（venv：python3.12 + torch + coremltools）。归一化常数折进了输入层，Swift 侧只喂原始 CGImage。
 
 质量抽查（Core ML 输出，对 rembg 官方样例）：girl-1 IoU 96.5%、animal-1 96.0%、anime-girl-3 83.5%（目检：金鱼是实心的，rembg 抠成半透明；四方对比里 BiRefNet 最干净）、plants-1 3.7%（和 Vision 一样抠整个花架——两个"多实例"引擎对 u2net 的"单显著体"）。
+
+### A.6 全家桶转换与可信度验收（2026-07-28 晚）
+
+A.5 之后又转了三个变体（general / matting / lite-matting，脚本参数化复用同一条流水线），并对"我们自己转的模型靠谱吗"做了正式回答。**验收标准不是"工具链版本受支持"，而是与 fp32 原模型的直接数值对拍**——这比版本兼容性声明强得多：
+
+| mlpackage | 体积 (fp16) | fur-01 MAE / 二值一致 | hair-01 MAE / 二值一致 | 矩阵 warm 耗时 |
+|---|---|---|---|---|
+| BiRefNetLite | 94 MB | 0.0004 / 99.96% | 0.0003 / 99.97% | 1.3 s |
+| BiRefNetLiteMatting | 94 MB | 0.0005 / 99.96% | 0.0003 / 99.98% | 1.2 s |
+| BiRefNetGeneral | 451 MB | 0.0006 / 99.94% | 0.0002 / 99.98% | 2.3 s |
+| BiRefNetMatting | 451 MB | 0.0004 / 99.96% | 0.0003 / 99.98% | 2.8 s |
+
+fp16 的误差集中在软边缘带（alpha 0.05–0.95，占像素 1–4%），带内 MAE 最差 0.056（General/fur-01）——即毛发最虚的那一圈的 alpha 有 ≤5.6% 的偏移，视觉不可辨。转换脚本自带的随机噪声对拍会高估误差（matting 曾报 0.0108），**结论以真实图像对拍为准**。
+
+可复现性三件套，全部进仓库：
+
+1. `Scripts/convert-requirements.lock` —— venv 精确版本（torch 2.13.0 + coremltools 9.0；coremltools 官方只测到 torch 2.7，此组合以数值对拍背书而非版本声明）。
+2. `models/birefnet_*_src/` —— 从 HF 钉版本 vendored 的模型代码（birefnet.py + config），转换不依赖"当时 HF 上是什么样"。
+3. `models/weights/SHA256SUMS` —— 所有输入权重的摘要（gitignore 目录里，脚本重跑自动重建）。
+
+两条硬约束，写给 v0.3 的 CoreMLEngine：**加载必须 `.cpuAndGPU`**——ANE 对 deform gather 链在 lite 上是快速失败，在 swin-large 上是**无限挂起**（0% CPU 卡 37 分钟），所以连 `ct.convert` 结束时的验证加载也要钉 compute units。**首次加载约 5–10 秒**（Core ML 编译缓存，之后消失），app 里要么预热要么给进度提示。
+
+体积-质量结论维持 A.5：general/matting 的 451 MB 对比 lite 的 94 MB，25 图矩阵目检差距肉眼几乎不可见，**v0.3 候选收敛为 lite vs lite-matting 二选一**（后者软边缘带更宽 4.4% vs 1.2%，发丝过渡更自然，同体积同速度）。整个 HF 没有 MIT 权重的 BiRefNet Core ML 转换，我们的 mlpackage 发布时应传回 HF，兼作 app 内下载的托管点。
