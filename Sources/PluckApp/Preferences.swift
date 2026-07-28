@@ -19,6 +19,28 @@ final class Preferences {
         static let previewOriginY = "pluck.preview.y"
         static let exportDirectory = "pluck.exportDirectory"
         static let engineID = "pluck.engineID"
+        static let languageID = "pluck.languageID"
+    }
+
+    /// Which language the app speaks: `"system"`, or a localization the bundle carries.
+    ///
+    /// The earlier position was that this switch should not exist — macOS already has one
+    /// (System Settings ▸ General ▸ Language & Region ▸ Applications), and a second copy of
+    /// a choice the system offers is usually a mistake. It is overruled (decisions.md
+    /// 2026-07-28) by the user it was leaving out: someone running an English system who
+    /// wants this app in Chinese. That person exists, they are not going to change their
+    /// system language for a background-removal utility, and the system's per-app control
+    /// is three levels down a settings tree most people have never opened.
+    ///
+    /// Applied at once rather than at next launch — see `Language`. "Please restart" is the
+    /// tax the maintainer's objection was really about, and not charging it is what makes
+    /// this a switch rather than a second, worse copy of the system's.
+    var languageID: String {
+        didSet {
+            guard languageID != oldValue else { return }
+            defaults.set(languageID, forKey: Key.languageID)
+            Language.shared.use(languageID)
+        }
     }
 
     /// Which matting engine new work goes through. Apple Vision by default — it is built in,
@@ -83,10 +105,15 @@ final class Preferences {
         self.defaults = defaults
         defaults.register(defaults: [
             Key.keepsHistory: true,
-            Key.engineID: EngineCatalog.defaultEngineID
+            Key.engineID: EngineCatalog.defaultEngineID,
+            Key.languageID: L.systemID
         ])
         keepsHistory = defaults.bool(forKey: Key.keepsHistory)
         engineID = defaults.string(forKey: Key.engineID) ?? EngineCatalog.defaultEngineID
+        languageID = defaults.string(forKey: Key.languageID) ?? L.systemID
+        // `didSet` does not run for an assignment in `init`, and this is the launch that has
+        // to honour a choice made in a previous one.
+        Language.shared.use(languageID)
         if let path = defaults.string(forKey: Key.exportDirectory),
            FileManager.default.fileExists(atPath: path) {
             exportDirectory = URL(fileURLWithPath: path, isDirectory: true)

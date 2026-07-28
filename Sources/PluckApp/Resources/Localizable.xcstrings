@@ -497,6 +497,17 @@
         }
       }
     },
+    "Language": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Language"
+          }
+        }
+      }
+    },
     "Lift subjects out of photos. Offline, free, open source.": {
       "extractionState": "manual",
       "localizations": {
@@ -757,6 +768,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Something went wrong plucking this image."
+          }
+        }
+      }
+    },
+    "System": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "System"
           }
         }
       }

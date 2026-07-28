@@ -24,6 +24,24 @@ final class SettingsWindowController {
         window?.makeKeyAndOrderFront(nil)
     }
 
+    /// The `Form` inside redraws itself — its bodies call `L.s`, which is observable. What
+    /// does not is the title bar, and the window's height, which was measured from the
+    /// English layout at birth: Chinese sets the same paragraphs in fewer lines, and a
+    /// window that keeps the old height would leave a band of empty glass under the last
+    /// sentence.
+    func languageDidChange() {
+        guard let window else { return }
+        window.title = L.s("Pluck Settings")
+        // One turn later, and then a forced layout: observation schedules SwiftUI's update
+        // rather than performing it, so a `fittingSize` read inside the notification would
+        // measure the sentences the window is about to stop showing.
+        Task { @MainActor in
+            guard let hosting = window.contentView else { return }
+            hosting.layoutSubtreeIfNeeded()
+            window.setContentSize(hosting.fittingSize)
+        }
+    }
+
     private func make(model: AppModel, preferences: Preferences) -> NSWindow {
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 420, height: 300),
@@ -68,6 +86,8 @@ struct SettingsView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             Form {
+                LanguageSection(preferences: preferences)
+
                 ModelsSection(store: models, preferences: preferences)
 
                 Section {
@@ -124,6 +144,38 @@ struct SettingsView: View {
         }
         .frame(width: 480, alignment: .leading)
         .fixedSize(horizontal: false, vertical: true)
+    }
+}
+
+/// One row, at the top, because it decides how every other row in the window reads.
+///
+/// Each option is written in the language it selects: "English" is always English and
+/// "简体中文" is always 简体中文, no matter what the app is currently speaking. This is the
+/// convention every language picker on every platform follows, and the reason is that the
+/// person who needs this control is by definition someone the current language is failing.
+/// A menu that says "Chinese, Simplified" to a user who cannot read English is a menu that
+/// only works for people who did not need it. Only "System" is translated — it names a
+/// behaviour rather than a language, and the person reading it can read what is around it.
+///
+/// So the two language names are `Text(verbatim:)` and appear in no catalog: they are not
+/// copy, and a translator who "improved" them would break the control.
+private struct LanguageSection: View {
+    @Bindable var preferences: Preferences
+
+    /// A labelled row, not a headed section. The other two sections are headed because each
+    /// is a list of things with a sentence about them; this is one pop-up menu, and a
+    /// `Language` header over a row whose label would also read `Language` is the word twice.
+    var body: some View {
+        Section {
+            Picker(selection: $preferences.languageID) {
+                Text(L.s("System")).tag(L.systemID)
+                Text(verbatim: "English").tag("en")
+                Text(verbatim: "简体中文").tag("zh-Hans")
+            } label: {
+                Text(L.s("Language"))
+            }
+            .pickerStyle(.menu)
+        }
     }
 }
 

@@ -24,6 +24,18 @@ final class AboutWindowController {
         window?.makeKeyAndOrderFront(nil)
     }
 
+    /// `AboutView` retranslates itself; the title bar and the window's measured height do
+    /// not (`SettingsWindowController.languageDidChange` has the same note).
+    func languageDidChange() {
+        guard let window else { return }
+        window.title = L.s("About Pluck")
+        Task { @MainActor in
+            guard let hosting = window.contentView else { return }
+            hosting.layoutSubtreeIfNeeded()
+            window.setContentSize(hosting.fittingSize)
+        }
+    }
+
     private func make() -> NSWindow {
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 320, height: 260),

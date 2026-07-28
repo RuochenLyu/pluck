@@ -12,6 +12,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var dropView: StatusItemDropView?
     private var pluckSignalSource: (any DispatchSourceSignal)?
     private var monitors: [Any] = []
+    private var observers: [any NSObjectProtocol] = []
     private let shelf = ShelfPanelController()
     private lazy var preview = PreviewPanelController(preferences: preferences)
     private let settings = SettingsWindowController()
@@ -49,7 +50,36 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             preview.show(item: item, model: model, beside: shelf.isVisible ? shelf.panel?.frame : nil)
         }
         installPluckSignal()
+        installLanguageObserver()
         revealIfUnreachable()
+    }
+
+    /// Everything AppKit built once and now keeps.
+    ///
+    /// SwiftUI needs no help — its bodies ask `L.s` for their sentences and `L.s` subscribes
+    /// them (`Localization.swift`). What cannot be subscribed is a menu that was assembled
+    /// into `NSApp.mainMenu`, a string handed to `NSWindow.title`, or an accessibility label
+    /// set on a view once at birth: those are copies, and copies have to be replaced. This is
+    /// the whole list, and it is short enough to keep honest.
+    ///
+    /// The status item's right-click menu is not on it: it is rebuilt for the duration of
+    /// each click (`showStatusMenu`), so it is already in whatever language is current.
+    private func installLanguageObserver() {
+        let token = NotificationCenter.default.addObserver(
+            forName: .pluckLanguageDidChange,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                self.installMainMenu()
+                self.dropView?.relabel()
+                self.mainWindow.languageDidChange()
+                self.settings.languageDidChange()
+                self.about.languageDidChange()
+            }
+        }
+        observers.append(token)
     }
 
     /// A menu bar an `.accessory` app never draws, and cannot do without.
@@ -267,6 +297,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationWillTerminate(_ notification: Notification) {
         monitors.forEach(NSEvent.removeMonitor)
         monitors.removeAll()
+        observers.forEach(NotificationCenter.default.removeObserver)
+        observers.removeAll()
     }
 
     private func installStatusItem() {

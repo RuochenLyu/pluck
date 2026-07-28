@@ -20,6 +20,13 @@ final class StatusItemDropView: NSView {
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         registerForDraggedTypes([.fileURL, .png, .tiff])
+        relabel()
+    }
+
+    /// The one string this view keeps rather than asks for, so the language switch has to
+    /// come back for it (`AppDelegate`). VoiceOver users are the last people who should be
+    /// told to relaunch.
+    func relabel() {
         setAccessibilityLabel(L.s("Pluck — drag an image here or click to open"))
     }
 

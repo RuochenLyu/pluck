@@ -38,6 +38,12 @@ final class MainWindowController {
         window != nil && window === self.window
     }
 
+    /// The title is invisible on the window itself but not everywhere — Mission Control, the
+    /// Window menu and VoiceOver all read it, and none of them is going to re-ask.
+    func languageDidChange() {
+        window?.title = L.s("Pluck")
+    }
+
     private func make(model: AppModel) -> NSWindow {
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 620, height: 540),
