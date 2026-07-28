@@ -98,7 +98,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "这台 Mac 上用不了抠图。"
+            "value": "这台 Mac 不支持抠图。"
           }
         }
       }
@@ -728,7 +728,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "即时，macOS 自带。"
+            "value": "秒出，macOS 自带。"
           }
         }
       }
@@ -983,7 +983,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "正在抠…"
+            "value": "抠图中…"
           }
         }
       }
