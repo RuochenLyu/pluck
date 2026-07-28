@@ -19,7 +19,12 @@ let package = Package(
             dependencies: [
                 "PluckKit",
                 .product(name: "ArgumentParser", package: "swift-argument-parser")
-            ]
+            ],
+            // A symlink to models/manifest.json, which stays the single copy: the CLI has
+            // to carry the manifest in its own binary (product-plan §4.8 — the manifest is
+            // trusted because it ships signed, never fetched), and SwiftPM only accepts
+            // resources living inside the target's directory.
+            resources: [.copy("Resources/manifest.json")]
         ),
         .executableTarget(
             name: "PluckApp",

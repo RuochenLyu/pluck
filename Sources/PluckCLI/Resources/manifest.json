@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "models": [
+    {
+      "id": "birefnet-lite",
+      "displayName": "BiRefNet_lite",
+      "file": "BiRefNetLite.mlpackage",
+      "url": "https://github.com/RuochenLyu/pluck/releases/download/models-v1/BiRefNetLite.mlpackage.zip",
+      "sha256": "6cfaf0fbc48f12a2ab4ecff234e547f112676b61a73f5ec6d73d5de49b36e762",
+      "bytes": 82602435,
+      "license": "MIT",
+      "source": "https://huggingface.co/ZhengPeng7/BiRefNet_lite",
+      "inputSide": 1024
+    },
+    {
+      "id": "birefnet-lite-matting",
+      "displayName": "BiRefNet_lite matting",
+      "file": "BiRefNetLiteMatting.mlpackage",
+      "url": "https://github.com/RuochenLyu/pluck/releases/download/models-v1/BiRefNetLiteMatting.mlpackage.zip",
+      "sha256": "94aff287434935030696ffe4a9097f1b0bc48c74701e0dbf371f1cd6ead0825e",
+      "bytes": 82478960,
+      "license": "MIT",
+      "source": "https://huggingface.co/ZhengPeng7/BiRefNet_lite-matting",
+      "inputSide": 1024
+    }
+  ]
+}

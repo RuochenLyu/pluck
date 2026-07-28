@@ -38,10 +38,10 @@ enum PluckFailure: Equatable, Sendable {
             self = .unreadable
         case .engineUnavailable:
             self = .engineUnavailable
-        case .modelMissing:
+        case .modelMissing, .modelLoadFailed, .modelDownloadFailed, .manifestInvalid:
             // v0.3 (CoreMLEngine) needs its own copy here, with a download affordance
-            // beside it. Until that exists, "download the model first" would point at a
-            // button that does not.
+            // beside it. Until the app grows that UI, "download the model first" would
+            // point at a button that does not exist.
             self = .unknown
         case .processingFailed:
             self = .unknown

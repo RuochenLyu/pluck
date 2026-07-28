@@ -143,6 +143,45 @@ enum ImageBuffers {
         return try makeImage(grayscale(from: mask, width: width, height: height))
     }
 
+    /// Stretches `image` into a new BGRA pixel buffer of exactly the requested size.
+    /// Stretch, not aspect-fit: the converted model was traced through torchvision's
+    /// `Resize((S, S))`, so letterboxing here would feed it something it never saw.
+    static func pixelBuffer(from image: CGImage, width: Int, height: Int) throws -> CVPixelBuffer {
+        var buffer: CVPixelBuffer?
+        let attributes: [CFString: Any] = [
+            kCVPixelBufferCGImageCompatibilityKey: true,
+            kCVPixelBufferCGBitmapContextCompatibilityKey: true,
+            kCVPixelBufferIOSurfacePropertiesKey: [:] as CFDictionary
+        ]
+        let status = CVPixelBufferCreate(
+            kCFAllocatorDefault, width, height,
+            kCVPixelFormatType_32BGRA, attributes as CFDictionary, &buffer
+        )
+        guard status == kCVReturnSuccess, let buffer else {
+            throw PluckError.processingFailed(underlying: nil)
+        }
+
+        CVPixelBufferLockBaseAddress(buffer, [])
+        defer { CVPixelBufferUnlockBaseAddress(buffer, []) }
+        guard let base = CVPixelBufferGetBaseAddress(buffer),
+              let context = CGContext(
+                data: base,
+                width: width,
+                height: height,
+                bitsPerComponent: 8,
+                bytesPerRow: CVPixelBufferGetBytesPerRow(buffer),
+                space: sRGB,
+                bitmapInfo: CGImageAlphaInfo.noneSkipFirst.rawValue
+                    | CGBitmapInfo.byteOrder32Little.rawValue
+              )
+        else {
+            throw PluckError.processingFailed(underlying: nil)
+        }
+        context.interpolationQuality = .high
+        context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
+        return buffer
+    }
+
     static func grayscale(from pixelBuffer: CVPixelBuffer) throws -> CGImage {
         CVPixelBufferLockBaseAddress(pixelBuffer, .readOnly)
         defer { CVPixelBufferUnlockBaseAddress(pixelBuffer, .readOnly) }

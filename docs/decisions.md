@@ -230,3 +230,16 @@
 - **顺带删掉的技术债**：`SMAppService` 那套"我到底是不是个 .app"的探测、开关失败回滚、置灰加解释文案，连同它唯一那条测试一起消失。它们本来都是为了让一个开关诚实——最诚实的开关是没有这个开关。
 - **为什么不做自动弹浮层**：CleanShot 那套"截完就飘一张出来"是给**截图**设计的，截图的下一步几乎总是立刻用掉它。抠图的下一步经常是再抠一张。每次抠完都往用户屏幕上摔一个窗口，是在替用户假设他只抠一张。shelf 网格和主窗口列表已经是结果的落点，点一下就开预览——**要看的人去看，不看的人不被打断**。
 - **代价**：拖进一堆图之后，用户不看就不知道哪张失败了。这个由主窗口那条按整图计数的进度条和失败行接住（红三角 + 原因），不需要一个会自己跳出来的窗口。
+
+## 2026-07-28 — CoreMLEngine 与 ModelRegistry：manifest 只有一份、zip 只用 ditto、编译只做一次
+
+- **决策**：PluckKit 新增 `CoreMLEngine`（同步 `mask(for:)`）与 `ModelRegistry`（manifest 解析 + 下载 + SHA256 + 安装），`models/manifest.json` 落地两条 BiRefNet_lite 记录，CLI 的 `--model` / `models list` / `models pull` 接到它们上面。
+- **`.cpuAndGPU` 写进构造函数，不给调用方选**：ANE 编译不了替代 deform_conv2d 的那条 gather 链——lite 上是快速失败，swin-large 上是 0% CPU 挂 37 分钟（research.md 附录 A.6）。这不是性能取舍，是一条"选错就永远不返回"的约束，所以它属于引擎自己，不属于配置。
+- **`CoreMLEngine.load` 是 async，`mask` 仍是同步**：`MLModel.compileModel(at:)` 的同步写法 macOS 13 起废弃，用它就换不到零 warning。加载因此变成一次 async 工厂，推理保持同步——`MattingEngine` 那条"引擎说清自己是阻塞的，由 `PluckQueue` 决定它在哪跑"的约定不变。编译产物缓存在 `~/Library/Caches/Pluck/CompiledModels/<id>.mlmodelc`，按源文件 mtime 判新旧：冷启动 5–10 秒只付一次（实测首次 55 秒含编译，之后整条命令 1.8 秒）。
+- **`CoreMLEngine` 是 class + `@unchecked Sendable`**：`MLModel` 不是 `Sendable`，但 `prediction` 允许多线程调用，而 `PluckQueue` 本来就开 2–4 路。包成 actor 会把管线里唯一允许跑宽的一段重新串起来。
+- **fp16 输出用 vImage 转 Float32，不用 Swift 的 `Float16`**：后者在 x86_64 macOS 上不存在，而 `vImageConvert_Planar16FtoPlanarF` 处处都有；`MLMultiArray` 的下标则会给一百万个元素各装一个 NSNumber。
+- **manifest 在仓库里只有一份字节**：真身放 `Sources/PluckCLI/Resources/manifest.json`（SwiftPM 只接受 target 目录内的 resource），`models/manifest.json` 是指向它的符号链接。反过来放（真身在 models/、target 内放软链）会被 SwiftPM 原样拷成一条相对链接，在 `.build` 里就断了——实测断在 `.build/models/`。两份实体文件加一条"别忘了同步"的注释不算方案。
+- **zip 两端都用 `/usr/bin/ditto`**：Foundation 在 macOS 上没有公开的 zip 读写（`AppleArchive` 说的是 .aar），而 `.mlpackage` 是目录包，需要保住结构与扩展属性。打包脚本 `ditto -c -k --keepParent`，安装时 `ditto -x -k`，同一个工具、无第三方依赖。
+- **`package-models.sh --check` 不重新打包**：ditto 的 zip 不是逐字节可复现的（mtime 与目录顺序会渗进去）。该问的是"manifest 描述的是不是我正要上传的那个文件"，不是"重打一遍哈希是否相同"。manifest 里的 sha256/bytes 一律由脚本从真实 zip 生成，不许手填占位值。
+- **新增三个 `PluckError.Kind`**（`model_load_failed` / `model_download_failed` / `manifest_invalid`）：CLI 把前者与 `model_missing` 一并解析为 exit 3——对写脚本的人来说"模型没装"和"模型装了但用不了"是同一件事：这个模型现在不可用。App 侧 `PluckFailure` 暂时把它们并进 `.unknown`，等 app 长出下载 UI 再给它们自己的文案。
+- **安装是一次 rename**：先解压进 `Models/.staging-<uuid>/`，校验通过后整个目录一次移入 `Models/<id>/`。半个模型目录在下一次启动会被读成"已安装"。

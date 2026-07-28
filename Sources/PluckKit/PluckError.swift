@@ -7,8 +7,14 @@ public enum PluckError: Error, LocalizedError, Sendable {
     /// The engine cannot run on this machine or OS build (e.g. Vision refusing to
     /// service the request in a VM or on a host without the required compute device).
     case engineUnavailable(reason: String)
-    /// Reserved for CoreMLEngine: a model referenced by the manifest is not on disk.
+    /// A model referenced by the manifest is not on disk.
     case modelMissing(id: String)
+    /// The model is on disk but Core ML would not compile or load it.
+    case modelLoadFailed(id: String, reason: String)
+    /// Fetching or verifying a model failed: transport, HTTP status, SHA256 mismatch,
+    /// unusable archive. All of them leave nothing installed.
+    case modelDownloadFailed(id: String, reason: String)
+    case manifestInvalid(reason: String)
     case processingFailed(underlying: (any Error)?)
 
     /// The stable machine-facing vocabulary. Raw values are a public contract — agents
@@ -18,6 +24,9 @@ public enum PluckError: Error, LocalizedError, Sendable {
         case imageLoadFailed = "image_load_failed"
         case engineUnavailable = "engine_unavailable"
         case modelMissing = "model_missing"
+        case modelLoadFailed = "model_load_failed"
+        case modelDownloadFailed = "model_download_failed"
+        case manifestInvalid = "manifest_invalid"
         case processingFailed = "processing_failed"
     }
 
@@ -27,6 +36,9 @@ public enum PluckError: Error, LocalizedError, Sendable {
         case .imageLoadFailed: return .imageLoadFailed
         case .engineUnavailable: return .engineUnavailable
         case .modelMissing: return .modelMissing
+        case .modelLoadFailed: return .modelLoadFailed
+        case .modelDownloadFailed: return .modelDownloadFailed
+        case .manifestInvalid: return .manifestInvalid
         case .processingFailed: return .processingFailed
         }
     }
@@ -41,6 +53,12 @@ public enum PluckError: Error, LocalizedError, Sendable {
             return "The matting engine is unavailable on this system: \(reason)"
         case .modelMissing(let id):
             return "The model “\(id)” is not installed."
+        case .modelLoadFailed(let id, let reason):
+            return "The model “\(id)” could not be loaded: \(reason)"
+        case .modelDownloadFailed(let id, let reason):
+            return "Downloading the model “\(id)” failed: \(reason)"
+        case .manifestInvalid(let reason):
+            return "The model manifest is unusable: \(reason)"
         case .processingFailed(let underlying):
             if let underlying {
                 return "Background removal failed: \(underlying.localizedDescription)"
@@ -55,6 +73,8 @@ public enum PluckError: Error, LocalizedError, Sendable {
             return "Try an image with a clearer foreground subject, or switch to a higher-quality model."
         case .modelMissing:
             return "Download the model first, then retry."
+        case .modelLoadFailed, .modelDownloadFailed:
+            return "Download the model again; the copy on disk is unusable."
         default:
             return nil
         }
