@@ -36,7 +36,7 @@
 
 ## 风险与对策
 
-- **BiRefNet_lite → Core ML 转换是最大不确定项**（自转，无现成 mlpackage）：属 v0.3 范围但建议骨架搭好后尽早做 time-boxed spike（一两天）验证可行性并拿到真实体积数字；spike 之前"140 MB"不得写进面向用户的文案。不阻塞 v0.1。
+- ~~**BiRefNet_lite → Core ML 转换是最大不确定项**~~ ✅ 2026-07-28 spike 落定（research.md 附录 A.5）：**可行**。fp16 mlpackage 实测 **94 MB**（不是猜的 140 MB），1024² warm 推理 0.59 秒，与 fp32 原模型二值一致率 99.99%。四个坑（deform_conv2d 手写替换 / aten::Int 垫片 / rank-6 重排 / ANE 拒编译）全部有解，复现路径 `Scripts/fetch-models.sh` + `Scripts/convert-birefnet.py`。遗留的实现约束：CoreMLEngine 必须以 `.cpuAndGPU` 加载（ANE 编译不了 deform 的 gather 链），首次加载约 10 秒需要在 UI 上有交代。
 - **Vision API 需 macOS 14+**：系统要求写清楚，不做旧系统兼容。
 - ~~**VisionEngine 的 `handler.perform` 是同步调用，会阻塞 async 协作线程**~~ ✅ 2026-07-27：`mask(for:)` 去掉 `async`（那件外套只是藏起了它阻塞的是谁），整条管线改在 `PluckQueue` 上跑——一个既限流（宽度 2–4）又换线程（私有并发 `DispatchQueue`）的 actor。批量拖放的内存上限从此由我们定，而不是由用户选了多少张文件决定（decisions.md 同日）。
 - **测试图片集**（发丝/毛发/玻璃/多主体/无主体/超大图）在 v0.1 期间攒齐——VisionEngine QA 即用，也是未来双引擎对比基准。

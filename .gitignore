@@ -21,3 +21,8 @@ qa/
 
 # Model weights fetched by Scripts/fetch-models.sh — Release assets, never committed
 models/weights/
+
+# Core ML conversion spike toolchain — see docs/roadmap.md v0.3
+.venv/
+models/birefnet_lite_src/
+Scripts/__pycache__/

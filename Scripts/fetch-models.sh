@@ -41,6 +41,18 @@ case "$what" in
   *) echo "usage: $0 [shipping|baselines|all]" >&2; exit 1 ;;
 esac
 
+# The conversion spike (Scripts/convert-birefnet.py) needs the model *code* too,
+# not just weights: birefnet.py defines the architecture the safetensors load into.
+if [ "$what" != "baselines" ]; then
+    src="models/birefnet_lite_src"
+    mkdir -p "$src"
+    for f in config.json birefnet.py BiRefNet_config.py; do
+        [ -s "$src/$f" ] || curl -sfL -o "$src/$f" \
+            "https://huggingface.co/ZhengPeng7/BiRefNet_lite/resolve/main/$f"
+    done
+    ln -sf ../weights/birefnet_lite.safetensors "$src/model.safetensors"
+fi
+
 for entry in "$@"; do
     IFS='|' read -r name url mb licence <<<"$entry"
     target="$out/$name"

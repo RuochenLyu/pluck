@@ -218,3 +218,18 @@ macOS 原生开源抠图项目普遍只有个位数到几十 star——细分空
 四个 Apache-2.0 基线全部挂在 rembg 的 `v0.0.0` release（该 release 共 38 个 asset），路径规律是 `https://github.com/danielgatis/rembg/releases/download/v0.0.0/<name>.onnx`——这正是 A.1 里那些 `.out.png` 的出处，本机有了它们才可能在 DIS-VD 上跑整套对比，而不是只对着 13 张截图说话。
 
 权重落在 `models/weights/`（已 gitignore，共 801 MB），下载后记 `SHA256SUMS`；v0.3 app 内的 manifest 会复用同一批摘要。**License 是闸门，不是体积**：BRIA 系两个模型在脚本里是刻意缺席的，且必须保持缺席。
+
+### A.5 Core ML 转换 spike：可行，94 MB，0.6 秒（2026-07-28）
+
+roadmap 标了半个月的"最大不确定项"今天有了答案。`Scripts/convert-birefnet.py` 把 BiRefNet_lite（169 MB fp32 safetensors）转成了 **94 MB 的 fp16 mlpackage**，1024×1024 单张 warm 推理 **0.59 秒**（M 系 GPU），与 PyTorch fp32 原模型对拍 **MAE 0.0001、二值 mask 一致率 99.99%**。此前不许写进文案的"140 MB"猜测作废，真实数字更好。
+
+一路上的四个坑，全部有解，记下来防止复发：
+
+1. **`torchvision.ops.deform_conv2d` 无 Core ML 对应**（decoder 的 ASPPDeformable 用它）。解法：用纯张量算子手写等价实现（显式 gather + 双线性插值），trace 前替换；与 torchvision 对拍误差 ~1e-5，含 mask/stride/dilation/多 offset-group 变体。
+2. **swin 的 `torch.ceil(torch.tensor(H)/window)` trace 成 shape-(1,) 常量**，coremltools 的 `aten::Int` 处理器只认 0 维。解法：转换时给 `_cast` 加单元素解包垫片（输入尺寸固定，全是可折叠常量，无损）。
+3. **`repeat_interleave` 被 lower 成 fp32 reps 的 `tile`**，MIL 拒收；**rank-6 reshape** 超 Core ML 的 rank-5 上限。解法：都发生在我们自己的 deform 重写里——mask 乘法改 broadcast、offset 保持原生通道布局做通道算术。
+4. **ANE 编译失败**（`ANECCompile() FAILED`，deform 的 gather 链）。解法：`computeUnits = .cpuAndGPU` 加载。首次加载约 10 秒（编译缓存后消失），warm 0.59 秒。**PluckKit 的 CoreMLEngine 必须传同样的 compute units**，这是 v0.3 的实现约束。
+
+复现：`Scripts/fetch-models.sh` 取权重和模型代码 → `.venv/bin/python Scripts/convert-birefnet.py`（venv：python3.12 + torch + coremltools）。归一化常数折进了输入层，Swift 侧只喂原始 CGImage。
+
+质量抽查（Core ML 输出，对 rembg 官方样例）：girl-1 IoU 96.5%、animal-1 96.0%、anime-girl-3 83.5%（目检：金鱼是实心的，rembg 抠成半透明；四方对比里 BiRefNet 最干净）、plants-1 3.7%（和 Vision 一样抠整个花架——两个"多实例"引擎对 u2net 的"单显著体"）。
