@@ -96,6 +96,11 @@ struct GlassGroup<Content: View>: View {
 /// destinations. That separation is the point: the shelf's whole surface is a drop target,
 /// and hanging that off the backdrop meant the backdrop's class was load-bearing for a
 /// reason that had nothing to do with what it was made of.
+///
+/// A `cornerRadius` of zero means "the window already has a shape": the main window is
+/// `.titled`, so AppKit clips its content view to the frame's own corners, and a radius of
+/// ours on top of that would be a second, slightly different rounding drawn just inside the
+/// first.
 @MainActor
 enum PanelBackdrop {
     /// Fills `container` with a backdrop and embeds `content` in it.
@@ -121,13 +126,15 @@ enum PanelBackdrop {
             effect.material = .hudWindow
             effect.state = .active
             effect.blendingMode = .behindWindow
-            effect.maskImage = cornerMask(radius: cornerRadius)
-            // The mask shapes the material, not the views drawn on top of it, so the SwiftUI
-            // side needs a clip of its own. Circular corners rather than `.continuous`: the
-            // mask is a drawn `NSBezierPath` and the two shapes have to agree, or a rim drawn
-            // in SwiftUI gets clipped at the corners.
-            content.layer?.cornerRadius = cornerRadius
-            content.layer?.masksToBounds = true
+            if cornerRadius > 0 {
+                effect.maskImage = cornerMask(radius: cornerRadius)
+                // The mask shapes the material, not the views drawn on top of it, so the
+                // SwiftUI side needs a clip of its own. Circular corners rather than
+                // `.continuous`: the mask is a drawn `NSBezierPath` and the two shapes have
+                // to agree, or a rim drawn in SwiftUI gets clipped at the corners.
+                content.layer?.cornerRadius = cornerRadius
+                content.layer?.masksToBounds = true
+            }
             effect.addSubview(content)
             container.addSubview(effect)
         }

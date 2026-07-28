@@ -1,14 +1,18 @@
 import AppKit
 import SwiftUI
 
-/// The batch surface: a real, resizable, standard-chrome window (p1/p2).
+/// The batch surface: a real, resizable window — on the same glass as everything else.
 ///
-/// §4.7's borderless-glass rules were reverse-engineered from the *panels* — things that
-/// hang off the menu bar and stand in front of the user's work for a few seconds. This is
-/// the other kind of surface: it is resizable, it can be left open behind other windows,
-/// and §4.7's own glass grading says so ("主窗口用标准窗口材质保可读性"). Reimplementing
-/// traffic lights and a resize grip to satisfy a rule about floating panels would be
-/// following the letter of the design past the point where it means anything.
+/// §4.7 used to grade the glass by surface and gave this window "标准窗口材质保可读性", on
+/// the theory that a window with an arbitrary *other window* behind it cannot afford to be
+/// transparent. That entry is withdrawn (decisions.md 2026-07-28). Liquid Glass is not a
+/// hole in the window: it tints, refracts and lights its own edge, and the deep-tinted
+/// result in `p4-floating.png` is *more* readable than a system-grey fill, not less —
+/// readability is what the tint is for. What is left of the standard window is the part
+/// that carries meaning: the traffic lights and the resize edges, which are how a window
+/// the user can leave open behind other work is operated. They now float on the glass,
+/// with no title bar under them and no "Pluck" written across it — the menu bar has
+/// already said whose window this is.
 @MainActor
 final class MainWindowController {
     private var window: NSWindow?
@@ -37,11 +41,21 @@ final class MainWindowController {
     private func make(model: AppModel) -> NSWindow {
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 620, height: 540),
-            styleMask: [.titled, .closable, .miniaturizable, .resizable],
+            styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )
+        // Still set, and still through the catalog: the title is what the window is called
+        // in Mission Control, in the Window menu and to VoiceOver. It is only the *drawn*
+        // one that goes — a chrome-free glass surface with one word floating at the top of
+        // it is a title bar that forgot to draw its own background.
         window.title = L.s("Pluck")
+        window.titleVisibility = .hidden
+        window.titlebarAppearsTransparent = true
+        // Both, or there is no glass: an opaque window paints its `backgroundColor` under
+        // the content view, and `.behindWindow` blending has nothing to reach through.
+        window.isOpaque = false
+        window.backgroundColor = .clear
         window.isReleasedWhenClosed = false
         window.minSize = NSSize(width: 480, height: 400)
         window.tabbingMode = .disallowed
@@ -49,26 +63,25 @@ final class MainWindowController {
         // The drop destination is the window's own content view rather than a SwiftUI
         // `.onDrop`: SwiftUI hands back a provider flattened to `public.jpeg` with a nil
         // `suggestedName`, and the filename is the one thing a batch list is made of.
+        //
+        // Same three-layer stack as the shelf, and for the same reason (`ShelfBackdropView`):
+        // this view stays a plain `NSView` that only knows about dragging, the glass is
+        // installed into it by `PanelBackdrop`, and AppKit still finds the destination by
+        // walking up the superview chain from whatever it hit.
         let backdrop = MainWindowContentView()
         backdrop.dropTarget = dropTarget
         backdrop.onDrop = { [weak self] payloads in self?.onDrop?(payloads) }
 
         let hosting = NSHostingView(rootView: MainWindowView(model: model, dropTarget: dropTarget))
-        hosting.translatesAutoresizingMaskIntoConstraints = false
-        backdrop.addSubview(hosting)
-        NSLayoutConstraint.activate([
-            hosting.leadingAnchor.constraint(equalTo: backdrop.leadingAnchor),
-            hosting.trailingAnchor.constraint(equalTo: backdrop.trailingAnchor),
-            hosting.topAnchor.constraint(equalTo: backdrop.topAnchor),
-            hosting.bottomAnchor.constraint(equalTo: backdrop.bottomAnchor)
-        ])
+        PanelBackdrop.install(content: hosting, in: backdrop, cornerRadius: 0)
         window.contentView = backdrop
         return window
     }
 }
 
-/// Same job as `ShelfBackdropView`, minus the material: this one sits under a window that
-/// already has a background.
+/// Same job as `ShelfBackdropView`, and now made of the same nothing: the drag destination
+/// and the box the glass is installed into, and no opinion about which of the two backdrops
+/// the running system will put there.
 final class MainWindowContentView: NSView {
     var onDrop: (([DroppedPayload]) -> Void)?
     weak var dropTarget: DropTarget?
@@ -131,6 +144,12 @@ struct MainWindowView: View {
     private static let columns = [GridItem(.adaptive(minimum: 132, maximum: 150), spacing: 12)]
     private static let cellHeight: CGFloat = 132
 
+    /// Room for the traffic lights, which now stand on the glass with no title bar under
+    /// them. Nothing scrolls beneath them on purpose: a card sliding under three buttons
+    /// that have no material of their own to separate them is the cost of the missing bar,
+    /// and 28pt of quiet glass is the price of not paying it.
+    private static let titleBarInset: CGFloat = 28
+
     /// One list, newest first — the same order and the same identities as the shelf grid.
     /// The p2 mockup queues oldest-first, which reads well for exactly one drop and stops
     /// meaning anything the moment restored history shares the list: "first" would then be
@@ -151,6 +170,7 @@ struct MainWindowView: View {
             }
             bottomBar
         }
+        .padding(.top, Self.titleBarInset)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .animation(.easeOut(duration: 0.12), value: dropTarget.isTargeted)
     }
@@ -178,6 +198,9 @@ struct MainWindowView: View {
             }
             .padding(16)
         }
+        // The scroll view brings a background of its own — the system's window backdrop,
+        // which is the one thing this window no longer has. Hidden, the cards sit on glass.
+        .scrollContentBackground(.hidden)
         .scrollIndicators(.automatic)
         .overlay {
             if dropTarget.isTargeted {
@@ -209,6 +232,14 @@ struct MainWindowView: View {
         .padding(.bottom, 12)
     }
 
+    /// The empty state, standing directly on the glass.
+    ///
+    /// It used to be a dashed rectangle over a `.quaternary` wash — the standing drop banner
+    /// the gallery pass deleted, grown to fill the window. Two reasons it goes now: the wash
+    /// is a system-grey fill on a surface whose whole point is that it takes its colour from
+    /// what is behind it, and the dash is a hairline inside a panel, which v2 bans everywhere
+    /// else in the app. What answers a drag is the same accent rim the grid uses, and it says
+    /// it only when it is true.
     private var dropZone: some View {
         let targeted = dropTarget.isTargeted
         return VStack(spacing: 8) {
@@ -229,14 +260,12 @@ struct MainWindowView: View {
         .fixedSize(horizontal: false, vertical: true)
         .padding(.horizontal, 24)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(targeted ? AnyShapeStyle(Color.accentColor.opacity(0.08)) : AnyShapeStyle(.quaternary.opacity(0.4)))
+        .background(targeted ? Color.accentColor.opacity(0.08) : .clear)
         .clipShape(RoundedRectangle(cornerRadius: Tokens.cardRadius, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: Tokens.cardRadius, style: .continuous)
-                .strokeBorder(
-                    targeted ? AnyShapeStyle(.tint) : AnyShapeStyle(.separator),
-                    style: StrokeStyle(lineWidth: targeted ? 1.5 : 1, dash: [6, 5])
-                )
+                .strokeBorder(Color.accentColor, lineWidth: 2)
+                .opacity(targeted ? 1 : 0)
         }
         .padding(16)
     }
@@ -249,6 +278,11 @@ struct MainWindowView: View {
     /// cutouts, and a number counting the things the user is looking at is a caption on a
     /// photograph saying "photograph". What is left is the line that only speaks when
     /// something has happened, and the verb.
+    ///
+    /// And no `.bar` under them. A material strip is how you separate a footer from an
+    /// opaque content area; on glass it is a second, greyer pane of glass laid over the
+    /// first, which is the giveaway that a surface was assembled from stock parts. The
+    /// status line and the button stand on the window's own substance.
     private var bottomBar: some View {
         HStack(spacing: 8) {
             if let status = model.status {
@@ -278,7 +312,6 @@ struct MainWindowView: View {
         }
         .padding(.horizontal, 16)
         .frame(minHeight: 52)
-        .background(.bar)
     }
 
     private func statusIcon(_ kind: StatusLine.Kind) -> some View {
