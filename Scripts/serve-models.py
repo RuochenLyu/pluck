@@ -13,6 +13,10 @@ Then point a dev manifest's URLs at http://127.0.0.1:8901/<file>.zip.
 `--flaky N` closes every connection after N bytes, which is how the resume path
 gets exercised deterministically: first request dies at N, the retry must send
 Range and finish, and the SHA256 over the joined halves must still match.
+
+Port 0 binds a free port and announces it on the first stderr line
+("listening 127.0.0.1:PORT"), which is how PluckKit's integration tests start a
+server without racing another one for a hardcoded number.
 """
 
 import hashlib
@@ -20,6 +24,7 @@ import os
 import re
 import socket
 import sys
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 ROOT = os.path.abspath(sys.argv[1] if len(sys.argv) > 1 else ".")
@@ -93,11 +98,18 @@ class RangeHandler(BaseHTTPRequestHandler):
                     self.wfile.flush()
                     # A mid-body cut, which is what a dropped connection looks
                     # like to the client — not an HTTP error it could parse.
-                    # shutdown(), not just close(): close() alone leaves the
-                    # peer blocked on a socket the kernel still holds open.
+                    # SHUT_WR, not SHUT_RDWR: half-closing sends a FIN, so the
+                    # bytes already in flight still arrive and the peer sees a
+                    # short body. Tearing down both directions can make the
+                    # kernel answer with an RST instead, and an RST lets the
+                    # client throw away everything it had buffered — which
+                    # would make this a test of data loss rather than of resume.
                     self.close_connection = True
                     try:
-                        self.connection.shutdown(socket.SHUT_RDWR)
+                        self.connection.shutdown(socket.SHUT_WR)
+                        # Long enough for the peer to drain the socket before
+                        # the handler returns and closes it.
+                        time.sleep(0.2)
                     except OSError:
                         pass
                     return
@@ -110,6 +122,10 @@ class RangeHandler(BaseHTTPRequestHandler):
 
 
 if __name__ == "__main__":
+    server = ThreadingHTTPServer(("127.0.0.1", PORT), RangeHandler)
+    port = server.server_address[1]
     mode = f", dropping every connection after {FLAKY} bytes" if FLAKY else ""
-    print(f"serving {ROOT} on http://127.0.0.1:{PORT}{mode}", file=sys.stderr)
-    ThreadingHTTPServer(("127.0.0.1", PORT), RangeHandler).serve_forever()
+    # Machine-readable first, prose second: a test reads line one and stops.
+    print(f"listening 127.0.0.1:{port}", file=sys.stderr, flush=True)
+    print(f"serving {ROOT} on http://127.0.0.1:{port}{mode}", file=sys.stderr, flush=True)
+    server.serve_forever()

@@ -83,72 +83,6 @@ public struct ModelManifest: Sendable, Equatable, Codable {
     }
 }
 
-/// The one network call PluckKit ever makes, behind a protocol so tests never reach it.
-public protocol ModelDownloading: Sendable {
-    /// Fetches `url` into a temporary file and hands that file to the caller, who owns it.
-    func download(
-        from url: URL,
-        onProgress: @Sendable @escaping (_ received: Int64, _ expected: Int64) -> Void
-    ) async throws -> URL
-}
-
-public struct URLSessionModelDownloader: ModelDownloading {
-    private let configuration: URLSessionConfiguration
-
-    public init(configuration: URLSessionConfiguration = .ephemeral) {
-        self.configuration = configuration
-    }
-
-    public func download(
-        from url: URL,
-        onProgress: @Sendable @escaping (Int64, Int64) -> Void
-    ) async throws -> URL {
-        let session = URLSession(configuration: configuration)
-        defer { session.finishTasksAndInvalidate() }
-
-        let observer = ProgressObserver(onProgress: onProgress)
-        let (temporary, response) = try await session.download(from: url, delegate: observer)
-
-        if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
-            try? FileManager.default.removeItem(at: temporary)
-            throw URLError(.badServerResponse, userInfo: [
-                NSLocalizedDescriptionKey: "HTTP \(http.statusCode) from \(url.absoluteString)"
-            ])
-        }
-
-        // URLSession reclaims its own temporary file as soon as this call returns, so the
-        // bytes move somewhere we control before anyone else can look at them.
-        let destination = FileManager.default.temporaryDirectory
-            .appendingPathComponent("pluck-download-\(UUID().uuidString)")
-        try FileManager.default.moveItem(at: temporary, to: destination)
-        return destination
-    }
-
-    private final class ProgressObserver: NSObject, URLSessionDownloadDelegate, @unchecked Sendable {
-        private let onProgress: @Sendable (Int64, Int64) -> Void
-
-        init(onProgress: @escaping @Sendable (Int64, Int64) -> Void) {
-            self.onProgress = onProgress
-        }
-
-        func urlSession(
-            _ session: URLSession,
-            downloadTask: URLSessionDownloadTask,
-            didWriteData bytesWritten: Int64,
-            totalBytesWritten: Int64,
-            totalBytesExpectedToWrite: Int64
-        ) {
-            onProgress(totalBytesWritten, totalBytesExpectedToWrite)
-        }
-
-        func urlSession(
-            _ session: URLSession,
-            downloadTask: URLSessionDownloadTask,
-            didFinishDownloadingTo location: URL
-        ) {}
-    }
-}
-
 /// Installs manifest models under `~/Library/Application Support/Pluck/Models/<id>/`.
 ///
 /// Where the manifest comes from is the caller's problem on purpose: the app reads it from
@@ -200,6 +134,24 @@ public struct ModelRegistry: Sendable {
         root.appendingPathComponent(id, isDirectory: true)
     }
 
+    /// Where an interrupted download is kept until it either finishes or is proved wrong.
+    ///
+    /// Beside the models rather than in `/tmp` for two reasons: the temporary directory is
+    /// swept by the system (and by Pluck's own launch sweep) exactly when a user is most
+    /// likely to be resuming — after a quit — and a rename into `Models/` from another
+    /// volume is a copy of 94 MB rather than a rename. The leading dot keeps it out of the
+    /// way of the `<id>/` directories that mean "installed".
+    func partialURL(for id: String) -> URL {
+        root.appendingPathComponent(".downloads", isDirectory: true)
+            .appendingPathComponent("\(id).partial")
+    }
+
+    private func discardPartial(for id: String) {
+        let partial = partialURL(for: id)
+        try? FileManager.default.removeItem(at: partial)
+        try? FileManager.default.removeItem(at: partial.appendingPathExtension("validator"))
+    }
+
     /// The installed model bundle, or nil when it is not on disk.
     public func localURL(for id: String) -> URL? {
         guard let descriptor = manifest[id] else { return nil }
@@ -227,6 +179,12 @@ public struct ModelRegistry: Sendable {
 
     /// Downloads, verifies and installs `id`. Idempotent: an already-installed model is
     /// returned untouched unless `force` is set.
+    ///
+    /// An interrupted call — a dropped connection, a cancelled `Task`, a killed process —
+    /// leaves its bytes in `partialURL(for:)`, and the next call continues from there. What
+    /// resuming is allowed to change is how long the download takes; what it is not allowed
+    /// to change is the answer to "are these the right bytes", which stays exactly one
+    /// SHA-256 over the whole finished file.
     @discardableResult
     public func install(
         _ id: String,
@@ -236,10 +194,10 @@ public struct ModelRegistry: Sendable {
         guard let descriptor = manifest[id] else { throw PluckError.modelMissing(id: id) }
         if !force, let installed = localURL(for: id) { return installed }
 
+        let archive = partialURL(for: id)
         progress?(Progress(phase: .downloading, completedBytes: 0, expectedBytes: descriptor.bytes))
-        let archive: URL
         do {
-            archive = try await downloader.download(from: descriptor.url) { received, expected in
+            try await downloader.download(from: descriptor.url, into: archive) { received, expected in
                 progress?(Progress(
                     phase: .downloading,
                     completedBytes: received,
@@ -247,14 +205,23 @@ public struct ModelRegistry: Sendable {
                 ))
             }
         } catch {
+            // Deliberately not discarded: the bytes on disk are the whole point, and the
+            // next attempt will either resume them or reject them on the validator.
             throw PluckError.modelDownloadFailed(id: id, reason: error.localizedDescription)
         }
-        defer { try? FileManager.default.removeItem(at: archive) }
 
         progress?(Progress(phase: .verifying, completedBytes: descriptor.bytes, expectedBytes: descriptor.bytes))
-        try verify(archive, against: descriptor)
+        do {
+            try verify(archive, against: descriptor)
+        } catch {
+            // A file that fails the digest will not start passing it by having more bytes
+            // appended, so this is the one failure that must not be resumable.
+            discardPartial(for: id)
+            throw error
+        }
 
         progress?(Progress(phase: .installing, completedBytes: descriptor.bytes, expectedBytes: descriptor.bytes))
+        defer { discardPartial(for: id) }
         return try unpack(archive, as: descriptor)
     }
 

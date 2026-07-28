@@ -8,6 +8,8 @@ import XCTest
 private final class StubDownloader: ModelDownloading, @unchecked Sendable {
     enum Response {
         case file(URL)
+        /// Writes the first `prefix` bytes of the file, then fails — a dropped connection.
+        case truncated(URL, prefix: Int)
         case failure(any Error)
     }
 
@@ -21,8 +23,9 @@ private final class StubDownloader: ModelDownloading, @unchecked Sendable {
 
     func download(
         from url: URL,
+        into destination: URL,
         onProgress: @Sendable @escaping (Int64, Int64) -> Void
-    ) async throws -> URL {
+    ) async throws {
         let response = lock.withLock {
             callCount += 1
             return self.response
@@ -32,13 +35,23 @@ private final class StubDownloader: ModelDownloading, @unchecked Sendable {
         case .failure(let error):
             throw error
         case .file(let source):
-            let copy = FileManager.default.temporaryDirectory
-                .appendingPathComponent("stub-download-\(UUID().uuidString)")
-            try FileManager.default.copyItem(at: source, to: copy)
-            let size = (try FileManager.default.attributesOfItem(atPath: copy.path)[.size] as? Int64) ?? 0
-            onProgress(size, size)
-            return copy
+            let bytes = try Data(contentsOf: source)
+            try write(bytes, to: destination)
+            onProgress(Int64(bytes.count), Int64(bytes.count))
+        case .truncated(let source, let prefix):
+            let bytes = try Data(contentsOf: source).prefix(prefix)
+            try write(Data(bytes), to: destination)
+            onProgress(Int64(bytes.count), Int64(bytes.count))
+            throw URLError(.networkConnectionLost)
         }
+    }
+
+    private func write(_ data: Data, to destination: URL) throws {
+        try FileManager.default.createDirectory(
+            at: destination.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try data.write(to: destination)
     }
 }
 
@@ -313,6 +326,47 @@ final class ModelRegistryTests: XCTestCase {
         XCTAssertTrue(try registry.remove("fake"))
         XCTAssertFalse(try registry.remove("fake"))
         XCTAssertFalse(registry.isInstalled("fake"))
+    }
+
+    /// The bytes an interrupted attempt did receive are the whole reason resuming exists,
+    /// so a transport failure must leave them where the next attempt will look.
+    func testInterruptedDownloadKeepsWhatArrived() async throws {
+        let downloader = StubDownloader(response: .truncated(archive, prefix: 20))
+        let registry = ModelRegistry(manifest: try manifest(), root: root, downloader: downloader)
+
+        do {
+            try await registry.install("fake")
+            XCTFail("a dropped connection must surface")
+        } catch {
+            XCTAssertEqual((error as? PluckError)?.kind, .modelDownloadFailed)
+        }
+
+        let partial = registry.partialURL(for: "fake")
+        let kept = try XCTUnwrap(FileManager.default.attributesOfItem(atPath: partial.path)[.size] as? Int64)
+        XCTAssertEqual(kept, 20)
+        XCTAssertFalse(registry.isInstalled("fake"))
+    }
+
+    /// Bytes that fail the digest are the one thing resuming must never preserve: appending
+    /// to them can only ever produce a longer wrong file.
+    func testDigestMismatchDiscardsThePartialFile() async throws {
+        let downloader = StubDownloader(response: .file(archive))
+        let registry = ModelRegistry(
+            manifest: try manifest(sha: String(repeating: "b", count: 64)),
+            root: root,
+            downloader: downloader
+        )
+
+        try? await registry.install("fake")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: registry.partialURL(for: "fake").path))
+    }
+
+    func testSuccessfulInstallLeavesNoPartialBehind() async throws {
+        let downloader = StubDownloader(response: .file(archive))
+        let registry = ModelRegistry(manifest: try manifest(), root: root, downloader: downloader)
+
+        try await registry.install("fake")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: registry.partialURL(for: "fake").path))
     }
 
     func testDefaultRootIsUnderApplicationSupport() {
