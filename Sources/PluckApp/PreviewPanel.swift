@@ -19,8 +19,14 @@ final class PreviewPanelController {
     private static let gap: CGFloat = 10
     private static let margin: CGFloat = 8
 
+    /// The panel decodes at its own size, not the cutout's: 560pt on the long edge at 2×,
+    /// which is every pixel a Retina display can show of it. Decoding the export instead
+    /// meant holding two full-resolution `NSImage`s — a 24-megapixel pair is ~200 MB — to
+    /// draw about a megapixel.
+    static let decodeMaxEdge = Int(maxLongEdge) * 2
+
     private var panel: PreviewPanel?
-    private var host: NSHostingView<CutoutPreviewView>?
+    private var host: NSHostingView<PreviewRoot>?
 
     /// Where the panel was last put down by us, and where the user moved it to afterwards.
     /// Dragging a panel somewhere is an explicit answer to "where should this be"; placing
@@ -74,12 +80,9 @@ final class PreviewPanelController {
         let root = CutoutPreviewView(item: item, model: model, onClose: { [weak self] in self?.close() })
 
         let panel = self.panel ?? makePanel(root: root, size: size)
-        // Before anything moves it: a frame that no longer matches where we left it can only
-        // have been dragged there.
-        if let placed = placedOrigin, panel.frame.origin != placed {
-            userTopLeft = NSPoint(x: panel.frame.minX, y: panel.frame.maxY)
-        }
-        host?.rootView = root
+        // Before anything moves it.
+        rememberIfMoved()
+        host?.rootView = PreviewRoot(content: root)
         panel.setContentSize(size)
         panel.setFrameOrigin(origin(for: panel.frame.size, beside: shelf))
         placedOrigin = panel.frame.origin
@@ -144,7 +147,34 @@ final class PreviewPanelController {
     }
 
     func close() {
+        // Sampled here too, not only on the next `show`. Dragging the panel somewhere and
+        // then quitting is an ordinary sequence, and it used to throw the answer away.
+        rememberIfMoved()
         panel?.orderOut(nil)
+        // A hidden panel is not a cheap panel: the two decoded halves are the largest
+        // objects the app holds, and they would sit there until the next cutout is opened —
+        // or forever, if there is not one. Dropping the root view releases the `@State` they
+        // live in.
+        host?.rootView = PreviewRoot(content: nil)
+    }
+
+    /// The key window question for `AppDelegate`'s ⌘W: this panel is borderless, so the
+    /// File ▸ Close menu item cannot reach it.
+    func owns(_ window: NSWindow?) -> Bool {
+        window != nil && window === panel
+    }
+
+    /// A frame that no longer matches where we put it can only have been dragged there.
+    private func rememberIfMoved() {
+        guard let panel, let moved = Self.movedTopLeft(of: panel.frame, placedAt: placedOrigin) else { return }
+        userTopLeft = moved
+    }
+
+    /// nil when the panel is still where it was put down. Split out from the panel so the
+    /// rule — which corner is remembered, and when — is testable without a window server.
+    static func movedTopLeft(of frame: NSRect, placedAt placed: NSPoint?) -> NSPoint? {
+        guard let placed, frame.origin != placed else { return nil }
+        return NSPoint(x: frame.minX, y: frame.maxY)
     }
 
     private func makePanel(root: CutoutPreviewView, size: CGSize) -> PreviewPanel {
@@ -172,7 +202,7 @@ final class PreviewPanelController {
         container.layer?.cornerCurve = .continuous
         container.layer?.masksToBounds = true
 
-        let host = NSHostingView(rootView: root)
+        let host = NSHostingView(rootView: PreviewRoot(content: root))
         host.frame = container.bounds
         host.autoresizingMask = [.width, .height]
         container.addSubview(host)
@@ -195,6 +225,19 @@ final class PreviewPanel: NSPanel {
 
     override func cancelOperation(_ sender: Any?) {
         onCancel?()
+    }
+}
+
+/// The panel's root: a preview, or nothing at all. The empty case is what `close()` swaps
+/// in — SwiftUI has no other way to tell a view to let go of what its `@State` is holding,
+/// and there is no "the panel is hidden" signal inside the view to hang it on.
+struct PreviewRoot: View {
+    var content: CutoutPreviewView?
+
+    var body: some View {
+        ZStack {
+            if let content { content }
+        }
     }
 }
 
@@ -225,9 +268,14 @@ struct CutoutPreviewView: View {
                 // Both halves are files now, and `Data(contentsOf:)` blocks. Reading them
                 // on the main actor would stall the click that opened the panel for as
                 // long as the disk takes; the images arrive a frame later instead.
+                //
+                // The "before" half was downsampled on the way to disk (`previewMaxEdge`).
+                // The "after" half is the export, at whatever the camera shot — so it is
+                // fitted to the panel here, on this same detached hop.
                 let item = item
+                let maxEdge = PreviewPanelController.decodeMaxEdge
                 let bytes = await Task.detached(priority: .userInitiated) {
-                    (item.originalPNG(), item.pngData())
+                    (item.originalPNG(), PluckService.fitted(item.pngData(), maxEdge: maxEdge))
                 }.value
                 before = bytes.0.flatMap(NSImage.init(data:))
                 after = bytes.1.flatMap(NSImage.init(data:))

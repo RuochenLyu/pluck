@@ -71,6 +71,30 @@ final class PreviewPlacementTests: XCTestCase {
         XCTAssertTrue(visible.contains(frame))
     }
 
+    // MARK: - Noticing the drag
+
+    /// The panel is placed by us and moved by the user, and only the second of those is an
+    /// answer worth remembering. The frame not matching where we put it is the only
+    /// evidence available — a borderless panel's drag is AppKit's, not ours.
+    func testAPanelStillWhereItWasPutDownIsNotARememberedPosition() {
+        let placed = NSPoint(x: 100, y: 200)
+        let frame = NSRect(origin: placed, size: size)
+        XCTAssertNil(PreviewPanelController.movedTopLeft(of: frame, placedAt: placed))
+    }
+
+    /// Top-left, not the AppKit origin: the panel is resized per image and grows upward from
+    /// its bottom edge, so remembering the bottom would make it walk down the screen.
+    func testAMovedPanelIsRememberedByItsTopLeftCorner() {
+        let frame = NSRect(x: 140, y: 260, width: size.width, height: size.height)
+        let moved = PreviewPanelController.movedTopLeft(of: frame, placedAt: NSPoint(x: 100, y: 200))
+        XCTAssertEqual(moved, NSPoint(x: frame.minX, y: frame.maxY))
+    }
+
+    /// Nothing has been placed yet, so nothing can have been dragged.
+    func testAPanelThatWasNeverPlacedRemembersNothing() {
+        XCTAssertNil(PreviewPanelController.movedTopLeft(of: NSRect(origin: .zero, size: size), placedAt: nil))
+    }
+
     /// A tall cutout next to a shelf that hangs low would otherwise start below the bottom
     /// of the screen — top alignment yields to the edge.
     func testTallPreviewIsPushedDownFromTheTopAlignment() {

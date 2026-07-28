@@ -71,6 +71,18 @@ enum PluckService {
         try? await decoding.run { try Thumbnail.pngData(for: decode(), maxEdge: thumbnailMaxEdge) }
     }
 
+    /// Re-encodes stored PNG bytes down to what a view can actually show. Alpha survives
+    /// the round trip — `Thumbnail` goes through the same RGBA path the cutouts themselves
+    /// are written with — and nil comes back for bytes that will not decode, which the
+    /// caller already has to handle for a file that has gone missing.
+    ///
+    /// Returns `Data` rather than a `CGImage` for the same reason `ProcessedImage` does:
+    /// it crosses an isolation boundary, and PNG bytes are the app's lingua franca for that.
+    static func fitted(_ data: Data?, maxEdge: Int) -> Data? {
+        guard let data else { return nil }
+        return try? Thumbnail.pngData(for: ImageLoader.load(data: data), maxEdge: maxEdge)
+    }
+
     static func fingerprint(_ data: Data) -> String {
         SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
     }
