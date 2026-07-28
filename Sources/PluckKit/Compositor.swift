@@ -42,9 +42,12 @@ public enum Compositor {
 
         var source = try ImageBuffers.rgba(from: image)
         let alpha = try ImageBuffers.grayscale(from: mask, width: width, height: height)
+        let space = source.colorSpace
 
-        source.pixels.withUnsafeMutableBufferPointer { out in
-            alpha.pixels.withUnsafeBufferPointer { a in
+        source.pixels.withUnsafeMutableBytes { rawOut in
+            let out = rawOut.bindMemory(to: UInt8.self)
+            alpha.pixels.withUnsafeBytes { rawAlpha in
+                let a = rawAlpha.bindMemory(to: UInt8.self)
                 switch background {
                 case .transparent:
                     for i in 0..<(width * height) {
@@ -57,11 +60,12 @@ public enum Compositor {
                         out[base + 3] = mul(out[base + 3], k)
                     }
                 case .solid(let color):
-                    let bgA = clamp8(color.alpha)
+                    let solid = components(of: color, in: space)
+                    let bgA = solid.a
                     let bg = (
-                        r: mul(clamp8(color.red), Int(bgA)),
-                        g: mul(clamp8(color.green), Int(bgA)),
-                        b: mul(clamp8(color.blue), Int(bgA))
+                        r: mul(solid.r, Int(bgA)),
+                        g: mul(solid.g, Int(bgA)),
+                        b: mul(solid.b, Int(bgA))
                     )
                     for i in 0..<(width * height) {
                         let k = Int(a[i])
@@ -102,6 +106,26 @@ public enum Compositor {
             throw PluckError.processingFailed(underlying: nil)
         }
         return data as Data
+    }
+
+    /// `PluckColor` is defined in sRGB, but the buffer being composited into is in the
+    /// input's own space. Writing the raw bytes there would make `--background #ffffff`
+    /// a different white in a Display P3 export than in an sRGB one.
+    private static func components(
+        of color: PluckColor,
+        in space: CGColorSpace
+    ) -> (r: UInt8, g: UInt8, b: UInt8, a: UInt8) {
+        let alpha = clamp8(color.alpha)
+        let literal = (r: clamp8(color.red), g: clamp8(color.green), b: clamp8(color.blue), a: alpha)
+        guard space !== ImageBuffers.sRGB else { return literal }
+        guard let source = CGColor(
+            colorSpace: ImageBuffers.sRGB,
+            components: [CGFloat(color.red), CGFloat(color.green), CGFloat(color.blue), 1]
+        ),
+            let converted = source.converted(to: space, intent: .relativeColorimetric, options: nil),
+            let values = converted.components, values.count >= 3
+        else { return literal }
+        return (clamp8(Double(values[0])), clamp8(Double(values[1])), clamp8(Double(values[2])), alpha)
     }
 
     private static func mul(_ value: UInt8, _ factor: Int) -> UInt8 {

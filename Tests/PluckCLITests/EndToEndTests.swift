@@ -100,6 +100,51 @@ final class EndToEndTests: XCTestCase {
         XCTAssertGreaterThan(try Data(contentsOf: output).count, 12)
     }
 
+    /// The regression the `--force` check was silently failing: a destination the two
+    /// path spellings disagree about. `FileManager.fileExists(atPath: "~/x.png")` is
+    /// always false — no directory called `~` exists — while `URL(fileURLWithPath:)`
+    /// expands it, so the check passed over a file the write then destroyed, and the run
+    /// reported success. Only `~` produces the disagreement, so the test has to use `~`.
+    func testATildeDestinationIsCheckedWhereItWillBeWritten() async throws {
+        let home = URL(fileURLWithPath: NSHomeDirectory())
+        try XCTSkipUnless(
+            FileManager.default.isWritableFile(atPath: home.path),
+            "home directory is not writable in this environment"
+        )
+        let name = ".pluck-tests-\(UUID().uuidString)"
+        let sandbox = home.appendingPathComponent(name)
+        try FileManager.default.createDirectory(at: sandbox, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: sandbox) }
+
+        let existing = sandbox.appendingPathComponent("hero.png")
+        try Data("do not overwrite me".utf8).write(to: existing)
+        let input = try writeSubjectJPEG(named: "subject.jpg")
+
+        let plan = try RunPlan.make(
+            inputs: [input], outputDirectory: "~/\(name)/hero.png", force: false,
+            model: "vision", background: nil, json: false
+        )
+        let outcomes = await Runner(plan: plan).run()
+
+        XCTAssertEqual(outcomes.first?.failure?.kind, .outputExists)
+        XCTAssertEqual(try Data(contentsOf: existing).count, 19, "the existing file was overwritten")
+        XCTAssertEqual(outcomes.first?.output, "~/\(name)/hero.png", "reports go back in the spelling given")
+
+        // …and with --force the expanded path is where the PNG actually lands.
+        let forced = try RunPlan.make(
+            inputs: [input], outputDirectory: "~/\(name)/hero.png", force: true,
+            model: "vision", background: nil, json: false
+        )
+        let forcedOutcomes = await Runner(plan: forced).run()
+        try skipIfEngineUnavailable(forcedOutcomes)
+        XCTAssertNil(forcedOutcomes.first?.failure)
+        XCTAssertGreaterThan(try Data(contentsOf: existing).count, 19)
+        XCTAssertFalse(
+            FileManager.default.fileExists(atPath: FileManager.default.currentDirectoryPath + "/~"),
+            "a literal ~ directory means the write never expanded the path"
+        )
+    }
+
     func testBatchCreatesOutputDirectoryAndKeepsGoingAfterAFailure() async throws {
         let good = try writeSubjectJPEG(named: "subject.jpg")
         let missing = directory.appendingPathComponent("gone.jpg").path

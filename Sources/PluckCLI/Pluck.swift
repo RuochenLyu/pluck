@@ -72,6 +72,9 @@ struct Pluck: AsyncParsableCommand {
                 json: json
             )
         } catch let error as SetupError {
+            // stdout is the only channel an agent is required to read, and `--json` is it
+            // asking for one. A run that dies before it has items still owes it a record.
+            if json { Terminal.stdout(JSONReport.line(for: error)) }
             Terminal.error(error.message)
             throw ExitCode(error.exitCode)
         }

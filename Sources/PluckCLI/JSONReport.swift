@@ -17,13 +17,29 @@ enum JSONReport {
                 ("ok", .bool(true))
             ])
         case .failure(let failure):
-            return object([
-                ("input", .string(outcome.input)),
-                ("ok", .bool(false)),
-                ("error", .string(failure.kind.slug)),
-                ("message", .string(failure.message))
-            ])
+            // Same shape as the success record, minus what does not exist yet. A caller
+            // that let the CLI derive output paths needs `output` most on the records
+            // where nothing was written, and `engine` is what tells it whether retrying
+            // with a different `--model` is worth trying at all.
+            var fields: [(String, Value)] = [("input", .string(outcome.input))]
+            if let output = outcome.output { fields.append(("output", .string(output))) }
+            fields.append(("error", .string(failure.kind.slug)))
+            fields.append(("message", .string(failure.message)))
+            fields.append(("engine", .string(engine)))
+            fields.append(("ok", .bool(false)))
+            return object(fields)
         }
+    }
+
+    /// The run as a whole failing before it had any items — a bad argument, a model that
+    /// is not there. Without this, `--json` printed nothing at all on stdout and left an
+    /// exit code and a line of English prose on stderr as the only evidence.
+    static func line(for error: SetupError) -> String {
+        object([
+            ("error", .string(error.slug)),
+            ("message", .string(error.message)),
+            ("ok", .bool(false))
+        ])
     }
 
     enum Value {

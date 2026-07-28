@@ -5,7 +5,7 @@ import PluckKit
 /// agents branch on them, so they change only with a version bump. Everything the engine
 /// itself can fail at lives in `PluckError.Kind`; only the two file-handling failures
 /// below are the CLI's own, because they happen around the engine, never inside it.
-enum FailureKind: Equatable {
+enum FailureKind: Equatable, Sendable {
     case library(PluckError.Kind)
     case outputExists
     case writeFailed
@@ -26,28 +26,37 @@ enum FailureKind: Equatable {
     }
 }
 
-struct ItemFailure: Error, Equatable {
+struct ItemFailure: Error, Equatable, Sendable {
     var kind: FailureKind
     var message: String
 }
 
-struct ItemSuccess: Equatable {
+struct ItemSuccess: Equatable, Sendable {
     var output: String
     var width: Int
     var height: Int
     var durationMs: Int
 }
 
-struct ItemOutcome: Equatable {
+struct ItemOutcome: Equatable, Sendable {
     var input: String
+    /// Where this item was going, whether or not it got there. A failure record used to
+    /// carry only the input, so an agent that had let the CLI derive the output paths
+    /// could not say which file did *not* appear.
+    var output: String?
     var result: Result<ItemSuccess, ItemFailure>
 
     static func success(input: String, _ value: ItemSuccess) -> ItemOutcome {
-        ItemOutcome(input: input, result: .success(value))
+        ItemOutcome(input: input, output: value.output, result: .success(value))
     }
 
-    static func failure(input: String, _ kind: FailureKind, _ message: String) -> ItemOutcome {
-        ItemOutcome(input: input, result: .failure(ItemFailure(kind: kind, message: message)))
+    static func failure(
+        input: String,
+        output: String? = nil,
+        _ kind: FailureKind,
+        _ message: String
+    ) -> ItemOutcome {
+        ItemOutcome(input: input, output: output, result: .failure(ItemFailure(kind: kind, message: message)))
     }
 
     var failure: ItemFailure? {

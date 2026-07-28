@@ -5,9 +5,13 @@ import Foundation
 /// Pixel plumbing shared by the engines and the compositor.
 ///
 /// Everything here normalizes into two canonical layouts so the rest of PluckKit never
-/// has to branch on color space, bit depth or byte order:
-/// - color: 8-bit RGBA, premultiplied last, sRGB
-/// - mask:  8-bit grayscale, no alpha
+/// has to branch on bit depth or byte order:
+/// - color: 8-bit RGBA, premultiplied last, in the buffer's own `colorSpace`
+/// - mask:  8-bit grayscale, no alpha, device gray
+///
+/// Buffers are `Data` rather than `[UInt8]` for one reason: `Data` bridges to `CFData`
+/// without copying, so handing a finished buffer to `CGImage` costs nothing. The array
+/// spelling forced a full second copy of every image at the moment of export.
 enum ImageBuffers {
     /// Vision is happy to accept arbitrarily large images but latency and memory grow
     /// linearly, and the mask it produces carries no extra detail past a few megapixels.
@@ -19,22 +23,51 @@ enum ImageBuffers {
     struct Gray: Sendable {
         var width: Int
         var height: Int
-        var pixels: [UInt8]  // width * height, row-major
+        var pixels: Data  // width * height, row-major
     }
 
     struct RGBA: Sendable {
         var width: Int
         var height: Int
-        var pixels: [UInt8]  // width * height * 4, premultiplied RGBA
+        var pixels: Data  // width * height * 4, premultiplied RGBA
+        /// What `pixels` mean. Carried with the bytes rather than assumed, so that an
+        /// image cannot be read in one space and written out tagged as another.
+        var colorSpace: CGColorSpace = ImageBuffers.sRGB
     }
 
-    static let sRGB = CGColorSpaceCreateDeviceRGB()
+    /// Real, tagged sRGB — not `CGColorSpaceCreateDeviceRGB()`, which is untagged: a PNG
+    /// written from device RGB carries no profile and leaves every reader to guess.
+    static let sRGB = CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB()
     static let gray = CGColorSpaceCreateDeviceGray()
 
+    /// The space a canonical color buffer for `image` should be in.
+    ///
+    /// An input that already carries an RGB profile keeps it. Rendering a Display P3 photo
+    /// into sRGB on the way in clips every color outside the smaller gamut, and nothing
+    /// downstream can put those colors back — the cutout is the same photograph, so it
+    /// leaves in the gamut it arrived in.
+    static func workingSpace(for image: CGImage) -> CGColorSpace {
+        guard let space = image.colorSpace, space.model == .rgb, space.numberOfComponents == 3 else {
+            return sRGB
+        }
+        return space
+    }
+
     static func rgba(from image: CGImage, width: Int? = nil, height: Int? = nil) throws -> RGBA {
-        let w = width ?? image.width
-        let h = height ?? image.height
-        var pixels = [UInt8](repeating: 0, count: w * h * 4)
+        let space = workingSpace(for: image)
+        do {
+            return try render(image, width: width ?? image.width, height: height ?? image.height, space: space)
+        } catch {
+            // Not every RGB profile is a legal 8-bit premultiplied bitmap destination
+            // (extended-range and linear ones are not). Losing the gamut beats refusing
+            // the image, so those fall back to sRGB.
+            guard space !== sRGB else { throw error }
+            return try render(image, width: width ?? image.width, height: height ?? image.height, space: sRGB)
+        }
+    }
+
+    private static func render(_ image: CGImage, width w: Int, height h: Int, space: CGColorSpace) throws -> RGBA {
+        var pixels = Data(count: w * h * 4)
         try pixels.withUnsafeMutableBytes { raw in
             guard let context = CGContext(
                 data: raw.baseAddress,
@@ -42,7 +75,7 @@ enum ImageBuffers {
                 height: h,
                 bitsPerComponent: 8,
                 bytesPerRow: w * 4,
-                space: sRGB,
+                space: space,
                 bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
             ) else {
                 throw PluckError.processingFailed(underlying: nil)
@@ -50,13 +83,13 @@ enum ImageBuffers {
             context.interpolationQuality = .high
             context.draw(image, in: CGRect(x: 0, y: 0, width: w, height: h))
         }
-        return RGBA(width: w, height: h, pixels: pixels)
+        return RGBA(width: w, height: h, pixels: pixels, colorSpace: space)
     }
 
     static func grayscale(from image: CGImage, width: Int? = nil, height: Int? = nil) throws -> Gray {
         let w = width ?? image.width
         let h = height ?? image.height
-        var pixels = [UInt8](repeating: 0, count: w * h)
+        var pixels = Data(count: w * h)
         try pixels.withUnsafeMutableBytes { raw in
             guard let context = CGContext(
                 data: raw.baseAddress,
@@ -81,7 +114,7 @@ enum ImageBuffers {
             width: buffer.width,
             height: buffer.height,
             bytesPerPixel: 4,
-            space: sRGB,
+            space: buffer.colorSpace,
             bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedLast.rawValue)
         )
     }
@@ -98,14 +131,16 @@ enum ImageBuffers {
     }
 
     private static func makeImage(
-        bytes: [UInt8],
+        bytes: Data,
         width: Int,
         height: Int,
         bytesPerPixel: Int,
         space: CGColorSpace,
         bitmapInfo: CGBitmapInfo
     ) throws -> CGImage {
-        guard let provider = CGDataProvider(data: Data(bytes) as CFData) else {
+        // `as CFData` on a native `Data` is a bridge, not a copy: the image ends up
+        // sharing the buffer that was just filled instead of doubling it.
+        guard let provider = CGDataProvider(data: bytes as CFData) else {
             throw PluckError.processingFailed(underlying: nil)
         }
         guard let image = CGImage(
@@ -182,7 +217,9 @@ enum ImageBuffers {
         return buffer
     }
 
-    static func grayscale(from pixelBuffer: CVPixelBuffer) throws -> CGImage {
+    /// Returns the buffer, not a `CGImage`: every caller inspects the pixels before it
+    /// decides whether an image is worth making at all.
+    static func grayscale(from pixelBuffer: CVPixelBuffer) throws -> Gray {
         CVPixelBufferLockBaseAddress(pixelBuffer, .readOnly)
         defer { CVPixelBufferUnlockBaseAddress(pixelBuffer, .readOnly) }
 
@@ -193,25 +230,28 @@ enum ImageBuffers {
             throw PluckError.processingFailed(underlying: nil)
         }
 
-        var out = [UInt8](repeating: 0, count: width * height)
-        switch CVPixelBufferGetPixelFormatType(pixelBuffer) {
-        case kCVPixelFormatType_OneComponent32Float:
-            for y in 0..<height {
-                let row = base.advanced(by: y * stride).assumingMemoryBound(to: Float.self)
-                for x in 0..<width {
-                    out[y * width + x] = UInt8((min(max(row[x], 0), 1) * 255).rounded())
+        var out = Data(count: width * height)
+        try out.withUnsafeMutableBytes { raw in
+            let destination = raw.bindMemory(to: UInt8.self)
+            switch CVPixelBufferGetPixelFormatType(pixelBuffer) {
+            case kCVPixelFormatType_OneComponent32Float:
+                for y in 0..<height {
+                    let row = base.advanced(by: y * stride).assumingMemoryBound(to: Float.self)
+                    for x in 0..<width {
+                        destination[y * width + x] = UInt8((min(max(row[x], 0), 1) * 255).rounded())
+                    }
                 }
-            }
-        case kCVPixelFormatType_OneComponent8:
-            for y in 0..<height {
-                let row = base.advanced(by: y * stride).assumingMemoryBound(to: UInt8.self)
-                for x in 0..<width {
-                    out[y * width + x] = row[x]
+            case kCVPixelFormatType_OneComponent8:
+                for y in 0..<height {
+                    let row = base.advanced(by: y * stride).assumingMemoryBound(to: UInt8.self)
+                    for x in 0..<width {
+                        destination[y * width + x] = row[x]
+                    }
                 }
+            default:
+                throw PluckError.processingFailed(underlying: nil)
             }
-        default:
-            throw PluckError.processingFailed(underlying: nil)
         }
-        return try makeImage(Gray(width: width, height: height, pixels: out))
+        return Gray(width: width, height: height, pixels: out)
     }
 }

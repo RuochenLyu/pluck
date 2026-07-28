@@ -19,7 +19,7 @@ enum TestImages {
                 bytes[i + 3] = a
             }
         }
-        return try ImageBuffers.makeImage(ImageBuffers.RGBA(width: width, height: height, pixels: bytes))
+        return try ImageBuffers.makeImage(ImageBuffers.RGBA(width: width, height: height, pixels: Data(bytes)))
     }
 
     static func gray(width: Int, height: Int, value: (Int, Int) -> UInt8) throws -> CGImage {
@@ -29,7 +29,7 @@ enum TestImages {
                 bytes[y * width + x] = value(x, y)
             }
         }
-        return try ImageBuffers.makeImage(ImageBuffers.Gray(width: width, height: height, pixels: bytes))
+        return try ImageBuffers.makeImage(ImageBuffers.Gray(width: width, height: height, pixels: Data(bytes)))
     }
 
     static func solid(width: Int, height: Int, color: (UInt8, UInt8, UInt8)) throws -> CGImage {

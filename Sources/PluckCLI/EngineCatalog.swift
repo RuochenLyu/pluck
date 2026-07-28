@@ -56,12 +56,18 @@ enum EngineCatalog {
         )
     }
 
-    /// Throws `PluckError.modelMissing` for a known-but-absent model, so the caller can
-    /// turn it into exit 3 with a `pluck models pull` hint.
-    static func engine(for id: String) async throws -> (any MattingEngine)? {
+    /// One fallible lookup rather than a nil for "unknown" beside a throw for "absent".
+    ///
+    /// The caller cannot act on the difference — both are exit 3 with the same advice —
+    /// and the split let the plan's `descriptor(for:)` check and this one drift apart. It
+    /// also has to stay genuinely reachable: `RunPlan` sees the model installed, but a
+    /// `pluck models rm` (or a cache wipe) between the plan and the load leaves the
+    /// manifest entry standing with nothing on disk under it.
+    static func engine(for id: String) async throws -> any MattingEngine {
         if id == vision.id { return VisionEngine() }
-        guard let registry, registry.descriptor(for: id) != nil else { return nil }
-        guard let url = registry.localURL(for: id) else { throw PluckError.modelMissing(id: id) }
+        guard let registry, let url = registry.localURL(for: id) else {
+            throw PluckError.modelMissing(id: id)
+        }
         return try await CoreMLEngine.load(id: id, modelURL: url)
     }
 

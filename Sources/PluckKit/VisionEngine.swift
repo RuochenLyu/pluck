@@ -43,16 +43,13 @@ public struct VisionEngine: MattingEngine {
             throw classify(error)
         }
 
+        // Vision occasionally reports an instance whose mask is all background; treat that
+        // as "nothing found" rather than handing callers a fully transparent cutout. The
+        // check reads the buffer it was just handed — turning it into a CGImage first only
+        // to rasterize that back into the same bytes cost a full extra pass over the mask.
         let mask = try ImageBuffers.grayscale(from: buffer)
-        guard try !isEmpty(mask) else { throw PluckError.noSubjectDetected }
-        return mask
-    }
-
-    /// Vision occasionally reports an instance whose mask is all background; treat that
-    /// as "nothing found" rather than handing callers a fully transparent cutout.
-    private static func isEmpty(_ mask: CGImage) throws -> Bool {
-        let gray = try ImageBuffers.grayscale(from: mask)
-        return !gray.pixels.contains { $0 > 8 }
+        guard mask.pixels.contains(where: { $0 > 8 }) else { throw PluckError.noSubjectDetected }
+        return try ImageBuffers.makeImage(mask)
     }
 
     /// Vision reports "cannot run here" (no supported compute device, headless VM,
