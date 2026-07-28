@@ -9,6 +9,12 @@
             "state": "translated",
             "value": "%1$@ (%2$@)"
           }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@（%2$@）"
+          }
         }
       }
     },
@@ -20,6 +26,12 @@
             "state": "translated",
             "value": "%1$d of %2$d done"
           }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已完成 %1$d / %2$d"
+          }
         }
       }
     },
@@ -27,6 +39,12 @@
       "extractionState": "manual",
       "localizations": {
         "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%d MB"
+          }
+        },
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
             "value": "%d MB"
@@ -42,6 +60,12 @@
             "state": "translated",
             "value": "About Pluck"
           }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "关于 Pluck"
+          }
         }
       }
     },
@@ -49,6 +73,12 @@
       "extractionState": "manual",
       "localizations": {
         "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apple Vision"
+          }
+        },
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
             "value": "Apple Vision"
@@ -64,6 +94,12 @@
             "state": "translated",
             "value": "Background removal isn’t available on this Mac."
           }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "这台 Mac 上用不了抠图。"
+          }
         }
       }
     },
@@ -74,6 +110,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Cancel"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "取消"
           }
         }
       }
@@ -86,6 +128,12 @@
             "state": "translated",
             "value": "Choose a folder for the cutouts"
           }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "选择存放抠图的文件夹"
+          }
         }
       }
     },
@@ -96,6 +144,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Clean Cut"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "利落边"
           }
         }
       }
@@ -108,6 +162,12 @@
             "state": "translated",
             "value": "Clean, solid edges — products and objects."
           }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "边缘干净利落，适合商品和物体。"
+          }
         }
       }
     },
@@ -118,6 +178,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Clear"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "清空"
           }
         }
       }
@@ -130,6 +196,12 @@
             "state": "translated",
             "value": "Clear recent cutouts"
           }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "清空最近的抠图"
+          }
         }
       }
     },
@@ -140,6 +212,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Clipboard"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "剪贴板"
           }
         }
       }
@@ -152,6 +230,12 @@
             "state": "translated",
             "value": "Clipboard image"
           }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "剪贴板图片"
+          }
         }
       }
     },
@@ -162,6 +246,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Close"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "关闭"
           }
         }
       }
@@ -174,6 +264,12 @@
             "state": "translated",
             "value": "Copy"
           }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "拷贝"
+          }
         }
       }
     },
@@ -184,6 +280,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Copy Image"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "拷贝图片"
           }
         }
       }
@@ -196,6 +298,12 @@
             "state": "translated",
             "value": "Couldn’t save the cutout to disk — check free space."
           }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "抠图没能写入磁盘，看看还有没有可用空间。"
+          }
         }
       }
     },
@@ -206,6 +314,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Cut"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "剪切"
           }
         }
       }
@@ -218,6 +332,12 @@
             "state": "translated",
             "value": "Cutout"
           }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "抠图"
+          }
         }
       }
     },
@@ -228,6 +348,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Delete"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "删除"
           }
         }
       }
@@ -240,6 +366,12 @@
             "state": "translated",
             "value": "Download"
           }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "下载"
+          }
         }
       }
     },
@@ -250,6 +382,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Downloading %@…"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在下载 %@…"
           }
         }
       }
@@ -262,6 +400,12 @@
             "state": "translated",
             "value": "Drop images here"
           }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "把图片拖到这里"
+          }
         }
       }
     },
@@ -272,6 +416,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Drop or paste images here"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "拖入或粘贴图片"
           }
         }
       }
@@ -284,6 +434,12 @@
             "state": "translated",
             "value": "Dropped image"
           }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "拖入的图片"
+          }
         }
       }
     },
@@ -294,6 +450,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Edit"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "编辑"
           }
         }
       }
@@ -306,6 +468,12 @@
             "state": "translated",
             "value": "Engine"
           }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "引擎"
+          }
         }
       }
     },
@@ -316,6 +484,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Export"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "导出"
           }
         }
       }
@@ -340,6 +514,18 @@
               }
             }
           }
+        },
+        "zh-Hans": {
+          "variations": {
+            "plural": {
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "导出 %lld 张…"
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -350,6 +536,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Export All…"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "全部导出…"
           }
         }
       }
@@ -362,6 +554,12 @@
             "state": "translated",
             "value": "Export cutouts"
           }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "导出抠图"
+          }
         }
       }
     },
@@ -372,6 +570,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Exported %1$d of %2$d — the rest could not be written."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已导出 %2$d 张中的 %1$d 张，其余没能写入。"
           }
         }
       }
@@ -384,6 +588,12 @@
             "state": "translated",
             "value": "Exported %d cutouts."
           }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已导出 %d 张抠图。"
+          }
         }
       }
     },
@@ -394,6 +604,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "File"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "文件"
           }
         }
       }
@@ -406,6 +622,12 @@
             "state": "translated",
             "value": "Fine Edges"
           }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "柔细边"
+          }
         }
       }
     },
@@ -416,6 +638,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Finer edges — hair, fur, glass."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "边缘更细腻，适合头发、毛发和玻璃。"
           }
         }
       }
@@ -428,6 +656,12 @@
             "state": "translated",
             "value": "Getting the model ready — this takes a few seconds the first time."
           }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在准备模型，第一次要等几秒。"
+          }
         }
       }
     },
@@ -435,6 +669,12 @@
       "extractionState": "manual",
       "localizations": {
         "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "GitHub"
+          }
+        },
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
             "value": "GitHub"
@@ -450,6 +690,12 @@
             "state": "translated",
             "value": "High-quality matting: BiRefNet (MIT)"
           }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "高质量抠图：BiRefNet（MIT）"
+          }
         }
       }
     },
@@ -460,6 +706,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "History"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "历史"
           }
         }
       }
@@ -472,6 +724,12 @@
             "state": "translated",
             "value": "Instant, built into macOS."
           }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "即时，macOS 自带。"
+          }
         }
       }
     },
@@ -482,6 +740,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Keep recent cutouts between launches"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "退出后保留最近的抠图"
           }
         }
       }
@@ -494,6 +758,12 @@
             "state": "translated",
             "value": "Kept only on this Mac. Turn this off and cutouts are forgotten when you quit."
           }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "只存在这台 Mac 上。关掉它，抠图会在你退出时被忘掉。"
+          }
         }
       }
     },
@@ -504,6 +774,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Language"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "语言"
           }
         }
       }
@@ -516,6 +792,12 @@
             "state": "translated",
             "value": "Lift subjects out of photos. Offline, free, open source."
           }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "把主体从照片里拎出来。离线、免费、开源。"
+          }
         }
       }
     },
@@ -526,6 +808,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "MIT License"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MIT 许可证"
           }
         }
       }
@@ -538,6 +826,12 @@
             "state": "translated",
             "value": "Models"
           }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "模型"
+          }
         }
       }
     },
@@ -548,6 +842,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "No image found — copy or drop a picture first."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "没找到图片，先拷贝一张或者拖一张进来。"
           }
         }
       }
@@ -560,6 +860,12 @@
             "state": "translated",
             "value": "No subject found in this image."
           }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "这张图里没找到主体。"
+          }
         }
       }
     },
@@ -570,6 +876,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Open main window"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "打开主窗口"
           }
         }
       }
@@ -582,6 +894,12 @@
             "state": "translated",
             "value": "Original"
           }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "原图"
+          }
         }
       }
     },
@@ -593,6 +911,12 @@
             "state": "translated",
             "value": "Paste"
           }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "粘贴"
+          }
         }
       }
     },
@@ -600,6 +924,12 @@
       "extractionState": "manual",
       "localizations": {
         "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pluck"
+          }
+        },
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
             "value": "Pluck"
@@ -615,6 +945,12 @@
             "state": "translated",
             "value": "Pluck Settings"
           }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pluck 设置"
+          }
         }
       }
     },
@@ -625,6 +961,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Pluck — drag an image here or click to open"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pluck — 把图片拖到这里，或者点一下打开"
           }
         }
       }
@@ -637,6 +979,12 @@
             "state": "translated",
             "value": "Plucking…"
           }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在抠…"
+          }
         }
       }
     },
@@ -647,6 +995,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Preview cutout"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "预览抠图"
           }
         }
       }
@@ -659,6 +1013,12 @@
             "state": "translated",
             "value": "Quit Pluck"
           }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "退出 Pluck"
+          }
         }
       }
     },
@@ -669,6 +1029,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Recent"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "最近"
           }
         }
       }
@@ -681,6 +1047,12 @@
             "state": "translated",
             "value": "Redo"
           }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "重做"
+          }
         }
       }
     },
@@ -691,6 +1063,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Save"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "存储"
           }
         }
       }
@@ -703,6 +1081,12 @@
             "state": "translated",
             "value": "Save As…"
           }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "存储为…"
+          }
         }
       }
     },
@@ -713,6 +1097,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Save cutout"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "存储抠图"
           }
         }
       }
@@ -725,6 +1115,12 @@
             "state": "translated",
             "value": "Select All"
           }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "全选"
+          }
         }
       }
     },
@@ -735,6 +1131,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Settings"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "设置"
           }
         }
       }
@@ -747,6 +1149,12 @@
             "state": "translated",
             "value": "Settings…"
           }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "设置…"
+          }
         }
       }
     },
@@ -757,6 +1165,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Show Preview"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "显示预览"
           }
         }
       }
@@ -769,6 +1183,12 @@
             "state": "translated",
             "value": "Something went wrong plucking this image."
           }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "抠这张图的时候出了点问题。"
+          }
         }
       }
     },
@@ -779,6 +1199,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "System"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "跟随系统"
           }
         }
       }
@@ -791,6 +1217,12 @@
             "state": "translated",
             "value": "That file isn’t an image Pluck can read."
           }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "这个文件不是 Pluck 能读的图片。"
+          }
         }
       }
     },
@@ -801,6 +1233,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "That model couldn’t be loaded — using Apple Vision for now."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "这个模型没能加载，先用 Apple Vision 顶上。"
           }
         }
       }
@@ -813,6 +1251,12 @@
             "state": "translated",
             "value": "That model isn’t available — try downloading it again."
           }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "这个模型用不了，重新下载一次试试。"
+          }
         }
       }
     },
@@ -823,6 +1267,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "This build carries no model list."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "这个版本没带模型清单。"
           }
         }
       }
@@ -835,6 +1285,12 @@
             "state": "translated",
             "value": "This cutout’s file is no longer on disk."
           }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "这张抠图的文件已经不在磁盘上了。"
+          }
         }
       }
     },
@@ -845,6 +1301,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Undo"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "撤销"
           }
         }
       }
@@ -857,6 +1319,12 @@
             "state": "translated",
             "value": "Version %@"
           }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "版本 %@"
+          }
         }
       }
     },
@@ -867,6 +1335,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Which engine made this cutout"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "这张抠图出自哪个引擎"
           }
         }
       }
@@ -879,6 +1353,12 @@
             "state": "translated",
             "value": "Your pictures never leave this Mac. Pluck has no account, no telemetry and no uploads."
           }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "你的图片从不离开这台 Mac。Pluck 没有账号、没有遥测、也不上传任何东西。"
+          }
         }
       }
     },
@@ -890,6 +1370,12 @@
             "state": "translated",
             "value": "or press ⌘V to paste"
           }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "或按 ⌘V 粘贴"
+          }
         }
       }
     },
@@ -897,6 +1383,12 @@
       "extractionState": "manual",
       "localizations": {
         "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "⌘V"
+          }
+        },
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
             "value": "⌘V"
