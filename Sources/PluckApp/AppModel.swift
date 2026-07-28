@@ -86,18 +86,35 @@ final class AppModel {
     /// a single row's own spinner already says everything a "0 of 1 done" bar would.
     private(set) var batch: BatchProgress?
 
-    /// The tickets the batch currently on screen owns — which, since a result inherits its
-    /// ticket's id, is also the id of every entry it has produced so far.
-    ///
-    /// The main window uses it to put "Done" on the rows *this* drop finished and nothing on
-    /// the rest. p2 draws a tick on every completed row, but the mockup's list is only ever
-    /// one batch; the real list is that batch sitting on top of restored history, and a
-    /// column of ticks reaching back to last week says only "these are cutouts", which is
-    /// what the window is.
-    private(set) var batchItemIDs: Set<UUID> = []
+    /// What the main window's gallery has picked out. Owned here rather than in the view
+    /// because two things outside it read the answer: the key monitor (⌘A, Esc — the window
+    /// is AppKit's, and the shortcuts have to be caught before the responder chain turns them
+    /// into text operations) and Export, whose file set *is* the selection.
+    private(set) var selection = GallerySelection()
 
-    /// True while at least one job in the list is still being worked on.
-    var isBatchRunning: Bool { pendingItems.contains { $0.state == .running } }
+    /// A click on a card, with `extending` true when ⌘ was down.
+    func select(_ item: RecentItem, extending: Bool = false) {
+        selection.click(item.id, extending: extending)
+    }
+
+    func selectAll() {
+        selection.selectAll(recents.items.map(\.id))
+    }
+
+    func clearSelection() {
+        selection.clear()
+    }
+
+    /// The cutouts Export would write: the selection when there is one, otherwise the lot.
+    /// The button says which of the two it is, so the two must be decided in one place.
+    var exportTargets: [RecentItem] {
+        selection.isEmpty ? recents.items : recents.items.selected(by: selection)
+    }
+
+    /// Called after anything removes entries from the grid.
+    private func pruneSelection() {
+        selection.prune(to: recents.items.map(\.id))
+    }
 
     private(set) var feedback: StatusFeedback = .idle {
         didSet { onFeedbackChange?(feedback) }
@@ -467,14 +484,18 @@ final class AppModel {
         flash(.failure)
     }
 
-    /// Writes every cutout in the list into one directory.
+    /// Writes what the export button is offering — the selection, or the whole grid — into
+    /// one directory.
     ///
     /// A directory picker rather than a silent write to the remembered folder: twenty files
     /// appearing somewhere the user has to remember choosing, months ago, is not a
     /// convenience. Remembering the folder makes the picker open where it opened last,
     /// which is the part that was actually tedious.
-    func exportAll() {
-        let items = recents.items
+    func exportTargeted() {
+        export(exportTargets)
+    }
+
+    private func export(_ items: [RecentItem]) {
         guard !items.isEmpty else { return }
         let panel = NSOpenPanel()
         panel.canChooseDirectories = true
@@ -541,6 +562,7 @@ final class AppModel {
     func clearRecents() {
         highlightedItemID = nil
         let cleared = withAnimation(.easeInOut(duration: 0.2)) { recents.clear() }
+        pruneSelection()
         discard(cleared)
     }
 
@@ -550,6 +572,7 @@ final class AppModel {
     func discard(_ item: RecentItem) {
         if highlightedItemID == item.id { highlightedItemID = nil }
         let removed = withAnimation(.easeInOut(duration: 0.2)) { recents.remove(item.id) }
+        pruneSelection()
         discard([removed].compactMap { $0 })
     }
 
@@ -573,7 +596,6 @@ final class AppModel {
         // as "5 of 6".
         if !pendingItems.contains(where: { $0.state == .running }) {
             batch = BatchProgress(total: 0, done: 0)
-            batchItemIDs = []
         }
         batch?.total += 1
         inFlight += 1
@@ -582,7 +604,6 @@ final class AppModel {
         // "no subject found" sit over a drop that is going perfectly well.
         clearStatus()
         let pending = PendingItem(id: UUID(), name: name)
-        batchItemIDs.insert(pending.id)
         withAnimation(.easeOut(duration: 0.18)) {
             pendingItems.insert(pending, at: 0)
         }
@@ -684,6 +705,9 @@ final class AppModel {
             discard([item])
         }
         discard(result.evicted)
+        // The oldest entries fall off the end of a fixed-capacity list, and one of them may
+        // well have been selected while the user was dropping the batch that pushed it off.
+        if !result.evicted.isEmpty { pruneSelection() }
         flash(.success)
         // A re-pluck was asked for from the panel that is still showing the old cutout, so
         // the panel is where the answer belongs. Only on a genuine insert: a promotion means

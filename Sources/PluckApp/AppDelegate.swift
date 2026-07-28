@@ -196,7 +196,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             .subtracting([.capsLock, .function, .numericPad]) == .command
     }
 
+    /// The same question for a key that carries no chord at all — Esc. Same three flags
+    /// ignored, for the same reason: Caps Lock is not part of a keystroke the user thinks
+    /// they are typing.
+    nonisolated static func isUnmodified(_ flags: NSEvent.ModifierFlags) -> Bool {
+        flags.intersection(.deviceIndependentFlagsMask)
+            .subtracting([.capsLock, .function, .numericPad]).isEmpty
+    }
+
+    /// Esc's key code. It has no character to match on — `charactersIgnoringModifiers` is the
+    /// escape character itself — and a named constant beats an unexplained 53.
+    private static let escapeKeyCode: UInt16 = 53
+
     private func handleKey(_ event: NSEvent) -> Bool {
+        // Esc clears the gallery's selection, and only when there is one to clear: an Esc
+        // that is swallowed while nothing is selected is an Esc that never reaches whatever
+        // else might have wanted it.
+        if mainWindow.owns(event.window),
+           event.keyCode == Self.escapeKeyCode,
+           Self.isUnmodified(event.modifierFlags),
+           !model.selection.isEmpty {
+            model.clearSelection()
+            return true
+        }
         guard Self.isCommandOnly(event.modifierFlags) else { return false }
         let key = event.charactersIgnoringModifiers?.lowercased()
         // ⌘V never goes through the menu, on any surface. `paste:` is a *text* operation
@@ -209,9 +231,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // with no close button has `performClose(_:)` disabled by AppKit's own menu
         // validation, so for them this monitor is still the only route.
         if mainWindow.owns(event.window) {
-            guard key == "v" else { return false }
-            model.pluckClipboard()
-            return true
+            // ⌘A is Select All in the Edit menu, which dispatches `selectAll:` to the first
+            // responder — a *text* operation, and there is no text in this window. Selecting
+            // in the gallery is the meaning ⌘A has here, and the monitor is the only place
+            // that can claim it before the menu does.
+            switch key {
+            case "v":
+                model.pluckClipboard()
+                return true
+            case "a":
+                model.selectAll()
+                return true
+            default:
+                return false
+            }
         }
         if preview.owns(event.window) {
             guard key == "w" else { return false }

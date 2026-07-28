@@ -293,12 +293,16 @@ private struct ClearButton: View {
 
 /// The mount every grid slot sits on (visual language v2, from p3).
 ///
+/// Shared with the main window's gallery: the two surfaces show the same objects, and a
+/// cutout that is a card in one window and something else in the other is two answers to
+/// "what is this thing".
+///
 /// A cutout used to be a checkerboard rectangle clipped to a radius, floating directly on
 /// the panel — which meant the grid was a set of holes in the glass. p3 draws the opposite:
 /// solid light cards, with the board and the subject *inside* them. That reading is what
 /// makes a transparent PNG look like an object you can pick up, and it is also what gives
 /// the hover lift something to lift.
-private struct CutoutCard<Content: View>: View {
+struct CutoutCard<Content: View>: View {
     let height: CGFloat
     var lifted: Bool = false
     @ViewBuilder var content: Content
@@ -381,7 +385,7 @@ private struct RecentCell: View {
 
 /// The wait, given a place to stand. Input thumbnail desaturated and dimmed under a
 /// looping sweep; the spinner only joins after 250ms so a fast pluck does not flash one.
-private struct PendingCell: View {
+struct PendingCell: View {
     let item: PendingItem
     let height: CGFloat
 

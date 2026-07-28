@@ -45,6 +45,15 @@ final class KeyEquivalentTests: XCTestCase {
         XCTAssertEqual(menu.items.last?.action, #selector(NSApplication.terminate(_:)))
     }
 
+    /// Esc carries no chord, so it gets its own predicate — with the same three flags
+    /// forgiven, or clearing the gallery's selection would be the next thing Caps Lock broke.
+    func testEscapeIsUnmodifiedEvenUnderTheFlagsNobodyTypesOnPurpose() {
+        XCTAssertTrue(AppDelegate.isUnmodified([]))
+        XCTAssertTrue(AppDelegate.isUnmodified([.capsLock, .function, .numericPad]))
+        XCTAssertFalse(AppDelegate.isUnmodified([.command]))
+        XCTAssertFalse(AppDelegate.isUnmodified([.shift]))
+    }
+
     func testNoCommandIsNotACommandShortcut() {
         XCTAssertFalse(AppDelegate.isCommandOnly([]))
         XCTAssertFalse(AppDelegate.isCommandOnly([.capsLock]))

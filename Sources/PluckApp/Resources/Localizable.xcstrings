@@ -34,29 +34,6 @@
         }
       }
     },
-    "%lld cutouts": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "variations": {
-            "plural": {
-              "one": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "%lld cutout"
-                }
-              },
-              "other": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "%lld cutouts"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "About Pluck": {
       "extractionState": "manual",
       "localizations": {
@@ -361,6 +338,29 @@
           "stringUnit": {
             "state": "translated",
             "value": "Export"
+          }
+        }
+      }
+    },
+    "Export %lld…": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Export %lld…"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Export %lld…"
+                }
+              }
+            }
           }
         }
       }

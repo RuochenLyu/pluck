@@ -108,16 +108,35 @@ final class MainWindowContentView: NSView {
     }
 }
 
+/// The batch surface, as a gallery.
+///
+/// It was a list of filenames with 44pt thumbnails beside them, under a standing dashed
+/// "drop images here" strip. Both were answering questions the user does not have. What is in
+/// this window is *pictures* — the one thing a cutout has to be judged on is what it looks
+/// like at the edges — and a row of text with a stamp-sized picture at the end of it puts the
+/// evidence last. The strip was teaching the drop gesture to someone who had, by definition,
+/// already performed it: the window itself is the target, it lights up under a drag, and the
+/// empty state still says the whole sentence for anyone who has not.
+///
+/// So: the shelf's card, at gallery scale, in an adaptive grid. The two surfaces now show the
+/// same object drawn the same way, which is what makes them one app rather than two lists of
+/// the same files.
 struct MainWindowView: View {
     let model: AppModel
     let dropTarget: DropTarget
+
+    /// ~132–150pt, adaptive: the column count is the window's to decide, because this window
+    /// is resizable and a fixed count would either strand a 1200pt window with four huge cards
+    /// or crush a 480pt one.
+    private static let columns = [GridItem(.adaptive(minimum: 132, maximum: 150), spacing: 12)]
+    private static let cellHeight: CGFloat = 132
 
     /// One list, newest first — the same order and the same identities as the shelf grid.
     /// The p2 mockup queues oldest-first, which reads well for exactly one drop and stops
     /// meaning anything the moment restored history shares the list: "first" would then be
     /// a cutout from last week.
-    private var rows: [BatchRow] {
-        model.pendingItems.map(BatchRow.pending) + model.recents.items.map(BatchRow.done)
+    private var cells: [GalleryCell] {
+        model.pendingItems.map(GalleryCell.pending) + model.recents.items.map(GalleryCell.done)
     }
 
     var body: some View {
@@ -125,24 +144,50 @@ struct MainWindowView: View {
             if let batch = model.batch, batch.total > 1, !model.pendingItems.isEmpty {
                 progress(batch)
             }
-            if rows.isEmpty {
+            if cells.isEmpty {
                 dropZone
             } else {
-                // The strip survives the first drop. A window whose drop affordance
-                // disappears the moment it has one row in it teaches the user that the
-                // list is now a list and not a target — and then the second image goes
-                // back through the menu bar.
-                DropStrip(targeted: dropTarget.isTargeted)
-                    .padding(.horizontal, 16)
-                    .padding(.top, 12)
-                list
+                grid
             }
             bottomBar
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        // No window-level rim: the drop strip already answers the drag, and two
-        // rectangles lighting up for one gesture is two voices saying one thing.
         .animation(.easeOut(duration: 0.12), value: dropTarget.isTargeted)
+    }
+
+    /// The whole window is the drop target, so the whole window is what answers a drag: one
+    /// accent rim around the content area, in place of a strip that was permanently on screen
+    /// to say what the rim says only when it is true.
+    private var grid: some View {
+        ScrollView {
+            LazyVGrid(columns: Self.columns, spacing: 12) {
+                ForEach(cells) { cell in
+                    switch cell {
+                    case .pending(let item):
+                        PendingCell(item: item, height: Self.cellHeight)
+                    case .done(let item):
+                        GalleryCard(
+                            item: item,
+                            model: model,
+                            height: Self.cellHeight,
+                            isSelected: model.selection.contains(item.id),
+                            highlighted: model.highlightedItemID == item.id
+                        )
+                    }
+                }
+            }
+            .padding(16)
+        }
+        .scrollIndicators(.automatic)
+        .overlay {
+            if dropTarget.isTargeted {
+                RoundedRectangle(cornerRadius: Tokens.cardRadius, style: .continuous)
+                    .strokeBorder(Color.accentColor, lineWidth: 2)
+                    .background(Color.accentColor.opacity(0.08))
+                    .padding(8)
+                    .allowsHitTesting(false)
+            }
+        }
     }
 
     /// The only progress anyone can honestly report. Vision runs a single opaque request
@@ -190,48 +235,14 @@ struct MainWindowView: View {
         .padding(16)
     }
 
-    /// Whether the list is in the middle of a batch worth annotating (p2). One image needs
-    /// no row status: its own spinner is the whole story, and a tick that appears for a
-    /// second and then has to be explained away is worse than no tick.
-    private var batchIsRunning: Bool {
-        guard let batch = model.batch, batch.total > 1 else { return false }
-        return model.isBatchRunning
-    }
-
-    /// One inset card, not full-width rows on the window's own background (p2). The card is
-    /// what makes the list a list — a group of related things — rather than a stack of bands
-    /// running edge to edge under a drop strip that is also edge to edge.
-    private var list: some View {
-        let shape = RoundedRectangle(cornerRadius: Tokens.cardRadius, style: .continuous)
-        return ScrollView {
-            LazyVStack(spacing: 0) {
-                ForEach(rows) { row in
-                    switch row {
-                    case .pending(let item):
-                        PendingRow(item: item)
-                    case .done(let item):
-                        ResultRow(item: item, model: model, showsBatchStatus: batchIsRunning)
-                    }
-                }
-            }
-            // No inset separators between rows, and no rim around the card (visual language
-            // v2). Both were drawing lines to say something the fill and the spacing already
-            // said: the card's own tint marks where the list starts and stops, and a row is
-            // separated from its neighbour by the 8pt of air inside it — with a rounded
-            // hover fill under the pointer to make the boundary explicit at the one moment
-            // it matters, which is when the user is aiming at a particular row.
-            .clipShape(shape)
-            .background(shape.fill(.quaternary.opacity(0.35)))
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
-        }
-        .scrollIndicators(.automatic)
-    }
-
     /// The offline claim used to live here. It is a standing fact about the product, not a
     /// status, and it is already stated in Settings and in About — repeating it under every
-    /// batch made it wallpaper. What the bar can usefully say is how much is in the list,
-    /// and what just happened when something did.
+    /// batch made it wallpaper.
+    ///
+    /// The cutout count that replaced it has gone the same way: the grid is *made of* the
+    /// cutouts, and a number counting the things the user is looking at is a caption on a
+    /// photograph saying "photograph". What is left is the line that only speaks when
+    /// something has happened, and the verb.
     private var bottomBar: some View {
         HStack(spacing: 8) {
             if let status = model.status {
@@ -239,13 +250,8 @@ struct MainWindowView: View {
                 Text(status.text)
                     .font(.caption)
                     .foregroundStyle(status.kind == .warning ? AnyShapeStyle(.red) : AnyShapeStyle(.secondary))
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-            } else {
-                Text(L.s("\(model.recents.items.count) cutouts"))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .monospacedDigit()
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             Spacer(minLength: 12)
             if !model.recents.items.isEmpty {
@@ -256,12 +262,16 @@ struct MainWindowView: View {
                 // earlier pass by reading the rule as a headcount — that was the mistake.
                 // A large capsule, not a small rounded rect: it is the window's one primary
                 // verb, and v2's reference products all give the single committing action a
-                // body you could hit without looking. Coral stays — see below.
-                ExportAllButton { model.exportAll() }
+                // body you could hit without looking.
+                ExportButton(selected: model.selection.count) { model.exportTargeted() }
+                    // The label changes width as the selection does, and the count is
+                    // pluralised by the catalog; a fixed frame here would clip "Export 12…"
+                    // in the first language whose word for it is longer than English's.
+                    .layoutPriority(1)
             }
         }
         .padding(.horizontal, 16)
-        .frame(height: 52)
+        .frame(minHeight: 52)
         .background(.bar)
     }
 
@@ -282,11 +292,16 @@ struct MainWindowView: View {
 ///
 /// `.glassProminent` on macOS 26: it is the same shape and the same coral as
 /// `.borderedProminent` below it, drawn as a tinted lens instead of as a flat capsule, which
-/// is what puts it in the same family as the round glass buttons in the rows above it. The
+/// is what puts it in the same family as the round glass buttons on the cards above it. The
 /// tint is still coral rather than the accent — §4.7's one-tint-per-screen rule is about not
 /// spending the accent on decoration, and p2 draws the progress bar and the committing action
 /// in the same voice on purpose.
-private struct ExportAllButton: View {
+///
+/// It names what it will actually write. With a selection, "Export All…" would be a button
+/// that does something other than what it says, which is the one thing a committing action
+/// may never be.
+private struct ExportButton: View {
+    let selected: Int
     let action: () -> Void
 
     @ViewBuilder
@@ -298,52 +313,26 @@ private struct ExportAllButton: View {
         }
     }
 
+    private var title: String {
+        // Through the catalog, plural and all: "Export 1…" is a different string from
+        // "Export 4…" in most of the languages this app has not been translated into yet.
+        selected == 0 ? L.s("Export All…") : L.s("Export \(selected)…")
+    }
+
     private var base: some View {
-        // A large capsule: v2's reference products all give the single committing action a
-        // body you could hit without looking.
-        Button(L.s("Export All…"), action: action)
+        Button(title, action: action)
             .controlSize(.large)
             .buttonBorderShape(.capsule)
             .tint(Palette.coral)
     }
 }
 
-/// The drop affordance that outlives the empty state: a dashed strip the eye can aim at,
-/// and the surface that answers a drag hovering over the window.
-private struct DropStrip: View {
-    let targeted: Bool
 
-    var body: some View {
-        // The paste half is not decoration: ⌘V is how a screenshot gets in, and the strip is
-        // the only place in this window that can say so once the empty state is gone. Same
-        // two phrases as the empty state, so the window teaches one wording, not two.
-        HStack(spacing: 6) {
-            Image(systemName: "square.and.arrow.down")
-                .font(.system(size: 13, weight: .regular))
-            Text(L.s("Drop images here"))
-                .font(.callout)
-            Text(verbatim: "—")
-                .font(.callout)
-            Text(L.s("or press ⌘V to paste"))
-                .font(.callout)
-        }
-        .foregroundStyle(targeted ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 12)
-        .background(targeted ? Color.accentColor.opacity(0.08) : .clear)
-        .clipShape(RoundedRectangle(cornerRadius: Tokens.rowRadius, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: Tokens.rowRadius, style: .continuous)
-                .strokeBorder(
-                    targeted ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary.opacity(0.3)),
-                    style: StrokeStyle(lineWidth: 1.5, dash: [6, 5])
-                )
-        }
-        .accessibilityElement(children: .combine)
-    }
-}
-
-private enum BatchRow: Identifiable {
+/// A grid slot, in whichever of its two lives it is currently in — the same shape the shelf
+/// uses, for the same reason: a job finishing must be a content change in one cell rather
+/// than a delete from one array and an insert into another, which SwiftUI would animate as
+/// the grid reflowing around the gap.
+private enum GalleryCell: Identifiable {
     case pending(PendingItem)
     case done(RecentItem)
 
@@ -355,169 +344,132 @@ private enum BatchRow: Identifiable {
     }
 }
 
-private let rowThumbnailSide: CGFloat = 44
-
-/// The finished article: the whole row is the drag source, so a cutout goes to another app
-/// by grabbing anywhere on the line rather than by finding a 44pt square.
-private struct ResultRow: View {
+/// A finished cutout, at gallery scale.
+///
+/// The shelf's `CutoutCard` and nothing else: same mount, same board, same radius family, so
+/// the object a user recognises in the menu-bar panel is the object they recognise here. What
+/// this one adds is what a batch surface needs and a 92pt shelf tile has no room for —
+/// selection, and the name and size of the file, which appear under the pointer rather than
+/// standing permanently on top of the picture they describe.
+private struct GalleryCard: View {
     let item: RecentItem
     let model: AppModel
-    /// Whether a batch is running at all. Whether *this* row belongs to it is a second
-    /// question, asked below.
-    var showsBatchStatus = false
+    let height: CGFloat
+    let isSelected: Bool
+    let highlighted: Bool
 
     @State private var thumbnail: NSImage?
     @State private var hovering = false
 
-    private var isInCurrentBatch: Bool {
-        showsBatchStatus && model.batchItemIDs.contains(item.id)
-    }
-
     var body: some View {
-        HStack(spacing: 12) {
-            RowThumbnail(image: thumbnail, dimmed: false)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(item.suggestedName)
-                    .font(.body)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                // Verbatim, or SwiftUI reads the literal as a `LocalizedStringKey`: it
-                // looks the whole thing up in the catalog (where it can never be) and
-                // grouping-formats the numbers on the way, so a 1024px image reports
-                // itself as "1,024". Pixel counts are not prose.
-                Text(verbatim: RowSubtitle.text(
-                    width: item.pixelWidth,
-                    height: item.pixelHeight,
-                    createdAt: item.createdAt,
-                    engine: EngineLabels.mark(item.engineID)
-                ))
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .monospacedDigit()
+        CutoutCard(height: height, lifted: hovering) {
+            ZStack {
+                Checkerboard()
+                if let thumbnail {
+                    Image(nsImage: thumbnail)
+                        .resizable()
+                        .interpolation(.high)
+                        .scaledToFit()
+                        .padding(4)
+                }
             }
-            Spacer(minLength: 8)
-            // The tick is scoped to the batch in flight, not to the list. Every row here
-            // succeeded — the ones that did not are `PendingRow`s wearing a red triangle —
-            // so ticking all of them is a column of punctuation that says "these are
-            // cutouts", which is what the window is for. While a drop is being worked
-            // through, though, "which of these five is finished" is a live question, and the
-            // answer belongs on the rows it is about.
+        }
+        // Top-trailing, opposite the selection mark: the pair used to sit bottom-trailing on
+        // the shelf tile, and here the bottom of the card is where the caption comes up.
+        .overlay(alignment: .topTrailing) {
             if hovering {
                 HoverActions {
                     GlassCircleButton(symbol: "doc.on.doc", label: L.s("Copy")) { model.copy(item) }
                     GlassCircleButton(symbol: "arrow.down.to.line", label: L.s("Save")) { model.save(item) }
                 }
-                .transition(.opacity)
-            } else if isInCurrentBatch {
-                Label {
-                    Text(L.s("Done"))
-                } icon: {
-                    Image(systemName: "checkmark")
-                }
-                .font(.callout)
-                .foregroundStyle(.secondary)
+                .padding(Tokens.cardPadding)
                 .transition(.opacity)
             }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .contentShape(Rectangle())
-        // The hover fill is the row divider now. Inset and rounded so it reads as a
-        // highlighted *thing* rather than as a band lit up across the card — an edge-to-edge
-        // fill inside a 14pt-radius container clips against the corner on the first and last
-        // row, which is how a full-width highlight announces that it is a rectangle.
-        .background {
-            if hovering {
-                RoundedRectangle(cornerRadius: Tokens.rowRadius, style: .continuous)
-                    .fill(.quaternary)
-                    .padding(.horizontal, 6)
+        .overlay(alignment: .bottom) {
+            if hovering { caption.transition(.opacity) }
+        }
+        .overlay(alignment: .topLeading) {
+            if isSelected {
+                SelectionBadge()
+                    .padding(Tokens.cardPadding + 2)
+                    .transition(.scale.combined(with: .opacity))
             }
         }
-        .onHover { on in withAnimation(.easeOut(duration: 0.12)) { hovering = on } }
+        // A rim, not a wash: a selected card that goes blue all over hides the one thing the
+        // user selected it for. Accent for the selection, coral for the de-duplication flash —
+        // the two never mean the same thing, and the flash wins the corner it lands in.
+        .overlay {
+            RoundedRectangle(cornerRadius: Tokens.cardRadius, style: .continuous)
+                .strokeBorder(highlighted ? Palette.coral : Color.accentColor, lineWidth: 2)
+                .opacity(highlighted || isSelected ? 1 : 0)
+        }
+        .animation(.easeInOut(duration: 0.22), value: highlighted)
+        .animation(.easeOut(duration: Tokens.hoverDuration), value: isSelected)
+        .onHover { on in
+            withAnimation(.easeOut(duration: Tokens.hoverDuration)) { hovering = on }
+        }
         .onAppear { thumbnail = NSImage(data: item.thumbnailPNG) }
-        // Double-click, like a row in any other list: a single click on a row that is also
-        // a drag source has to stay free, or a drag that starts a pixel late opens a panel
-        // over the window the user was dragging out of.
+        // Double first, so a double-click opens the preview instead of selecting and then
+        // opening. ⌘ is read from the event stream rather than from a `.modifiers` gesture:
+        // `TapGesture().modifiers(.command)` and a plain `onTapGesture` on the same view
+        // resolve against each other unpredictably, and the flags at the moment of the tap
+        // are the same fact by a shorter route.
         .onTapGesture(count: 2) { model.preview(item) }
+        .onTapGesture { model.select(item, extending: NSEvent.modifierFlags.contains(.command)) }
         .onDrag { item.dragProvider() }
+        .contextMenu {
+            Button(L.s("Copy Image")) { model.copy(item) }
+            Button(L.s("Save As…")) { model.save(item) }
+            Button(L.s("Show Preview")) { model.preview(item) }
+            Divider()
+            Button(L.s("Delete"), role: .destructive) { model.discard(item) }
+        }
         .accessibilityElement(children: .combine)
         .accessibilityLabel(item.suggestedName)
+        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
+    }
+
+    /// Name and size, and the engine when it was not the default one — the row subtitle's
+    /// facts, minus the timestamp, which was the least useful of them in a list already
+    /// ordered by time.
+    ///
+    /// It floats up on hover instead of living under the card. A caption below every cell
+    /// would push the grid apart into a table of contents, and the file's name is not what
+    /// the user is scanning for: the picture is.
+    private var caption: some View {
+        Text(verbatim: GalleryCaption.text(
+            name: item.suggestedName,
+            width: item.pixelWidth,
+            height: item.pixelHeight,
+            engine: EngineLabels.mark(item.engineID)
+        ))
+        .font(.caption2)
+        .monospacedDigit()
+        .lineLimit(1)
+        .truncationMode(.middle)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .pluckGlass(in: RoundedRectangle(cornerRadius: Tokens.rowRadius, style: .continuous), fallback: .thinMaterial)
+        .padding(Tokens.cardPadding)
+        .allowsHitTesting(false)
     }
 }
 
-/// p2 splits the unfinished rows into "Waiting" and a spinner. This one only spins.
-///
-/// Admission is `PluckQueue`'s, inside PluckKit, and it does not report which of the queued
-/// jobs is holding one of its two-to-four slots — the app knows only that a job has been
-/// handed over. Labelling the rows below some guessed cut-off "Waiting" would put a static
-/// word on images that are at that moment being processed, which is the same class of
-/// fiction as the mockup's per-image "60%". A spinner on everything unfinished is true.
-private struct PendingRow: View {
-    let item: PendingItem
-
-    @State private var thumbnail: NSImage?
-
-    var body: some View {
-        HStack(spacing: 12) {
-            RowThumbnail(image: thumbnail, dimmed: item.failure == nil)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(item.name)
-                    .font(.body)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                Text(item.failure?.message ?? L.s("Plucking…"))
-                    .font(.caption)
-                    .foregroundStyle(item.failure == nil ? AnyShapeStyle(.secondary) : AnyShapeStyle(.red))
-                    .lineLimit(1)
-            }
-            Spacer(minLength: 8)
-            if item.failure == nil {
-                ProgressView().controlSize(.small)
-            } else {
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .font(.system(size: 13))
-                    .foregroundStyle(.red)
-                    .padding(.trailing, 6)
-            }
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .task(id: item.thumbnail) {
-            thumbnail = item.thumbnail.flatMap { NSImage(data: $0) }
-        }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(item.name)
-        .accessibilityValue(item.failure?.message ?? L.s("Plucking…"))
-    }
-}
-
-/// The shelf's card, at row scale: same white mount, same fine board, same radius family.
-/// The two surfaces show the same objects, and a cutout that is a card in one window and a
-/// bare clipped rectangle in the other is two answers to "what is this thing".
-private struct RowThumbnail: View {
-    let image: NSImage?
-    let dimmed: Bool
-
+/// The corner mark that says "this one". Filled, because an outline circle on a photograph is
+/// a shape the eye has to find; and small, because the rim around the card is already carrying
+/// the state at a glance — this is what disambiguates it from the coral de-duplication flash.
+private struct SelectionBadge: View {
     var body: some View {
         ZStack {
-            Checkerboard()
-            if let image {
-                Image(nsImage: image)
-                    .resizable()
-                    .interpolation(.high)
-                    .scaledToFit()
-                    .padding(3)
-                    .saturation(dimmed ? 0 : 1)
-                    .opacity(dimmed ? 0.55 : 1)
-            }
+            Circle().fill(Color.accentColor)
+            Image(systemName: "checkmark")
+                .font(.system(size: 10, weight: .bold))
+                .foregroundStyle(.white)
         }
-        .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
-        .padding(3)
-        .frame(width: rowThumbnailSide, height: rowThumbnailSide)
-        .background(
-            Palette.cardSurface,
-            in: RoundedRectangle(cornerRadius: Tokens.thumbnailRadius, style: .continuous)
-        )
+        .frame(width: 18, height: 18)
         .pluckShadow(Tokens.cardShadow)
+        .accessibilityHidden(true)
     }
 }

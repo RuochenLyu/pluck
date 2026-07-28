@@ -126,37 +126,6 @@ final class BatchTests: XCTestCase {
         scratch = model.recents.items.map(\.fileURL)
     }
 
-    // MARK: - Which rows the batch owns
-
-    /// The main window ticks the rows *this* drop finished and leaves the rest of the list
-    /// alone, so the membership set has to be scoped to the batch and not to the store: an
-    /// entry that predates the drop must never be in it, or the tick spreads back over
-    /// restored history and stops meaning anything.
-    func testTheBatchOwnsOnlyTheEntriesItProduced() async {
-        let model = model { data, _, _ in processed([data[0], 0]) }
-        model.handleDrop([.data(Data([1]))])
-        await waitUntil("the first result") { model.recents.items.count == 1 }
-        let old = try? XCTUnwrap(model.recents.items.first?.id)
-
-        model.handleDrop([.data(Data([2])), .data(Data([3]))])
-        await waitUntil("the second batch") { model.recents.items.count == 3 }
-        scratch = model.recents.items.map(\.fileURL)
-
-        XCTAssertEqual(model.batchItemIDs.count, 2)
-        XCTAssertFalse(model.batchItemIDs.contains(old ?? UUID()))
-    }
-
-    /// Nothing is running, so nothing is claiming a row: the window asks this before it draws
-    /// a status on anything.
-    func testABatchThatHasDrainedIsNoLongerRunning() async {
-        let model = model { data, _, _ in processed([data[0], 0]) }
-        model.handleDrop([.data(Data([1])), .data(Data([2]))])
-        XCTAssertTrue(model.isBatchRunning)
-        await waitUntil("the batch to drain") { model.batch?.done == 2 }
-        scratch = model.recents.items.map(\.fileURL)
-        XCTAssertFalse(model.isBatchRunning)
-    }
-
     // MARK: - Where the work happens
 
     /// A canary, not a test of our own code. Every heavy thing `AppModel` moved off the main
@@ -200,7 +169,8 @@ final class BatchTests: XCTestCase {
 
     // MARK: - Row names
 
-    /// The batch list is a list of *files*. A row that cannot say which one it is leaves
+    /// A placeholder is a list of *files* even where the gallery draws no name: the failure
+    /// sentence names the file it is about, and a job that cannot say which one it is leaves
     /// the user counting positions to work out which of forty failed.
     func testADroppedFileIsNamedAfterItself() {
         let name = DroppedPayload.file(URL(fileURLWithPath: "/tmp/holiday/IMG_0042.jpg")).displayName
