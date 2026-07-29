@@ -5,7 +5,7 @@
 
 ## 当前状态（2026-07-27 深夜）
 
-- 阶段：**v0.1 全部完成、发布链路跑通；v0.2 第一、二批已落地**（磁盘化 + 历史持久化 + 偏好存储 + Settings 窗口；并发闸 + 主窗口批量队列）。PluckKit（VisionEngine/Compositor/ImageLoader/**PluckPipeline**/**PluckQueue**）、`pluck` CLI、PluckApp 菜单栏 + 主窗口、CC0 测试图片集全部落地，**252 测试全绿**，Swift 6 零 warning。
+- 阶段：**v0.1 全部完成、发布链路跑通；v0.2 第一、二批已落地**（磁盘化 + 历史持久化 + 偏好存储 + Settings 窗口；并发闸 + 主窗口批量队列）。PluckKit（VisionEngine/Compositor/ImageLoader/**PluckPipeline**/**PluckQueue**）、`pluck` CLI、PluckApp 菜单栏 + 主窗口、CC0 测试图片集全部落地，**307 测试全绿**，Swift 6 零 warning。
 - **v0.2 验收状态（2026-07-28 早）**：解锁后已逐屏看过——Settings 窗口（两组、开关、Clear、离线说明）、主窗口空态（虚线投放区 + ⌘V 提示、Export All 正确隐藏）、主窗口列表态（缩略图 + 尺寸 + hover 出 Copy/Save）、多张时的按整图进度条、失败行（红三角 + "No subject found in this image."）、Export All 全链路（9 张落盘、重名让位成 `Cutout 2.png`…、底栏报 `✓ Exported 9 cutouts.`）。历史持久化早已实测：重启后 cutout 原样回来。**仍需维护者本机确认的只剩一项**：拖出到别的 app——自动化驱不动 macOS 拖放，这条只有人手能验。（开机自启已于 2026-07-28 整条删除，见 decisions.md。）
 - **v0.3 模型链路全部落地（2026-07-28）**：PluckKit 新增 `CoreMLEngine`（`.cpuAndGPU` 硬钉，async 加载 + 编译缓存）、`ModelRegistry`（manifest / 下载 / SHA256 / 原子安装 / **断点续传**）与下沉到 Kit 的 `EngineCatalog`；GitHub Release `models-v1` 已发布，`pluck models list` / `models pull` / `--model` 实测全通。**断点续传**用手写 `Range` + `If-Range`（不用 `resumeData`，理由见 decisions.md），本地 `Scripts/serve-models.py` 提供 206/200/416 与 ETag，集成测试真网零依赖；实测 82 MB 资产 pull 到 51 MB `kill -9`，再 pull 从 61% 续起并装成功。**app 侧接线完成**：`Preferences.engineID`（默认 vision）、`EngineProvider`（actor，首次编译只做一次，加载失败回落 Vision + 状态消息）、Settings 新增 Models 一节（引擎 Picker + 每模型 available/downloading/installed 三态，下载与删除全走 ModelRegistry），manifest 由 `Scripts/bundle.sh` 拷进签名 bundle。实测：`pluck fur-01.jpg --model birefnet-lite` 首次 55 秒（含 Core ML 编译）、之后 1.8 秒，未安装时 exit 3。**仍需维护者本机验收**：Settings Models 面板与引擎切换的视觉/交互（自动化驱不动 GUI）。
 - 交互现状：状态项本身是拖放目标 → 落下即开 shelf 面板（非激活 borderless NSPanel，网格内占位卡原地变结果卡）；预览面板贴 shelf 旁开、层级在其之上、顶部 44pt 条带可拖、关闭按钮常驻；shelf 底栏 `macwindow` 开主窗口——标准标题栏、一列 batch 行（缩略图 + 文件名 + 尺寸，hover 出 Copy/Save，整行可拖出）、多张时显示按整图计数的进度条、底栏 `Export All…`。
@@ -23,7 +23,7 @@
 
 **通往 1.0 的未完项**：
 
-1. **Sparkle 自动更新**——app 唯一常驻网络行为，动工前先在 decisions.md 记网络例外 ADR（默认开关、频率、feed 位置）。
+1. ~~**Sparkle 自动更新**~~ ✅ 2026-07-29：Sparkle 2.9.4（SPM，只挂 PluckApp，app 目标唯一第三方依赖）。`UpdateController` 把 Sparkle 收在一个四方法协议后面，因此开关联动可单测；`Preferences.checksForUpdates`（默认 true）是唯一真相，启动时单向推进 Sparkle，间隔 86400s；入口两处——状态项右键菜单 About 之下、Settings 新增 Updates 一节（开关 + Check Now + 版本号 + 一句网络披露）。`bundle.sh` 现在嵌 Sparkle.framework（`ditto` + `install_name_tool` 加 rpath，不用 `unsafeFlags`）并接管由内向外的签名顺序，`release.sh` 只把身份传进去；包从 1.9 MB 长到 6.2 MB。**维护者待办（唯一阻塞发布的一步）**：跑 Sparkle 的 `./bin/generate_keys` 生成 EdDSA 密钥对（私钥进 Keychain、务必备份，公钥写 `Packaging/sparkle_public_key.txt` 或 `SPARKLE_PUBLIC_ED_KEY`），然后 `SPARKLE_BIN=... ./Scripts/release.sh` 生成并签 appcast.xml。**公钥缺席时一切照常出包**，只是那个构建没有更新器（decisions.md 2026-07-29）。CI 化 `generate_appcast` 留 TODO——把更新私钥放进 hosted runner 是另一个量级的风险，要单独决定。
 2. **Finder Quick Action**——需建 Xcode appex 壳，会触碰签名+公证链路，安排在其他项清空后一次性验证。
 3. **skills/pluck/SKILL.md 定稿**——agent 场景的最后一块。
 4. **边缘 decontamination**（Compositor 去背景色渗透）——Pixelmator 口碑最好的点。

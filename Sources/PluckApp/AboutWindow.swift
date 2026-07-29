@@ -54,11 +54,9 @@ final class AboutWindowController {
 }
 
 struct AboutView: View {
-    private var version: String? {
-        (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String).flatMap {
-            $0.isEmpty ? nil : String(format: L.s("Version %@"), $0)
-        }
-    }
+    /// Shared with the Updates section in Settings (`AppVersion`), which shows the same
+    /// number next to the button that goes and compares it against a server.
+    private var version: String? { AppVersion.display() }
 
     var body: some View {
         VStack(spacing: 12) {

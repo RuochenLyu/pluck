@@ -45,6 +45,26 @@ final class KeyEquivalentTests: XCTestCase {
         XCTAssertEqual(menu.items.last?.action, #selector(NSApplication.terminate(_:)))
     }
 
+    /// This pull-down is the only one an accessory app has, so it is the only place a user
+    /// can ask for an update check without opening Settings — under About, where every other
+    /// menu-bar app on the machine keeps it.
+    @MainActor
+    func testCheckForUpdatesSitsUnderAboutWhenTheBuildCanCheck() {
+        let menu = AppDelegate.makeStatusMenu(target: nil, offeringUpdates: true)
+        XCTAssertEqual(
+            menu.items.map(\.title),
+            [L.s("About Pluck"), L.s("Check for Updates…"), "", L.s("Quit Pluck")]
+        )
+    }
+
+    /// Omitted rather than greyed in a build with no signing key. A three-item menu has no
+    /// room to explain why one of its items is dead, and Settings says so in a sentence.
+    @MainActor
+    func testABuildThatCannotUpdateDoesNotOfferTo() {
+        let titles = AppDelegate.makeStatusMenu(target: nil, offeringUpdates: false).items.map(\.title)
+        XCTAssertFalse(titles.contains(L.s("Check for Updates…")))
+    }
+
     /// Esc carries no chord, so it gets its own predicate — with the same three flags
     /// forgiven, or clearing the gallery's selection would be the next thing Caps Lock broke.
     func testEscapeIsUnmodifiedEvenUnderTheFlagsNobodyTypesOnPurpose() {

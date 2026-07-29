@@ -51,6 +51,22 @@ final class PreferencesTests: XCTestCase {
         XCTAssertEqual(Preferences(defaults: defaults).previewTopLeft, CGPoint(x: 120, y: 800))
     }
 
+    /// On by default, which is the one deliberate exception to "no network unless asked"
+    /// (decisions.md 2026-07-28). Asserted rather than assumed, because the argument for
+    /// defaulting it on is a security argument and a silent flip to off would be a silent
+    /// decision to stop shipping fixes to anyone.
+    func testUpdateChecksAreOnUntilTheUserSaysOtherwise() {
+        XCTAssertTrue(Preferences(defaults: defaults).checksForUpdates)
+    }
+
+    func testTurningUpdateChecksOffOutlivesTheProcess() {
+        Preferences(defaults: defaults).checksForUpdates = false
+        XCTAssertFalse(Preferences(defaults: defaults).checksForUpdates)
+        // Written under a name a human can find. `defaults read com.aix4u.pluck` is the only
+        // way anyone can audit from outside the app that the daily request is really off.
+        XCTAssertFalse(defaults.bool(forKey: "pluck.checksForUpdates"))
+    }
+
     func testClearingThePreviewCornerForgetsItEntirely() {
         let preferences = Preferences(defaults: defaults)
         preferences.previewTopLeft = CGPoint(x: 1, y: 2)

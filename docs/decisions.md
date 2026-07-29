@@ -362,3 +362,11 @@
 - **默认开的理由**：这是安全机制不是营销通道——离线工具的用户最不可能主动检查更新，而带已知漏洞的旧版本比一天一次的 HTTPS HEAD 请求对隐私的伤害大得多。对冲措施：README 与 Settings 明示这唯一的常驻网络行为，开关一键可关。
 - **依赖代价**：Sparkle 是 app 目标第一个第三方依赖（SPM）。可接受：它是 macOS 非 MAS 分发的事实标准（Rectangle/Ice 同款），替代方案是自造更新器——在信任敏感的路径上自造轮子更糟。
 - **私钥**：EdDSA 私钥存 Keychain（同 pluck-notary 模式），绝不入仓。
+
+## 2026-07-29 — Sparkle 落地：没有公钥就没有更新器，Preferences 是那个开关的唯一真相
+
+- **背景**：实现 2026-07-28 的 Sparkle ADR 时冒出三个 ADR 没写、但一旦做错就很难改的问题。
+- **公钥缺席 = 更新器根本不存在**：Sparkle 的 `startUpdater` 在 `Info.plist` 缺 `SUFeedURL`/`SUPublicEDKey` 时会**弹一个窗让用户去联系开发者**——对已发布的 app 是对的行为，对每一个 `./Scripts/bundle.sh` 从源码构建的人是错的。所以 plist 由 `UpdateController.isConfigured` 先验一道，不合格就压根不构造 Sparkle：`isAvailable == false`，状态项菜单不出"Check for Updates…"，Settings 那一节两个控件禁用并写明原因。占位符 `__SPARKLE_PUBLIC_ED_KEY__` 与非 https feed 一并判为"没有"——一个拿下划线字符串验签的 app，从外面看和一个正在被攻击的 app 没有区别。密钥不在仓库里：`Packaging/sparkle_public_key.txt` 进 .gitignore，或走 `SPARKLE_PUBLIC_ED_KEY` 环境变量，缺席时 `bundle.sh` 直接 `plutil -remove` 掉那个键。
+- **开关的真相在 `Preferences.checksForUpdates`，不在 Sparkle 的 `SUEnableAutomaticChecks`**：Sparkle 自己把这个布尔持久化在同一个 defaults 域里，于是有两份。定为单向：`Info.plist` 里的 `SUEnableAutomaticChecks=true` 只负责**压掉 Sparkle 首启的"要不要自动检查"询问框**（ADR 已经替用户答了"是"，再问一次是把决定推回去），启动时 `UpdateController.adopt` 把 Preferences 推进 Sparkle，反向不推。日检间隔同样在运行时重述——plist 里的值只是初值，改过间隔的用户会永远留着旧值。
+- **签名顺序进 `bundle.sh`，不进 `release.sh`**：Sparkle 让 bundle 变成嵌套的（framework 里两个 XPC service、一个 relaunch helper、一个进度 app），嵌套代码必须由内向外签。`release.sh` 原来的做法是"bundle.sh 出 ad-hoc 包，我再对外层 .app 重签一次"——那会留下四块 sparkle-project 签名的代码装在一块我们签名的壳里，`codesign --verify --strict` 认，Gatekeeper 不认。改为 `release.sh` 把身份通过 `CODESIGN_IDENTITY` 交给 `bundle.sh`，签名顺序只存在一份。
+- **rpath 用 `install_name_tool` 加，不用 `Package.swift` 的 `unsafeFlags`**：后者会让整个包无法被任何其他包依赖——PluckKit 的使用者为一条只有 .app 需要的链接参数付账。framework 用 `ditto` 拷（版本化 bundle 由符号链接撑着，`cp -R` 会把它拍平），Headers/Modules 删掉再签。体积代价：1.9 MB → 6.2 MB。

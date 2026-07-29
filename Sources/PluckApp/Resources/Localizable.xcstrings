@@ -120,6 +120,57 @@
         }
       }
     },
+    "Check Now": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check Now"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "立即检查"
+          }
+        }
+      }
+    },
+    "Check for Updates…": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check for Updates…"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "检查更新…"
+          }
+        }
+      }
+    },
+    "Check for updates automatically": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check for updates automatically"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "自动检查更新"
+          }
+        }
+      }
+    },
     "Choose a folder for the cutouts": {
       "extractionState": "manual",
       "localizations": {
@@ -869,6 +920,23 @@
         }
       }
     },
+    "Once a day, Pluck asks GitHub whether a newer version exists. Nothing about you or your pictures is sent. Turn this off and Pluck never connects on its own.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Once a day, Pluck asks GitHub whether a newer version exists. Nothing about you or your pictures is sent. Turn this off and Pluck never connects on its own."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pluck 每天向 GitHub 问一次有没有新版本，不会送出关于你或你的图片的任何东西。关掉它，Pluck 就不会自己联网。"
+          }
+        }
+      }
+    },
     "Open main window": {
       "extractionState": "manual",
       "localizations": {
@@ -1277,6 +1345,23 @@
         }
       }
     },
+    "This build carries no update signing key, so it cannot check for updates.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This build carries no update signing key, so it cannot check for updates."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "这个版本没有带更新签名密钥，因此无法检查更新。"
+          }
+        }
+      }
+    },
     "This cutout’s file is no longer on disk.": {
       "extractionState": "manual",
       "localizations": {
@@ -1307,6 +1392,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "撤销"
+          }
+        }
+      }
+    },
+    "Updates": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Updates"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "更新"
           }
         }
       }

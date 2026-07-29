@@ -10,9 +10,9 @@ import SwiftUI
 final class SettingsWindowController {
     private var window: NSWindow?
 
-    func show(model: AppModel, preferences: Preferences) {
+    func show(model: AppModel, preferences: Preferences, updates: UpdateController) {
         if window == nil {
-            let window = make(model: model, preferences: preferences)
+            let window = make(model: model, preferences: preferences, updates: updates)
             // Centred once, at birth. Re-centring on every open would undo the user's own
             // placement, which is the one thing a window that is opened repeatedly must not do.
             window.center()
@@ -42,7 +42,7 @@ final class SettingsWindowController {
         }
     }
 
-    private func make(model: AppModel, preferences: Preferences) -> NSWindow {
+    private func make(model: AppModel, preferences: Preferences, updates: UpdateController) -> NSWindow {
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 420, height: 300),
             styleMask: [.titled, .closable, .fullSizeContentView],
@@ -52,7 +52,9 @@ final class SettingsWindowController {
         window.title = L.s("Pluck Settings")
         window.titlebarAppearsTransparent = true
         window.isReleasedWhenClosed = false
-        let hosting = NSHostingView(rootView: SettingsView(model: model, preferences: preferences))
+        let hosting = NSHostingView(
+            rootView: SettingsView(model: model, preferences: preferences, updates: updates)
+        )
         window.contentView = hosting
         // The pane's height is whatever three sections of text come to; guessing it in the
         // contentRect above would either clip the offline statement or leave a gap under it.
@@ -61,9 +63,9 @@ final class SettingsWindowController {
     }
 }
 
-/// One scrolling pane, two sections. Still not the tabbed toolbar §4.7 sketched: two
+/// One scrolling pane, a handful of sections. Still not the tabbed toolbar §4.7 sketched:
 /// sections that fit on one screen do not need a toolbar to switch between them, and a tab
-/// bar over two tabs is chrome that exists to look like other apps' chrome.
+/// bar over three tabs is chrome that exists to look like other apps' chrome.
 ///
 /// Visual language v2's "no hairlines" rule stops at this window's door, and deliberately.
 /// §4.7 grades the glass by surface: the panels are ours to draw, but Settings is a window
@@ -75,11 +77,18 @@ final class SettingsWindowController {
 struct SettingsView: View {
     let model: AppModel
     @Bindable var preferences: Preferences
+    let updates: UpdateController
     @State private var models: ModelStore
 
-    init(model: AppModel, preferences: Preferences, models: ModelStore = ModelStore()) {
+    init(
+        model: AppModel,
+        preferences: Preferences,
+        updates: UpdateController,
+        models: ModelStore = ModelStore()
+    ) {
         self.model = model
         self.preferences = preferences
+        self.updates = updates
         _models = State(initialValue: models)
     }
 
@@ -121,6 +130,8 @@ struct SettingsView: View {
                 } header: {
                     Text(L.s("History")).font(.headline)
                 }
+
+                UpdatesSection(preferences: preferences, updates: updates)
             }
             .formStyle(.grouped)
             .fixedSize(horizontal: false, vertical: true)
@@ -144,6 +155,69 @@ struct SettingsView: View {
         }
         .frame(width: 480, alignment: .leading)
         .fixedSize(horizontal: false, vertical: true)
+    }
+}
+
+/// The only place in this window that admits to a network connection Pluck makes on its own.
+///
+/// Last section, and phrased as plainly as the offline claim two lines below it. A privacy
+/// promise with one exception in it is only worth what the exception's disclosure is worth:
+/// the sentence says who is contacted (GitHub), how often (daily), what is asked (whether
+/// there is a newer version), and what turning the switch off buys (nothing is contacted).
+/// That is the whole of it, and it is short enough that nobody has to take it on faith.
+///
+/// The version number lives here rather than only in About because it is the number the
+/// button beside it is about to compare against a server — "Check Now" answering "you're up
+/// to date" means more next to the version it is up to date at.
+private struct UpdatesSection: View {
+    @Bindable var preferences: Preferences
+    let updates: UpdateController
+
+    var body: some View {
+        Section {
+            // Same `Text` treatment as the history switch: a `Toggle` with a string title
+            // truncates rather than wraps, and this label is longer in some languages than
+            // in English.
+            Toggle(isOn: $preferences.checksForUpdates) {
+                Text(L.s("Check for updates automatically"))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .onChange(of: preferences.checksForUpdates) { _, on in
+                updates.setAutomaticChecks(on)
+            }
+            .disabled(!updates.isAvailable)
+
+            Text(L.s("Once a day, Pluck asks GitHub whether a newer version exists. Nothing about you or your pictures is sent. Turn this off and Pluck never connects on its own."))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            HStack(spacing: 12) {
+                RowButton(L.s("Check Now")) { updates.checkNow() }
+                    .disabled(!updates.isAvailable)
+                if let version = AppVersion.display() {
+                    // Verbatim: `AppVersion.display` has already been through the catalog,
+                    // and running its result through a second lookup would ask for a key
+                    // that reads "Version 0.1.0".
+                    Text(verbatim: version)
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                }
+            }
+
+            // Said out loud rather than hidden, because the state is otherwise invisible: a
+            // disabled switch with no explanation reads as a bug. This is what every build
+            // made from source looks like — the signing key is the maintainer's, and it is
+            // not in the repository.
+            if !updates.isAvailable {
+                Text(L.s("This build carries no update signing key, so it cannot check for updates."))
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        } header: {
+            Text(L.s("Updates")).font(.headline)
+        }
     }
 }
 

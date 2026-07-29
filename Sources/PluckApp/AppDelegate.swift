@@ -18,6 +18,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let settings = SettingsWindowController()
     private let about = AboutWindowController()
     private let mainWindow = MainWindowController()
+    private let updates = UpdateController()
 
     /// Set when a click already dismissed the shelf, so the status item's own `mouseDown`
     /// does not turn around and reopen what that same click just closed.
@@ -51,6 +52,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         installPluckSignal()
         installLanguageObserver()
+        // After the status item exists, so the first background check has a surface to put a
+        // window next to, and after `Preferences` has been read: the daily cycle must not
+        // start for a user who turned it off in a previous launch.
+        updates.adopt(preferences)
         revealIfUnreachable()
     }
 
@@ -359,16 +364,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // armed the swallow, which would otherwise eat the next left click on the icon.
         swallowIconClick = false
         guard let item = statusItem, let button = item.button else { return }
-        item.menu = Self.makeStatusMenu(target: self)
+        item.menu = Self.makeStatusMenu(target: self, offeringUpdates: updates.isAvailable)
         button.performClick(nil)
         item.menu = nil
     }
 
     /// Built by a static function so the shape of the menu — what is in it, in what order,
     /// with which shortcut — is assertable without a menu bar to put it in.
-    static func makeStatusMenu(target: AnyObject?) -> NSMenu {
+    ///
+    /// "Check for Updates…" sits under About because this is the only pull-down an accessory
+    /// app has, and it is where every other menu-bar app on the machine keeps it. It is
+    /// *omitted*, not disabled, when the build has no updater: a greyed item in a three-item
+    /// menu is a question the user cannot act on, and Settings is where the reason is written
+    /// down. Settings is still deliberately absent — the shelf's gear opens it in one click.
+    static func makeStatusMenu(target: AnyObject?, offeringUpdates: Bool = false) -> NSMenu {
         let menu = NSMenu()
         menu.addItem(item(L.s("About Pluck"), #selector(showAbout), "", target: target))
+        if offeringUpdates {
+            menu.addItem(item(L.s("Check for Updates…"), #selector(checkForUpdates), "", target: target))
+        }
         menu.addItem(.separator())
         menu.addItem(item(L.s("Quit Pluck"), #selector(NSApplication.terminate(_:)), "q"))
         return menu
@@ -445,12 +459,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// as a glitch.
     @objc private func showSettings() {
         shelf.close()
-        settings.show(model: model, preferences: preferences)
+        settings.show(model: model, preferences: preferences, updates: updates)
     }
 
     @objc private func showAbout() {
         shelf.close()
         about.show()
+    }
+
+    /// Sparkle puts up its own window, so the shelf goes away first for the same reason it
+    /// does for About and Settings.
+    @objc private func checkForUpdates() {
+        shelf.close()
+        updates.checkNow()
     }
 
     private func apply(_ feedback: StatusFeedback) {

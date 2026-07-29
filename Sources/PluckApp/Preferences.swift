@@ -20,6 +20,27 @@ final class Preferences {
         static let exportDirectory = "pluck.exportDirectory"
         static let engineID = "pluck.engineID"
         static let languageID = "pluck.languageID"
+        static let checksForUpdates = "pluck.checksForUpdates"
+    }
+
+    /// Whether Pluck asks GitHub once a day whether there is a newer version.
+    ///
+    /// On by default, which is the one place this app spends its offline promise (decisions.md
+    /// 2026-07-28). The reasoning is that this is a security mechanism wearing the clothes of
+    /// a convenience: the people most likely to leave it off are the people running an offline
+    /// tool precisely because they do not want to think about it, and a known-bad old build
+    /// costs them far more than one HTTPS request a day. Off is one click away and is total —
+    /// `UpdateController` stops the cycle immediately, so there is no request left to make.
+    ///
+    /// Stored here rather than read out of Sparkle's own `SUEnableAutomaticChecks` default so
+    /// there is one answer to "is this on", written in the same vocabulary as every other
+    /// preference and readable with `defaults read`. `UpdateController.adopt` pushes it into
+    /// Sparkle at launch; nothing pushes back.
+    var checksForUpdates: Bool {
+        didSet {
+            guard checksForUpdates != oldValue else { return }
+            defaults.set(checksForUpdates, forKey: Key.checksForUpdates)
+        }
     }
 
     /// Which language the app speaks: `"system"`, or a localization the bundle carries.
@@ -106,9 +127,11 @@ final class Preferences {
         defaults.register(defaults: [
             Key.keepsHistory: true,
             Key.engineID: EngineCatalog.defaultEngineID,
-            Key.languageID: L.systemID
+            Key.languageID: L.systemID,
+            Key.checksForUpdates: true
         ])
         keepsHistory = defaults.bool(forKey: Key.keepsHistory)
+        checksForUpdates = defaults.bool(forKey: Key.checksForUpdates)
         engineID = defaults.string(forKey: Key.engineID) ?? EngineCatalog.defaultEngineID
         languageID = defaults.string(forKey: Key.languageID) ?? L.systemID
         // `didSet` does not run for an assignment in `init`, and this is the launch that has

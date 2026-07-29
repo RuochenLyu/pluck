@@ -11,7 +11,7 @@ Your photos never leave your Mac — no account, no upload, no subscription, no 
 
 ## Why another background remover?
 
-- **100% offline.** Apple's on-device Vision framework by default; optional higher-quality
+- **Offline by default.** Apple's on-device Vision framework; optional higher-quality
   BiRefNet models (MIT-licensed, [published here](https://github.com/RuochenLyu/pluck/releases/tag/models-v1))
   downloaded on demand and verified against pinned SHA256 digests. Auditable — it's all here.
 - **Native and zero-config.** Menu-bar shelf with drag & drop and ⌘V, batch window with
@@ -31,6 +31,20 @@ swift build            # library + CLI
 swift test             # the whole suite, no network needed
 ./Scripts/bundle.sh    # a runnable Pluck.app in .build/
 ```
+
+## What talks to the network
+
+Your images never do. Matting runs entirely on this Mac, and there is no account, no
+telemetry and no upload path in the app at all. Two things do connect, both listed here
+because a privacy claim is worth exactly what its exceptions are worth:
+
+| What | When | Turn it off |
+|---|---|---|
+| **Model download** | Only when you click Download in Settings ▸ Models, or run `pluck models pull`. Fetches a BiRefNet package from this repo's GitHub Releases and checks it against a SHA256 digest pinned in [`models/manifest.json`](models/manifest.json). | Never happens unless you ask. |
+| **Update check** | Once a day, the app asks GitHub whether a newer version exists. Nothing about you or your images is sent. Updates are signed with EdDSA and verified before installation ([Sparkle](https://sparkle-project.org)). | Settings ▸ Updates ▸ *Check for updates automatically*. Off means Pluck makes no request of its own, ever. |
+
+The `pluck` CLI never checks for updates — the only network call it can make is an explicit
+`models pull`.
 
 ## Use with AI agents
 
