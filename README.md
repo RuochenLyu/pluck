@@ -5,8 +5,9 @@
 Pluck is a native macOS app (and CLI) that removes image backgrounds entirely on-device.
 Your photos never leave your Mac — no account, no upload, no subscription, no watermark.
 
-> 🚧 Pre-release. No packaged download yet — it builds and runs from source today
-> (`swift build`, `./Scripts/bundle.sh`), and the first tagged release is close.
+> 🚧 In development. It builds and runs from source today (`swift build`,
+> `./Scripts/bundle.sh`), but there is no packaged download and will not be one
+> before 1.0 — we don't ship half-finished tools.
 
 ## Why another background remover?
 
