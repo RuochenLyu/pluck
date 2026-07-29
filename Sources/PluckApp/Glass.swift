@@ -86,11 +86,12 @@ struct GlassGroup<Content: View>: View {
 /// The rounded, blurred substrate a borderless panel is drawn on — AppKit's side of the same
 /// split, for the two panels whose container is a window rather than a view.
 ///
-/// On macOS 26 this is `NSGlassEffectView`, which owns the corner radius itself: its
-/// `cornerRadius` shapes the lens *and* clips what it embeds, so there is no mask image and
-/// no layer rounding to keep in sync. Below that it is the `.hudWindow` + `.behindWindow`
-/// visual effect view Pluck has always used, whose blur is composited by the window server
-/// outside the layer tree and therefore reachable only through `maskImage`.
+/// On macOS 26 this is `NSGlassEffectView`, whose `cornerRadius` shapes and lights the lens.
+/// It does **not** clip what is hosted in `contentView` — measured, not assumed
+/// (`PanelBackdropTests`) — so the content is rounded here as well. Below 26 it is the
+/// `.hudWindow` + `.behindWindow` visual effect view Pluck has always used, whose blur is
+/// composited by the window server outside the layer tree and therefore reachable only
+/// through `maskImage`.
 ///
 /// Both branches leave `container` — the caller's plain `NSView` — in charge of dragging
 /// destinations. That separation is the point: the shelf's whole surface is a drop target,
@@ -109,6 +110,24 @@ enum PanelBackdrop {
         content.autoresizingMask = [.width, .height]
         content.wantsLayer = true
         content.layer?.backgroundColor = NSColor.clear.cgColor
+        // The clip is applied on **both** branches, and that is the fix for the square
+        // corners the panels were showing underneath their rounded glass.
+        //
+        // `NSGlassEffectView.cornerRadius` shapes and lights *the lens*. It does not promise
+        // to clip what is hosted in `contentView`, and the content here is routinely opaque
+        // and square: the preview panel's checkerboard is a full-bleed content layer by
+        // design (§4.7 — the board is content, so it may not be made translucent), so its
+        // four corners were being composited straight over the rounded glass. The shelf loses
+        // the same way whenever `NSHostingView` decides to paint a backing colour of its own.
+        //
+        // Rounding the content costs nothing when the glass does clip, and is the only thing
+        // that saves the corners when it does not. Circular corners rather than
+        // `.continuous`: below 26 this has to agree with `cornerMask`'s drawn `NSBezierPath`,
+        // and a rim drawn in SwiftUI gets clipped at the corners if the two shapes differ.
+        if cornerRadius > 0 {
+            content.layer?.cornerRadius = cornerRadius
+            content.layer?.masksToBounds = true
+        }
 
         if #available(macOS 26.0, *) {
             let glass = NSGlassEffectView(frame: container.bounds)
@@ -128,15 +147,19 @@ enum PanelBackdrop {
             effect.blendingMode = .behindWindow
             if cornerRadius > 0 {
                 effect.maskImage = cornerMask(radius: cornerRadius)
-                // The mask shapes the material, not the views drawn on top of it, so the
-                // SwiftUI side needs a clip of its own. Circular corners rather than
-                // `.continuous`: the mask is a drawn `NSBezierPath` and the two shapes have
-                // to agree, or a rim drawn in SwiftUI gets clipped at the corners.
-                content.layer?.cornerRadius = cornerRadius
-                content.layer?.masksToBounds = true
             }
             effect.addSubview(content)
             container.addSubview(effect)
+        }
+
+        // And the box itself, for anything AppKit draws for a window's content view before
+        // the subviews get their turn. A container that is transparent everywhere except its
+        // own four corners is the whole of what "the corners leak" means.
+        container.wantsLayer = true
+        container.layer?.backgroundColor = NSColor.clear.cgColor
+        if cornerRadius > 0 {
+            container.layer?.cornerRadius = cornerRadius
+            container.layer?.masksToBounds = true
         }
     }
 
@@ -287,6 +310,47 @@ struct PlainIconButton: View {
         }
         .accessibilityLabel(label)
         .help(label)
+    }
+}
+
+/// The same control with a word in it instead of a glyph — a capsule where `PlainIconButton`
+/// is a circle, because a word is wider than it is tall and a circle around one is a stain.
+///
+/// It exists so a text control standing in a row of glyph controls is the *same* control.
+/// The shelf's Clear was a 10pt caption beside two 32pt buttons: not a hierarchy, just two
+/// different sizes of thing on one line, and the smaller one was the destructive one.
+struct PlainTextButton: View {
+    let title: String
+    var side: CGFloat = Tokens.controlSide
+    let action: () -> Void
+
+    @State private var hovering = false
+
+    init(_ title: String, side: CGFloat = Tokens.controlSide, action: @escaping () -> Void) {
+        self.title = title
+        self.side = side
+        self.action = action
+    }
+
+    var body: some View {
+        Button(action: action) {
+            Text(title)
+                // A shade below the glyphs' 15pt, which is the ratio a word and a symbol have
+                // to be in to read as the same weight.
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(.primary)
+                .lineLimit(1)
+                .fixedSize()
+                .padding(.horizontal, 10)
+                .frame(height: side)
+                .background(Capsule().fill(.quaternary).opacity(hovering ? 1 : 0))
+                .contentShape(Capsule())
+        }
+        .buttonStyle(PressableButtonStyle())
+        .onHover { on in
+            withAnimation(.easeOut(duration: 0.12)) { hovering = on }
+        }
+        .accessibilityLabel(title)
     }
 }
 

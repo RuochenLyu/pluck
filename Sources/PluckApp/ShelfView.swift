@@ -110,7 +110,11 @@ struct ShelfView: View {
             }
             Spacer(minLength: 8)
             if ShelfContent.showsClear(recents: model.recents.items.count) {
-                ClearButton { model.clearRecents() }
+                // Same body as the two glyph buttons beside it (`PlainTextButton`). It used
+                // to be a 10pt caption next to two 32pt controls, which is not a hierarchy —
+                // it is one line carrying two unrelated scales, with the destructive action
+                // drawn as the smallest thing on it.
+                PlainTextButton(L.s("Clear")) { model.clearRecents() }
                     .layoutPriority(1)
             }
             PlainIconButton(symbol: "macwindow", label: L.s("Open main window"), action: onMainWindow)
@@ -118,7 +122,7 @@ struct ShelfView: View {
         }
         .padding(.horizontal, Self.inset)
         .padding(.top, Tokens.panelTopInset)
-        .padding(.bottom, 8)
+        .padding(.bottom, 6)
     }
 
     /// A failure still needs a sentence, and the strip that used to hold one is gone. This
@@ -281,26 +285,6 @@ private enum ShelfCell: Identifiable {
         case .pending(let item): item.id
         case .done(let item): item.id
         }
-    }
-}
-
-/// Secondary action, so it is a text button (§4.7 rule ③) — the round glass buttons are
-/// reserved for the primary verbs.
-private struct ClearButton: View {
-    let action: () -> Void
-
-    @State private var hovering = false
-
-    var body: some View {
-        Button(L.s("Clear"), action: action)
-            .buttonStyle(.plain)
-            .lineLimit(1)
-            .fixedSize()
-            // Caption, like the section label it sits beside — but not small-capped: this
-            // one is pressable, and a label and a control that look identical are a trap.
-            .font(.caption)
-            .foregroundStyle(hovering ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
-            .onHover { hovering = $0 }
     }
 }
 

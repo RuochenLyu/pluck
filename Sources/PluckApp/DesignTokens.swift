@@ -39,10 +39,12 @@ enum Tokens {
     /// a control has to win a contrast fight, so it gets the larger size.
     static let toolbarControlSide: CGFloat = 36
 
-    /// Panel content insets. The header gets a taller top so the first row of cards is not
-    /// crowded against the panel's own corner radius.
+    /// Panel content insets. The header still gets a little more than the sides, because the
+    /// panel's own 20pt corner curls in behind it — but only a little. At 16pt the header
+    /// band was taller than the row of controls sitting in it, which made the shelf open with
+    /// a stripe of empty glass above its first cutout.
     static let panelInset: CGFloat = 20
-    static let panelTopInset: CGFloat = 16
+    static let panelTopInset: CGFloat = 10
 
     /// Checkerboard: small squares, low contrast. At 8pt and 13% the board was competing
     /// with the cutout for the eye; at 6pt and ~5% it reads as texture.

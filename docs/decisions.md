@@ -380,3 +380,11 @@
 - **`LSUIElement` 是删掉而不是写 false**：plist 里的是**启动期**策略，accessory 形态由运行时的 `setActivationPolicy` 达成（实测即时生效，无需重启）。`.accessory → .regular` 时补一次 `NSApp.activate()`：否则 Dock 里冒出一个图标，前台却还是别人的窗口。
 - **文档类型是 Viewer + Alternate，不是 Editor + Owner**：Pluck 读一张图、在旁边写一个新文件，它不拥有用户的 PNG。抢 Finder 的「打开方式」默认项是这条 plist 最容易造成的伤害，而它换不来任何东西——拖到 Dock 图标与 `open -a` 两条路径都不需要高 rank。
 - **状态项关闭是 `removeStatusItem` 而不是 `isVisible = false`**：后者留着条目和它占的位置，在一条满员的菜单栏上，"关掉了"和"关掉了但还在挤别人"是两回事。
+
+## 2026-07-29 — `NSGlassEffectView` 不裁剪 `contentView`：面板圆角四角的方形底
+
+- **背景**：维护者截图实证——shelf 与预览面板的圆角四角露出方形底。
+- **根因（实测，不是推测）**：`NSGlassEffectView.cornerRadius` 只**塑形并打光那块透镜**，它**不裁剪** `contentView` 里的内容。而预览面板的内容恰恰是满铺的棋盘格——按 §4.7 它是内容层，不许为了炫玻璃而变半透明——所以它那四个方角就直接叠在圆角玻璃上面。之前 `PanelBackdrop` 只在 macOS 14 分支做 `content.layer.cornerRadius`（因为 14 的 `maskImage` 管不到画在材质之上的视图），26 分支则依赖了一条头文件没有承诺的行为。
+- **决策**：两个分支都裁剪 content，并把容器自身也置为透明底 + 同半径裁剪。玻璃真裁的时候多这一层不花钱，不裁的时候它是唯一救得回四角的东西。
+- **验证方式**：`PanelBackdropTests` 塞一个**故意不透明的红色方块**当 content，`cacheDisplay` 渲进 bitmap，断言四角 alpha=0、中心 alpha=1。窗口服务器合成的透镜本身渲不出来，但 bug 从来不在透镜上——去掉修复这三条测试立刻红（实测 4 个断言失败），这才叫回归测试。
+- **顺带**：本轮无法用屏幕截图自证（本机 `screencapture` 因 TCC 屏幕录制权限缺失一律返回全黑），所以证据形式从"截图"换成"渲染 + 逐像素断言"。这反而是更强的证据：它在每次 `swift test` 时重放。
