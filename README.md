@@ -32,6 +32,25 @@ swift test             # the whole suite, no network needed
 ./Scripts/bundle.sh    # a runnable Pluck.app in .build/
 ```
 
+## Use with AI agents
+
+Pluck ships an agent skill in [`skills/pluck/`](skills/pluck/SKILL.md). Install it by
+copying or symlinking the directory:
+
+```bash
+ln -s "$PWD/skills/pluck" ~/.claude/skills/pluck    # or: cp -r skills/pluck ~/.claude/skills/
+```
+
+The agent then drives the same CLI you would:
+
+```bash
+pluck shots/*.jpg -o cutouts/ --json     # NDJSON per image on stdout
+pluck photo.jpg --model birefnet-lite-matting -o cut.png
+```
+
+[SKILL.md](skills/pluck/SKILL.md) documents the full `--json` contract, the `error` slugs
+and the exit codes (0 ok · 1 error · 2 no subject · 3 model problem).
+
 ## Docs
 
 - [Product plan](docs/product-plan.md) · [Roadmap](docs/roadmap.md) · [Research](docs/research.md) · [Decisions](docs/decisions.md)
