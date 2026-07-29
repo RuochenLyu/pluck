@@ -110,6 +110,10 @@ final class PreferencesTests: XCTestCase {
         defaults.set(false, forKey: "pluck.showsMenuBarIcon")
         defaults.set(true, forKey: "pluck.hidesDockIcon")
         XCTAssertFalse(Preferences(defaults: defaults).hidesDockIcon)
+        // And repaired on disk, not only in memory: left there, switching the menu bar icon
+        // back on in a later launch would silently hide the Dock icon on the strength of a
+        // choice this launch already overruled.
+        XCTAssertFalse(defaults.bool(forKey: "pluck.hidesDockIcon"))
     }
 
     func testThePresenceChoicesOutliveTheProcess() {

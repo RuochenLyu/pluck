@@ -184,7 +184,12 @@ final class Preferences {
         // Read through the same invariant the setter enforces: a defaults domain edited by
         // hand — or written by a build that had a third switch — must not be able to produce
         // an app with no icon anywhere.
-        hidesDockIcon = defaults.bool(forKey: Key.hidesDockIcon) && menuBar
+        let hidesDock = defaults.bool(forKey: Key.hidesDockIcon) && menuBar
+        hidesDockIcon = hidesDock
+        // Written back, not just corrected in memory: leaving the impossible value on disk
+        // means switching the menu bar icon back on later silently hides the Dock icon
+        // again, on the strength of a choice this launch already overruled.
+        defaults.set(hidesDock, forKey: Key.hidesDockIcon)
         engineID = defaults.string(forKey: Key.engineID) ?? EngineCatalog.defaultEngineID
         languageID = defaults.string(forKey: Key.languageID) ?? L.systemID
         // `didSet` does not run for an assignment in `init`, and this is the launch that has
