@@ -15,12 +15,23 @@
 - 待办（v0.1 收尾）：UI 细节打磨（进行中，见下方技术债清单）→ 维护者本机验收 → GitHub Release（tag/正文/附 zip + SHA256）→ Homebrew cask。
 - **无阻塞项**。
 
-## 里程碑
+## 里程碑（2026-07-28 起：单一 1.0 门槛）
 
-- **v0.1（MVP，目标 1–2 周业余时间）**：PluckKit(VisionEngine) + CLI + 菜单栏拖放 + popover ⌘V 剪贴板闭环 + 结果预览滑块。签名 + notarize + GitHub Release + tap。
-- **v0.2**：~~历史持久化 + Settings~~ ✅、~~主窗口批量队列~~ ✅、~~结果浮层~~ ❌ 不做（2026-07-28 决定：不自动弹，用户自己点开看）、Finder Quick Action、Sparkle。
-- **v0.3**：~~CoreMLEngine~~ ✅、~~BiRefNet_lite 转换~~ ✅（连同 general/matting/lite-matting 全家，见 research.md A.5/A.6）、~~按需下载~~ ✅（CLI + app Models 面板 + 断点续传）、对比滑块、SKILL.md 定稿。Backlog（调研产出，未排期）：固定结果、全局快捷键唤出 shelf、修饰键拖出选格式（research.md 附录 B）。
-- **v1.0**：边缘 decontamination 打磨、发丝 before/after 营销图、README/官网、发 HN + 少数派/V2EX。
+> **维护者决定：不到 1.0 不发布。** v0.1/0.2/0.3 的阶段划分作废——它们曾是发布点，现在只是已完成工作的历史编号。以下未完项全部是 1.0 的前置，做完才有第一次公开发布（GitHub Release + Homebrew tap）。
+
+**已完成**（原 v0.1–v0.3 全部范围）：PluckKit 引擎（Vision + CoreML 双引擎）、CLI（--json/exit codes/models pull/断点续传）、菜单栏 shelf + 预览（before/after 滑块）+ 主窗口画廊（多选/导出）、历史持久化、Settings、模型公开发布与按需下载、引擎切换（Clean Cut / Fine Edges）、Liquid Glass 全表面、多语言（en/zh-Hans 实时切换）、签名 + notarize 链路。
+
+**通往 1.0 的未完项**：
+
+1. **Sparkle 自动更新**——app 唯一常驻网络行为，动工前先在 decisions.md 记网络例外 ADR（默认开关、频率、feed 位置）。
+2. **Finder Quick Action**——需建 Xcode appex 壳，会触碰签名+公证链路，安排在其他项清空后一次性验证。
+3. **skills/pluck/SKILL.md 定稿**——agent 场景的最后一块。
+4. **边缘 decontamination**（Compositor 去背景色渗透）——Pixelmator 口碑最好的点。
+5. **营销与文档**：发丝 before/after 素材（The magenta test 底稿已有）、README 定稿、官网（可选）。
+6. **发布工程**：CI 化 release.sh、GitHub Release（app DMG + CLI 二进制）、Homebrew tap、发 HN + 少数派/V2EX。
+
+Backlog（不阻塞 1.0）：固定结果、全局快捷键唤出 shelf、修饰键拖出选格式（research.md 附录 B）、发布产物启动冒烟检查。
+
 
 ## v0.2 动工前的技术债（2026-07-27，来自 v0.1 实现的上报）
 
