@@ -81,6 +81,18 @@ final class DragOutTests: XCTestCase {
         )
         XCTAssertTrue(missing.dragProvider().registeredTypeIdentifiers.isEmpty)
     }
+
+    /// The other half of dragging out: a drag that started in this app must not be answered
+    /// by this app. `draggingSource` is non-nil for exactly those, so both destinations
+    /// decline before they even look at the pasteboard — no drop rim, no offer to pluck a
+    /// cutout that came out of the very grid it is being dragged away from.
+    ///
+    /// Asserted on the rule rather than through an `NSDraggingInfo`, which cannot be
+    /// constructed outside a real drag session.
+    func testADragFromInsideTheAppIsNotADropIntoIt() {
+        XCTAssertFalse(DroppedPayload.isForeignDrag(source: NSObject()))
+        XCTAssertTrue(DroppedPayload.isForeignDrag(source: nil))
+    }
 }
 
 /// The completion handler runs off the test's thread; this is the smallest thing that can

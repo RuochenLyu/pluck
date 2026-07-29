@@ -3,6 +3,58 @@ import XCTest
 
 @testable import PluckApp
 
+/// The bar's Select All button, which is also its Deselect All button.
+///
+/// One control saying two words means the word and the state can disagree, so the state is
+/// asked for rather than tracked: "everything is selected" is a comparison against the grid,
+/// not a flag the button sets when it is pressed and forgets to clear when a cutout is added.
+@MainActor
+final class SelectAllToggleTests: XCTestCase {
+    private func model(items: Int) -> AppModel {
+        // No pasteboard and no preferences: nothing here goes near the clipboard, the real
+        // defaults or Application Support.
+        let model = AppModel()
+        model.recents.restore((0..<items).map { index in
+            RecentItem(
+                fingerprint: "f\(index)",
+                thumbnailPNG: Data(),
+                fileURL: URL(fileURLWithPath: "/tmp/pluck-test/\(index)/cut.png"),
+                originalURL: URL(fileURLWithPath: "/tmp/pluck-test/\(index)/original.png"),
+                suggestedName: "cut\(index)"
+            )
+        })
+        return model
+    }
+
+    func testTheButtonTakesTheWholeGridAndThenGivesItBack() {
+        let model = model(items: 3)
+        XCTAssertFalse(model.isEverythingSelected)
+
+        model.toggleSelectAll()
+        XCTAssertEqual(model.selection.count, 3)
+        XCTAssertTrue(model.isEverythingSelected)
+
+        model.toggleSelectAll()
+        XCTAssertTrue(model.selection.isEmpty)
+    }
+
+    /// An empty grid has nothing selected *and* nothing to select — the button must not read
+    /// "Deselect All" over a window with no cutouts in it.
+    func testAnEmptyGridIsNotFullySelected() {
+        XCTAssertFalse(model(items: 0).isEverythingSelected)
+    }
+
+    /// A partial selection is not "everything", so the button offers to complete it rather
+    /// than to throw it away.
+    func testAPartialSelectionStillOffersSelectAll() {
+        let model = model(items: 3)
+        model.select(model.recents.items[0])
+        XCTAssertFalse(model.isEverythingSelected)
+        model.toggleSelectAll()
+        XCTAssertEqual(model.selection.count, 3)
+    }
+}
+
 /// Selection is the one part of the gallery that is a rule rather than a drawing, and the
 /// export button reads its file set straight off it. Every case here is one the pointer can
 /// produce in two clicks.

@@ -146,6 +146,9 @@ final class ShelfBackdropView: NSView {
     required init?(coder: NSCoder) { fatalError("not supported") }
 
     override func draggingEntered(_ sender: any NSDraggingInfo) -> NSDragOperation {
+        // A cutout being dragged out of this very grid is not an image being dragged into
+        // it (`DroppedPayload.isForeignDrag`).
+        guard DroppedPayload.isForeignDrag(source: sender.draggingSource) else { return [] }
         let accepted = !DroppedPayload.read(from: sender.draggingPasteboard).isEmpty
         setTargeted(accepted)
         return accepted ? .copy : []
@@ -161,6 +164,7 @@ final class ShelfBackdropView: NSView {
 
     override func performDragOperation(_ sender: any NSDraggingInfo) -> Bool {
         setTargeted(false)
+        guard DroppedPayload.isForeignDrag(source: sender.draggingSource) else { return false }
         let payloads = DroppedPayload.read(from: sender.draggingPasteboard)
         guard !payloads.isEmpty else { return false }
         onDrop?(payloads)

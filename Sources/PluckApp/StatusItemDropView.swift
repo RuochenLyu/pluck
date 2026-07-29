@@ -79,6 +79,18 @@ enum DroppedPayload: Sendable, Equatable {
     case file(URL)
     case data(Data)
 
+    /// Whether a drag arriving at one of our destinations started somewhere else.
+    ///
+    /// `NSDraggingInfo.draggingSource` is non-nil exactly when the drag began in this
+    /// process, which is how a cutout being dragged *out* of the grid is told apart from a
+    /// file being dragged *in*. Without this, hauling a result towards Finder lights up the
+    /// window it is leaving and offers to pluck it again — an app answering its own gesture,
+    /// and the reason the drop rim would flash for a drag that was never for it.
+    ///
+    /// Dragging out is unaffected: the destination declining a drag is not the source
+    /// withdrawing it, so the pasteboard still reaches whatever the user was aiming at.
+    static func isForeignDrag(source: Any?) -> Bool { source == nil }
+
     /// The bytes exactly as they exist outside this app. `.file` re-reads from disk rather
     /// than handing back something re-encoded, because these bytes get fingerprinted and the
     /// hash only means anything if every path hashes the same thing.

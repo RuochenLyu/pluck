@@ -101,6 +101,9 @@ final class MainWindowContentView: NSView {
     required init?(coder: NSCoder) { fatalError("not supported") }
 
     override func draggingEntered(_ sender: any NSDraggingInfo) -> NSDragOperation {
+        // Nothing at all for a drag of our own — not even the highlight. See
+        // `DroppedPayload.isForeignDrag`.
+        guard DroppedPayload.isForeignDrag(source: sender.draggingSource) else { return [] }
         let accepted = !DroppedPayload.read(from: sender.draggingPasteboard).isEmpty
         setTargeted(accepted)
         return accepted ? .copy : []
@@ -116,6 +119,7 @@ final class MainWindowContentView: NSView {
 
     override func performDragOperation(_ sender: any NSDraggingInfo) -> Bool {
         setTargeted(false)
+        guard DroppedPayload.isForeignDrag(source: sender.draggingSource) else { return false }
         let payloads = DroppedPayload.read(from: sender.draggingPasteboard)
         guard !payloads.isEmpty else { return false }
         onDrop?(payloads)
@@ -150,11 +154,20 @@ struct MainWindowView: View {
     private static let columns = [GridItem(.adaptive(minimum: 132, maximum: 150), spacing: 12)]
     private static let cellHeight: CGFloat = 132
 
-    /// Room for the traffic lights, which now stand on the glass with no title bar under
-    /// them. Nothing scrolls beneath them on purpose: a card sliding under three buttons
-    /// that have no material of their own to separate them is the cost of the missing bar,
-    /// and 28pt of quiet glass is the price of not paying it.
-    private static let titleBarInset: CGFloat = 28
+    /// Room for the traffic lights, which stand on the glass with no title bar under them.
+    ///
+    /// This was 28pt of dead glass above everything, and it read as a band of nothing while
+    /// still cutting the scroll off at a hard edge — the worst of both readings. The band is
+    /// 10pt now and the clearance has moved *into* the scroll view, where it belongs: at rest
+    /// the first card sits `scrollTopInset` below the traffic lights, and scrolled content
+    /// passes under them through a fade rather than being sliced.
+    ///
+    /// The fade is what the system's own title bar buys with its material. We have no
+    /// material there, so the content dissolves instead of sliding under three buttons with
+    /// nothing between them.
+    private static let titleBarInset: CGFloat = 10
+    private static let scrollTopInset: CGFloat = 22
+    private static let scrollFade: CGFloat = 20
 
     /// One list, newest first — the same order and the same identities as the shelf grid.
     /// The p2 mockup queues oldest-first, which reads well for exactly one drop and stops
@@ -208,6 +221,11 @@ struct MainWindowView: View {
         // which is the one thing this window no longer has. Hidden, the cards sit on glass.
         .scrollContentBackground(.hidden)
         .scrollIndicators(.automatic)
+        // Clearance for the traffic lights, inside the scroll rather than above it: the
+        // first card stands clear at rest, and everything after it scrolls the full height
+        // of the window instead of stopping at an invisible line 28pt down.
+        .contentMargins(.top, Self.scrollTopInset, for: .scrollContent)
+        .mask(topFade)
         .overlay {
             if dropTarget.isTargeted {
                 RoundedRectangle(cornerRadius: Tokens.cardRadius, style: .continuous)
@@ -216,6 +234,26 @@ struct MainWindowView: View {
                     .padding(8)
                     .allowsHitTesting(false)
             }
+        }
+    }
+
+    /// The gradient the missing title bar's material would otherwise have been. Opaque
+    /// everywhere except the top `scrollFade` points, where content on its way past the
+    /// traffic lights dissolves instead of being cut.
+    private var topFade: some View {
+        LinearGradient(
+            stops: [
+                .init(color: .black.opacity(0), location: 0),
+                .init(color: .black, location: 1)
+            ],
+            startPoint: .top,
+            endPoint: .bottom
+        )
+        .frame(height: Self.scrollFade)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .background(alignment: .bottom) {
+            Color.black.frame(maxWidth: .infinity, maxHeight: .infinity)
+                .padding(.top, Self.scrollFade)
         }
     }
 
@@ -291,6 +329,11 @@ struct MainWindowView: View {
     /// status line and the button stand on the window's own substance.
     private var bottomBar: some View {
         HStack(spacing: 8) {
+            // The verb that was missing. Every route into this window was a drag, which
+            // leaves anyone who arrived by clicking the Dock icon with nothing to press —
+            // and "drop images here" is not an instruction someone with the Finder closed
+            // can follow. It is first because it is where a batch starts.
+            BarButton(L.s("Add"), symbol: "plus") { model.addImages() }
             if let status = model.status {
                 statusIcon(status.kind)
                 Text(status.text)
@@ -301,6 +344,14 @@ struct MainWindowView: View {
             }
             Spacer(minLength: 12)
             if !model.recents.items.isEmpty {
+                // One word for both directions — the label *is* the state, which is cheaper
+                // than a second button that spends most of its life greyed out.
+                BarButton(model.isEverythingSelected ? L.s("Deselect All") : L.s("Select All")) {
+                    model.toggleSelectAll()
+                }
+                // The shelf's Clear, in the surface where the grid is actually big enough to
+                // need clearing. Same call, so the two cannot drift apart.
+                BarButton(L.s("Clear")) { model.clearRecents() }
                 // Coral, as in p2. §4.7's one-tint-per-screen rule is about the accent not
                 // being spent on decoration; the progress bar and the primary action are the
                 // same voice saying "this is the thing in motion and the thing to press",
@@ -330,6 +381,51 @@ struct MainWindowView: View {
             }
         }
         .font(.system(size: 12))
+    }
+}
+
+/// A secondary action on the standing bar: glass on macOS 26, bordered below it, capsule on
+/// both.
+///
+/// The shelf's header controls are chrome-free glyphs because they sit on a 340pt panel with
+/// two thirds of a line spare. This bar has to hold three words and a committing button on a
+/// window the user can drag to 480pt, so the vocabulary is the same substance in the shape
+/// that carries a word — which is exactly what Settings' `RowButton` already is, and for the
+/// same reason: on 26, `.bordered` is the *old* control, and one surface still wearing it is
+/// what "native" stops meaning.
+private struct BarButton: View {
+    let title: String
+    var symbol: String?
+    let action: () -> Void
+
+    init(_ title: String, symbol: String? = nil, action: @escaping () -> Void) {
+        self.title = title
+        self.symbol = symbol
+        self.action = action
+    }
+
+    @ViewBuilder
+    var body: some View {
+        if #available(macOS 26.0, *) {
+            base.buttonStyle(.glass)
+        } else {
+            base.buttonStyle(.bordered)
+        }
+    }
+
+    private var base: some View {
+        Button(action: action) {
+            if let symbol {
+                // The glyph carries the meaning and the word carries the certainty; a lone
+                // plus on a bar with three other buttons is a puzzle, and a lone "Add" is
+                // the only control here with nothing for the eye to catch.
+                Label(title, systemImage: symbol)
+            } else {
+                Text(title)
+            }
+        }
+        .buttonBorderShape(.capsule)
+        .lineLimit(1)
     }
 }
 

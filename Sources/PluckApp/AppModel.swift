@@ -3,6 +3,7 @@ import Foundation
 import Observation
 import PluckKit
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// Transient status-item feedback. v0.1 never interrupts with an alert: the icon is the
 /// entire notification surface.
@@ -99,6 +100,39 @@ final class AppModel {
 
     func selectAll() {
         selection.selectAll(recents.items.map(\.id))
+    }
+
+    /// Whether Select All has anything left to do — which is also what its label says.
+    var isEverythingSelected: Bool {
+        !recents.items.isEmpty && selection.count == recents.items.count
+    }
+
+    /// One control for both directions. A separate Deselect button would be a second thing
+    /// on the bar that is greyed out most of the time; a button whose word changes with the
+    /// state is the state.
+    func toggleSelectAll() {
+        if isEverythingSelected { clearSelection() } else { selectAll() }
+    }
+
+    /// The `+ Add` button in the main window's bar.
+    ///
+    /// It exists because a window whose only way in is a drag is a window that cannot be
+    /// used by anyone who got here from the Dock icon with the file already selected in a
+    /// Finder they have since closed. Same entry point as every other route in — an open
+    /// panel is a way of naming files, not a second pipeline.
+    func addImages() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = true
+        panel.allowedContentTypes = [.image]
+        panel.title = L.s("Add images")
+        panel.prompt = L.s("Add")
+        NSApp.activate()
+        guard panel.runModal() == .OK else { return }
+        let payloads = panel.urls.map(DroppedPayload.file)
+        guard !payloads.isEmpty else { return }
+        handleDrop(payloads)
     }
 
     func clearSelection() {
