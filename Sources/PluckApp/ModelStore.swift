@@ -22,9 +22,25 @@ struct ModelRow: Identifiable, Equatable {
 
     let descriptor: ModelDescriptor
     var state: State
+    /// What the unpacked model is really costing on this disk, once someone has looked.
+    ///
+    /// Not `descriptor.bytes`: that is the size of the **zip** the manifest pins, which is
+    /// what a Download is about to cost over the network and is not what a Delete is about to
+    /// give back. The two differ by however much the `.mlpackage` decompresses to, and a
+    /// Delete button quoting the download size would be a claim about disk made out of a
+    /// number about bandwidth.
+    var installedBytes: Int64?
 
     var id: String { descriptor.id }
     var isInstalled: Bool { state == .installed }
+
+    /// The one line of small print under the name: what it is, what it is licensed as, and
+    /// what it weighs — measured where that is possible, quoted from the manifest where it is
+    /// not yet.
+    var detail: String {
+        let size = installedBytes.map(EngineLabels.megabytes) ?? EngineLabels.megabytes(descriptor.bytes)
+        return "\(descriptor.displayName) · \(descriptor.license) · \(size)"
+    }
 }
 
 /// The Settings pane's model list, and the only place in the app that downloads anything.
@@ -79,6 +95,24 @@ final class ModelStore {
 
     var installedIDs: [String] { rows.filter(\.isInstalled).map(\.id) }
 
+    /// Measures what the installed models occupy, off the main actor.
+    ///
+    /// Called on appearance and after anything that installs or removes one. A model that has
+    /// just been deleted keeps no stale figure — its row is `.available` and `detail` goes
+    /// back to quoting the manifest, which is again the right number, because what that row
+    /// now offers is a download.
+    func measureInstalled() async {
+        guard let registry else { return }
+        let targets = rows.filter(\.isInstalled).map { ($0.id, registry.directory(for: $0.id)) }
+        let sizes = await Task.detached(priority: .utility) {
+            targets.map { ($0.0, DirectorySize.bytes(of: $0.1)) }
+        }.value
+        for (id, bytes) in sizes {
+            guard let index = rows.firstIndex(where: { $0.id == id }) else { continue }
+            rows[index].installedBytes = bytes
+        }
+    }
+
     func download(_ id: String) {
         guard let registry, tasks[id] == nil else { return }
         setState(.downloading(fraction: nil), for: id)
@@ -113,6 +147,7 @@ final class ModelStore {
         switch outcome {
         case .success:
             setState(.installed, for: id)
+            await measureInstalled()
         case .failure where cancelled:
             // The user pressed Cancel. The partial file stays on disk, so pressing Download
             // again continues rather than restarts.
@@ -138,6 +173,7 @@ final class ModelStore {
         cancel(id)
         _ = try? registry.remove(id)
         setState(.available, for: id)
+        if let index = rows.firstIndex(where: { $0.id == id }) { rows[index].installedBytes = nil }
         Task { await engines.forget(id) }
         // An engine preference pointing at a model the user just deleted would resolve to
         // Vision on every drop with a warning each time. They removed it on purpose; the

@@ -235,3 +235,51 @@ final class CutoutArchiveTests: XCTestCase {
         XCTAssertTrue(CutoutArchive.history.keepsIndex)
     }
 }
+
+/// The figure on the Clear button in Settings.
+///
+/// It has one job — telling a user whether pressing Clear is worth it — and exactly two ways
+/// to fail at it: reporting nothing for an archive full of photographs, or reporting a
+/// confident number for an archive that does not exist.
+final class ArchiveSizeTests: XCTestCase {
+    private var root: URL!
+
+    override func setUp() {
+        super.setUp()
+        root = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("PluckSizeTest-\(UUID().uuidString)", isDirectory: true)
+    }
+
+    override func tearDown() {
+        try? FileManager.default.removeItem(at: root)
+        super.tearDown()
+    }
+
+    /// Nested, because the archive is a directory per entry and a flat listing would report
+    /// zero for every real archive there has ever been.
+    func testItCountsFilesAllTheWayDown() throws {
+        let entry = root.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: entry, withIntermediateDirectories: true)
+        try Data(count: 40_000).write(to: entry.appendingPathComponent("cut.png"))
+        try Data(count: 40_000).write(to: entry.appendingPathComponent("original.png"))
+
+        // Allocated size, not logical: what the number is *for* is how much space Clear gives
+        // back, and a block is a block. So the assertion is a floor, not an equality.
+        XCTAssertGreaterThanOrEqual(DirectorySize.bytes(of: root), 80_000)
+    }
+
+    /// An archive nobody has written to yet. Zero is the right answer, not an error — and it
+    /// is the answer that keeps a size off the button (`EngineLabels.megabytes(orNothing:)`).
+    func testAMissingArchiveCostsNothing() {
+        XCTAssertEqual(DirectorySize.bytes(of: root), 0)
+        XCTAssertEqual(CutoutArchive(root: root, keepsIndex: true).totalBytes(), 0)
+    }
+
+    /// "(0 MB)" beside Clear is a button announcing that pressing it achieves nothing, drawn
+    /// in the shape of a warning. Below half a megabyte there is nothing worth saying.
+    func testASizeTooSmallToMentionIsNotMentioned() {
+        XCTAssertNil(EngineLabels.megabytes(orNothing: 0))
+        XCTAssertNil(EngineLabels.megabytes(orNothing: 400_000))
+        XCTAssertEqual(EngineLabels.megabytes(orNothing: 412_000_000), EngineLabels.megabytes(412_000_000))
+    }
+}

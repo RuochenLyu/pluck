@@ -290,6 +290,40 @@
         }
       }
     },
+    "Clear recent cutouts (%@)": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clear recent cutouts (%@)"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "清空最近的抠图（%@）"
+          }
+        }
+      }
+    },
+    "Clearing puts them in the Trash, the same as deleting one from the grid.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clearing puts them in the Trash, the same as deleting one from the grid."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "清空会把它们放进废纸篓，和单独删除一张一样，随时可以找回。"
+          }
+        }
+      }
+    },
     "Clipboard": {
       "extractionState": "manual",
       "localizations": {
@@ -984,6 +1018,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "需要保留菜单栏图标，否则将无处可点。"
+          }
+        }
+      }
+    },
+    "New images use": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New images use"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "新图片使用"
           }
         }
       }

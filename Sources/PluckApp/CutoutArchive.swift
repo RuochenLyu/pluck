@@ -14,6 +14,31 @@ import PluckKit
 ///   files die with the session.
 /// - `history` — `~/Library/Application Support/Pluck/History/`, plus an `index.json`
 ///   that says what order they were in and what they were called.
+/// How much disk a directory tree is really using.
+///
+/// Allocated size rather than logical size: what a user is deciding about when they read
+/// "412 MB" beside a Clear button is how much space they get back, and on APFS a 900-byte
+/// file still costs a block. Missing directories are zero rather than an error — an archive
+/// that has never been written to costs nothing, which is the correct answer and not a
+/// failure to compute one.
+enum DirectorySize {
+    static func bytes(of url: URL) -> Int64 {
+        let keys: Set<URLResourceKey> = [.isRegularFileKey, .totalFileAllocatedSizeKey, .fileAllocatedSizeKey]
+        guard let walk = FileManager.default.enumerator(
+            at: url,
+            includingPropertiesForKeys: Array(keys),
+            options: [],
+            errorHandler: nil
+        ) else { return 0 }
+        var total: Int64 = 0
+        for case let file as URL in walk {
+            guard let values = try? file.resourceValues(forKeys: keys), values.isRegularFile == true else { continue }
+            total += Int64(values.totalFileAllocatedSize ?? values.fileAllocatedSize ?? 0)
+        }
+        return total
+    }
+}
+
 struct CutoutArchive: Sendable {
     let root: URL
     /// Whether this root keeps an index. Without one, a restart finds a directory of
@@ -143,6 +168,20 @@ struct CutoutArchive: Sendable {
             }
         }
     }
+
+    // MARK: - Measuring
+
+    /// What this archive is costing the user, in bytes on disk.
+    ///
+    /// Walked, not tracked. A running total would be one more thing that has to be right
+    /// across every path that writes, promotes, evicts, trashes or sweeps an entry — and the
+    /// first time it drifted, the number in Settings would be a confident lie about disk
+    /// usage in an app whose whole pitch is that it is honest about where the bytes are.
+    /// Walking a few hundred files takes milliseconds and is always the truth.
+    ///
+    /// Callers run it off the main actor: `CutoutArchive` is a `Sendable` value and this
+    /// function touches nothing else.
+    func totalBytes() -> Int64 { DirectorySize.bytes(of: root) }
 
     func contains(_ item: RecentItem) -> Bool {
         item.fileURL.deletingLastPathComponent().deletingLastPathComponent().standardizedFileURL.path

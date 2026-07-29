@@ -125,6 +125,41 @@ final class ModelStoreTests: XCTestCase {
         XCTAssertTrue(store.installedIDs.isEmpty)
     }
 
+    /// The size on an installed row is the size *on disk*, not the size in the manifest.
+    ///
+    /// `descriptor.bytes` is the zip's length — what a Download is about to cost over the
+    /// network. Delete gives back the unpacked `.mlpackage`, which is a different number, and
+    /// a Delete button quoting the download size would be a claim about disk made out of a
+    /// number about bandwidth. Before anything is installed the manifest figure is the right
+    /// one, because then the row *is* offering a download.
+    func testAnInstalledRowQuotesTheDiskAndNotTheManifest() async throws {
+        let store = try store(.file(archive))
+        XCTAssertTrue(try XCTUnwrap(store.rows.first).detail.contains(EngineLabels.megabytes(size)))
+
+        store.download("fake")
+        await waitUntil("the install") { store.rows.first?.state == .installed }
+        await store.measureInstalled()
+
+        let row = try XCTUnwrap(store.rows.first)
+        let onDisk = try XCTUnwrap(row.installedBytes)
+        XCTAssertGreaterThan(onDisk, 0)
+        XCTAssertEqual(onDisk, DirectorySize.bytes(of: try XCTUnwrap(store.registry).directory(for: "fake")))
+        XCTAssertTrue(row.detail.contains(EngineLabels.megabytes(onDisk)))
+    }
+
+    /// Deleting drops the measurement with the bytes. A row that kept it would say how much
+    /// disk a model it no longer has is using.
+    func testDeletingForgetsTheMeasurement() async throws {
+        let store = try store(.file(archive))
+        store.download("fake")
+        await waitUntil("the install") { store.rows.first?.state == .installed }
+        await store.measureInstalled()
+        XCTAssertNotNil(store.rows.first?.installedBytes)
+
+        store.delete("fake")
+        XCTAssertNil(store.rows.first?.installedBytes)
+    }
+
     func testDownloadEndsInstalled() async throws {
         let store = try store(.file(archive))
         store.download("fake")

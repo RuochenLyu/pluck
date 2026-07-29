@@ -74,4 +74,14 @@ enum EngineLabels {
     static func megabytes(_ bytes: Int64) -> String {
         String(format: L.s("%d MB"), Int((Double(bytes) / 1_000_000).rounded()))
     }
+
+    /// The same figure, or nothing at all.
+    ///
+    /// A size is a fact worth putting on a button only while it is a fact — "(0 MB)" beside
+    /// Clear is a button announcing that pressing it will achieve nothing, in the shape of a
+    /// warning. Below half a megabyte the rounded number *is* zero, so there is nothing to
+    /// say and the label is left alone.
+    static func megabytes(orNothing bytes: Int64) -> String? {
+        bytes < 500_000 ? nil : megabytes(bytes)
+    }
 }

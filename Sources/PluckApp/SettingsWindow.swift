@@ -99,37 +99,7 @@ struct SettingsView: View {
 
                 ModelsSection(store: models, preferences: preferences)
 
-                Section {
-                    // The label is a `Text` of its own so it can be told to wrap. A
-                    // `Toggle(_:isOn:)` with a string title truncates it instead, and the
-                    // switch stays pinned to the trailing edge of a 480pt form — so the
-                    // first language whose sentence is longer than English's loses the end
-                    // of the only sentence that says what the switch does.
-                    Toggle(isOn: $preferences.keepsHistory) {
-                        Text(L.s("Keep recent cutouts between launches"))
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    .onChange(of: preferences.keepsHistory) { _, keeps in
-                        guard !keeps else { return }
-                        model.forgetStoredHistory()
-                    }
-                    // One sentence, in the user's vocabulary. "Application Support" is a
-                    // directory name from a developer's mental model of the machine, and
-                    // "never uploaded" was the third statement of the privacy claim in a
-                    // window 300pt tall — the line at the bottom says it best and says it
-                    // once.
-                    Text(L.s("Kept only on this Mac. Turn this off and cutouts are forgotten when you quit."))
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                    // The same button as the ones on the engine rows. Left stock, it was the
-                    // one flat grey control in a window whose other buttons had become glass —
-                    // two vocabularies in one pane, which is worse than either alone.
-                    RowButton(L.s("Clear recent cutouts")) { model.clearRecents() }
-                        .disabled(model.recents.items.isEmpty)
-                } header: {
-                    Text(L.s("History")).font(.headline)
-                }
+                HistorySection(model: model, preferences: preferences)
 
                 UpdatesSection(preferences: preferences, updates: updates)
             }
@@ -155,6 +125,80 @@ struct SettingsView: View {
         }
         .frame(width: 480, alignment: .leading)
         .fixedSize(horizontal: false, vertical: true)
+    }
+}
+
+/// What Pluck is keeping, and what it costs.
+///
+/// The size on the Clear button is the whole reason this section is not just a switch: an
+/// archive of everything the user has ever plucked grows without anyone watching it, and
+/// "Clear recent cutouts" with no number beside it is a button nobody presses because nobody
+/// knows whether it is worth pressing. Measured off the main actor, and *not* shown when it
+/// rounds to zero — see `EngineLabels.megabytes(orNothing:)`.
+///
+/// The safety-net sentence is stated only for kept history, and only because it is true
+/// there: `CutoutArchive.discard` trashes entries under the history root and deletes session
+/// ones outright, which is right — session files are temporary by the user's own instruction.
+/// A blanket "you can get them back" would be a promise the session case does not keep.
+private struct HistorySection: View {
+    let model: AppModel
+    @Bindable var preferences: Preferences
+
+    /// Nil until the walk finishes, and again the moment the grid changes — the number is
+    /// re-measured rather than adjusted, because a running total is one more thing that can
+    /// drift out of agreement with the disk.
+    @State private var bytes: Int64?
+
+    private var clearTitle: String {
+        guard let size = bytes.flatMap(EngineLabels.megabytes(orNothing:)) else {
+            return L.s("Clear recent cutouts")
+        }
+        return String(format: L.s("Clear recent cutouts (%@)"), size)
+    }
+
+    var body: some View {
+        Section {
+            // The label is a `Text` of its own so it can be told to wrap. A
+            // `Toggle(_:isOn:)` with a string title truncates it instead, and the switch
+            // stays pinned to the trailing edge of a 480pt form — so the first language
+            // whose sentence is longer than English's loses the end of the only sentence
+            // that says what the switch does.
+            Toggle(isOn: $preferences.keepsHistory) {
+                Text(L.s("Keep recent cutouts between launches"))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .onChange(of: preferences.keepsHistory) { _, keeps in
+                guard !keeps else { return }
+                model.forgetStoredHistory()
+            }
+            // One sentence, in the user's vocabulary. "Application Support" is a directory
+            // name from a developer's mental model of the machine, and "never uploaded" was
+            // the third statement of the privacy claim in a window 300pt tall — the line at
+            // the bottom says it best and says it once.
+            Text(L.s("Kept only on this Mac. Turn this off and cutouts are forgotten when you quit."))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            if preferences.keepsHistory {
+                Text(L.s("Clearing puts them in the Trash, the same as deleting one from the grid."))
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            // The same button as the ones on the model rows. Left stock, it was the one flat
+            // grey control in a window whose other buttons had become glass — two
+            // vocabularies in one pane, which is worse than either alone.
+            RowButton(clearTitle) { model.clearRecents() }
+                .disabled(model.recents.items.isEmpty)
+        } header: {
+            Text(L.s("History")).font(.headline)
+        }
+        // Re-measured whenever the grid changes size, which covers both directions: a batch
+        // landing and the Clear this very button just performed.
+        .task(id: model.recents.items.count) {
+            let archive = preferences.archive
+            bytes = await Task.detached(priority: .utility) { archive.totalBytes() }.value
+        }
     }
 }
 
@@ -280,57 +324,82 @@ private struct GeneralSection: View {
     }
 }
 
-/// The engines, and the choice between them — which are now the same thing.
+/// The default engine, and the models that can be one.
 ///
-/// There was a `Picker` above this list, repeating in a pop-up menu the names of rows the
-/// user could already see. Two controls for one decision, and the one that *made* the
-/// decision was the one that showed the least: the picker could not say what an engine was
-/// for, and the row that could say it was not clickable. Selecting *is* the row now (p5),
-/// which also answers "why is this row here" for Vision — it has nothing to download, and it
-/// is still the choice most people are using.
+/// Those are two different questions and they are now asked separately. They used to be the
+/// same control: every row carried a selection circle, so the list was simultaneously "which
+/// engine do new pictures go through" and "what is on this disk". That reads fine with two
+/// rows and stops working the moment a model is downloading, or failed, or not installed —
+/// a circle that is greyed because the bytes have not arrived is answering a question about
+/// downloads in the vocabulary of a preference.
 ///
-/// One row per engine, led by what the thing is *for*. The two BiRefNet models are the same
-/// size and the same licence — everything a row could say about them except the one thing
-/// that decides which to use, which is that lite cuts a decided edge and lite-matting keeps
-/// a soft one (research.md A.6). So the row leads with "Clean Cut" and "Fine Edges" and one
-/// sentence about what comes out; `BiRefNet_lite`, its licence and its size sit on one small
-/// tertiary line under the name, where the people who care about model provenance will still
-/// find them and nobody else has to.
+/// So: one pop-up at the top that states the preference in a sentence ("New images use …"),
+/// listing only engines that can actually serve it, and below it a plain management list.
+/// Each row is five things and no more — tile, name, one sentence about what comes out, one
+/// small line of provenance, and the button that changes its state — which is the same
+/// breathing room the History section has.
+///
+/// The rows lead with what the thing is *for*. The two BiRefNet models are the same size and
+/// the same licence, so everything a row could say about them is identical except the one
+/// thing that decides which to use: lite cuts a decided edge, lite-matting keeps a soft one
+/// (research.md A.6). Hence "Clean Cut" and "Fine Edges", with `BiRefNet_lite`, its licence
+/// and its weight on one tertiary line where people who care about provenance will find them
+/// and nobody else has to.
 private struct ModelsSection: View {
     @Bindable var store: ModelStore
     @Bindable var preferences: Preferences
 
+    /// Everything that could be the default right now: Vision, which is always here, plus
+    /// whatever is on disk.
+    private var choices: [String] {
+        [EngineCatalog.defaultEngineID] + store.rows.filter(\.isInstalled).map(\.id)
+    }
+
+    /// Reads through the same fallback the pipeline uses rather than writing it back.
+    /// `Preferences.engineID` deliberately keeps pointing at a model that has been deleted —
+    /// a preference that quietly rewrites itself is worse than one that is briefly
+    /// unsatisfiable — so the pop-up shows what today's drop would actually use, and only a
+    /// deliberate choice stores anything.
+    private var selection: Binding<String> {
+        Binding(
+            get: { choices.contains(preferences.engineID) ? preferences.engineID : EngineCatalog.defaultEngineID },
+            set: { preferences.engineID = $0 }
+        )
+    }
+
     var body: some View {
         Section {
-            // No caption at all: Vision has no licence to declare and no bytes to warn
-            // about, and its blurb already says it is built into macOS — a "Built-in" chip
-            // above that sentence was the sentence again, in a pill.
-            EngineRow(
-                id: EngineCatalog.defaultEngineID,
-                title: EngineLabels.name(EngineCatalog.defaultEngineID),
-                detail: nil,
-                failure: nil,
-                isSelected: preferences.engineID == EngineCatalog.defaultEngineID,
-                isSelectable: true,
-                select: { preferences.engineID = EngineCatalog.defaultEngineID }
-            ) {}
+            Picker(selection: selection) {
+                ForEach(choices, id: \.self) { id in
+                    Text(EngineLabels.name(id, fallback: store.rows.first { $0.id == id }?.descriptor.displayName))
+                        .tag(id)
+                }
+            } label: {
+                Text(L.s("New images use"))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .pickerStyle(.menu)
 
             if store.registry == nil {
                 Text(L.s("This build carries no model list."))
                     .font(.callout)
                     .foregroundStyle(.secondary)
             }
+            // No row for Vision down here any more. It exists to be *chosen*, and the pop-up
+            // above is where choosing happens; a row offering no Download and no Delete would
+            // be a line of furniture in a list whose whole subject is bytes on disk.
             ForEach(store.rows) { row in
                 ModelRowView(row: row, store: store, preferences: preferences)
             }
         } header: {
             Text(L.s("Models")).font(.headline)
         }
+        .task { await store.measureInstalled() }
     }
 }
 
-/// The shape every engine row has (p5): the choice, a face, what it is for, and whatever the
-/// user can do about it.
+/// The shape every model row has: a face, what it is for, what it is, and the one button that
+/// changes its state.
 private struct EngineRow<Control: View>: View {
     let id: String
     let title: String
@@ -342,25 +411,11 @@ private struct EngineRow<Control: View>: View {
     /// Replaces the detail line and the blurb when a download has gone wrong — a row that
     /// says "MIT · 83 MB" while the download is broken is answering a question nobody asked.
     let failure: String?
-    let isSelected: Bool
-    /// False for a model that is not on disk. It cannot be the default engine before it
-    /// exists, and a circle that accepts the click and then silently does nothing is worse
-    /// than one that is visibly not available yet.
-    let isSelectable: Bool
-    let select: () -> Void
     @ViewBuilder var control: Control
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
-            Button(action: select) {
-                SelectionMark(isSelected: isSelected, isEnabled: isSelectable)
-            }
-            .buttonStyle(.plain)
-            .disabled(!isSelectable)
-            .accessibilityLabel(title)
-            .accessibilityAddTraits(isSelected ? [.isSelected] : [])
-
-            IconTile(symbol: EngineLabels.symbol(id), isSelected: isSelected)
+            IconTile(symbol: EngineLabels.symbol(id))
 
             VStack(alignment: .leading, spacing: 5) {
                 Text(title)
@@ -372,6 +427,12 @@ private struct EngineRow<Control: View>: View {
                         .foregroundStyle(.red)
                         .fixedSize(horizontal: false, vertical: true)
                 } else {
+                    if let blurb = EngineLabels.blurb(id) {
+                        Text(blurb)
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                     if let detail {
                         // Verbatim: it is a model id, a licence and a byte count, none of
                         // which are prose and none of which are in the catalog.
@@ -380,46 +441,12 @@ private struct EngineRow<Control: View>: View {
                             .foregroundStyle(.tertiary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
-                    if let blurb = EngineLabels.blurb(id) {
-                        Text(blurb)
-                            .font(.callout)
-                            .foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
                 }
             }
             Spacer(minLength: 8)
             control
         }
         .padding(.vertical, 8)
-        // The whole row, not just the 22pt circle: the circle is where the state is shown,
-        // and the name and the sentence beside it are what the user is actually reading when
-        // they decide.
-        .contentShape(Rectangle())
-        .onTapGesture { if isSelectable { select() } }
-    }
-}
-
-/// Coral, and the only tinted thing in this window (§4.7): the default engine is the one
-/// fact the pane exists to state.
-private struct SelectionMark: View {
-    let isSelected: Bool
-    let isEnabled: Bool
-
-    var body: some View {
-        ZStack {
-            if isSelected {
-                Circle().fill(Palette.coral)
-                Image(systemName: "checkmark")
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundStyle(.white)
-            } else {
-                Circle().strokeBorder(.tertiary, lineWidth: 1)
-            }
-        }
-        .frame(width: 22, height: 22)
-        .opacity(isEnabled ? 1 : 0.4)
-        .accessibilityHidden(true)
     }
 }
 
@@ -428,14 +455,12 @@ private struct SelectionMark: View {
 /// *edge* each engine cuts does the same job — something for the eye to land on — without
 /// borrowing anyone's identity.
 ///
-/// The tile is washed with coral at 8→16%, and the selected row's glyph is coral outright.
-/// This does not spend the one-tint-per-screen budget (§4.7): an 8% diagonal wash is a
-/// surface tint, the way a Dropover tile is a surface, and the countable *tinted element*
-/// in this window is still the selection mark. What the wash buys is a column of tiles that
-/// belongs to Pluck rather than three grey squares that could be from any preferences pane.
+/// The tile is washed with coral at 8→16%. This does not spend the one-tint-per-screen
+/// budget (§4.7): an 8% diagonal wash is a surface tint, the way a Dropover tile is a
+/// surface. What it buys is a column of tiles that belongs to Pluck rather than three grey
+/// squares that could be from any preferences pane.
 private struct IconTile: View {
     let symbol: String
-    let isSelected: Bool
 
     var body: some View {
         RoundedRectangle(cornerRadius: Tokens.rowRadius, style: .continuous)
@@ -450,7 +475,7 @@ private struct IconTile: View {
             .overlay {
                 Image(systemName: symbol)
                     .font(.system(size: 16, weight: .medium))
-                    .foregroundStyle(isSelected ? AnyShapeStyle(Palette.coral) : AnyShapeStyle(.secondary))
+                    .foregroundStyle(.secondary)
             }
             .accessibilityHidden(true)
     }
@@ -465,11 +490,8 @@ private struct ModelRowView: View {
         EngineRow(
             id: row.id,
             title: EngineLabels.name(row.id, fallback: row.descriptor.displayName),
-            detail: "\(row.descriptor.displayName) · \(row.descriptor.license) · \(EngineLabels.megabytes(row.descriptor.bytes))",
-            failure: failure,
-            isSelected: preferences.engineID == row.id,
-            isSelectable: row.isInstalled,
-            select: { preferences.engineID = row.id }
+            detail: row.detail,
+            failure: failure
         ) {
             control
         }
