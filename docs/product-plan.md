@@ -105,7 +105,8 @@ protocol MattingEngine {
 
 ### 4.3 App 交互（全部走 PluckKit）
 
-- **菜单栏常驻**：**拖到图标是拖放的主路径**——拖入时图标变实心 + 珊瑚色，松手即处理并自动弹出面板。点击图标也可打开面板（只打开，不 toggle）。面板是自绘的非激活 NSPanel（不是 NSPopover，容器视觉要自己控），内含 Recent 网格 + Clear，本身也接受拖放但不是承重路径；点面板外任何地方即关，Esc / ⌘W 同。剪贴板流程：面板内 ⌘V → 抠图 → 结果自动写回剪贴板 → 目标 app ⌘V，**中间不落盘**（2026-07-27 起废弃全局快捷键方案）。点击 Recent 项打开预览面板：before/after 拖拽滑块 + Copy/Save。
+- **形态：Dock app + 可选菜单栏（2026-07-29 定案，见 decisions.md 同日）**。默认 `.regular`：有 Dock 图标、启动即开主窗口、点 Dock 图标开主窗口、**Dock 图标接受拖图**（`CFBundleDocumentTypes` public.image / Viewer / Alternate → `application(_:open:)` → 同一条 `handleDrop` 管线，多文件一次进批量）。Settings ▸ 通用两个开关：`Show Pluck in the menu bar`（默认开，关=移除状态项）与 `Hide the Dock icon`（仅前者开启时可用，开=运行时 `setActivationPolicy(.accessory)`，即原来的形态）。两开关不得同时导致"无处可点"，不变式在 `Preferences` 内。**这条推翻此前"菜单栏为主入口"的定位**：Pluck 是任务式处理器（ImageOptim / Permute 那一类），不是常驻监听器。
+- **菜单栏常驻**（菜单栏图标开启时，行为不变）：**拖到图标是拖放的主路径**——拖入时图标变实心 + 珊瑚色，松手即处理并自动弹出面板。点击图标也可打开面板（只打开，不 toggle）。面板是自绘的非激活 NSPanel（不是 NSPopover，容器视觉要自己控），内含 Recent 网格 + Clear，本身也接受拖放但不是承重路径；点面板外任何地方即关，Esc / ⌘W 同。剪贴板流程：面板内 ⌘V → 抠图 → 结果自动写回剪贴板 → 目标 app ⌘V，**中间不落盘**（2026-07-27 起废弃全局快捷键方案）。点击 Recent 项打开预览面板：before/after 拖拽滑块 + Copy/Save。
 - **处理中反馈**：Recent 网格头部占位卡（输入图缩略图去饱和 + 扫光，>250ms 才出 spinner，完成原地交叉淡出）；面板关闭时由菜单栏图标呼吸脉冲承担。
 - **主窗口**：大拖放区；多文件/文件夹拖入进批量队列，逐张进度 + 失败标记；处理前后对比（滑块）；导出格式与目的地记忆。
 - **结果浮层**（CleanShot X 式）：处理完弹小浮层，可直接拖去别的 app / 复制 / 存到指定文件夹 / 换背景色，不强制保存对话框。
@@ -149,7 +150,7 @@ agent 友好设计：`--json` 结构化输出、语义化 exit code（0 成功 /
 - **主窗口沉浸玻璃（2026-07-28 定案，对照 p4）**：主窗口与 shelf 用**同一块玻璃、同一套 `Tokens` 参数**——26+ 是 `NSGlassEffectView`（`PanelBackdrop`，圆角传 0：`.titled` 窗口的窗缘自己会裁），14 回落 `NSVisualEffectView` `.underWindowBackground` + `.behindWindow`。窗口 `fullSizeContentView` + `titlebarAppearsTransparent` + `backgroundColor = .clear` + `isOpaque = false`；**红绿灯保留**（这是可缩放、会被留在后台的窗口，操作它的部件必须在），**标题文字 `titleVisibility = .hidden`**——菜单栏已经说清身份，玻璃面上一个孤零零的 "Pluck" 是一条忘了画背景的标题栏。`window.title` 仍照常设置并走 catalog（Mission Control、Window 菜单、VoiceOver 用的是它）。内容顶部留 28pt 让开红绿灯，不做"内容滚到红绿灯底下"——没有标题栏材质垫着，滚过去的卡片和三颗按钮之间没有任何东西分隔。**系统底一律删**：滚动区 `.scrollContentBackground(.hidden)`、底栏去 `.bar`、空态去掉 `.quaternary` 洗色**与虚线框**（虚线是面板内细线，v2 早就禁了；整窗即投放目标，拖拽时的 accent 边才是回答）。卡片仍是实色（内容层原则不变）。亮/暗两模式实测通过。
 - **强调色**：珊瑚橙每屏至多一个染色元素（主按钮/进度/选中勾），其余中性。
 - **图标**：实心有机 blob + 虚线剪影（主体被拽走留下轮廓）；18px 菜单栏版虚线简化为 4–5 段粗 dash，进开发后直接画矢量模板 PDF。羽毛方案废弃。
-- **入口层级**：菜单栏为主入口（单张高频场景），主窗口为批量处理场景（保留空状态）。
+- ~~**入口层级**：菜单栏为主入口（单张高频场景），主窗口为批量处理场景（保留空状态）。~~ **2026-07-29 作废**（见 §4.3 与 decisions.md 同日）：**主窗口是主入口**，菜单栏 shelf 是单张高频场景的快捷路径。
 - ~~**结果浮层**（自动弹出版）~~ 2026-07-28 决定不做（见 decisions.md）：不自动弹，结果由用户点缩略图打开预览面板查看。预览面板保留本节的尺寸与操作设计（Copy/Save、before/after），去掉倒计时。
 - **shelf 结构（2026-07-28 定稿）**：无投放横幅、无底栏——面板整体即投放目标；有内容时网格首格为虚线"幽灵格"（+ 与 ⌘V 提示，"下一张落在这里"），空态为同语法撑满版；Clear/主窗口/齿轮菜单并入 RECENT 标题行；状态消息为浮动材质条，仅在有话可说时出现；缩略图右键菜单含单项 Delete。依据：对 Dropover/Yoink/Dropzone 等 12 款 menubar app 的两轮调研（decisions.md 同日）。
 - **主窗口 = 图像画廊（2026-07-28 产品审计后定稿，取代原"批量队列"行列表）**：内容区是 `LazyVGrid(.adaptive(132…150))` 的结果卡网格，卡片语言与 shelf 共用同一个 `CutoutCard`（白/深灰卡面 + 卡内棋盘格 + 图满铺卡面），hover 抬起、右上出 Copy/Save 玻璃圆钮、底部浮一条玻璃小字（名称 · 尺寸 · 非默认引擎名；名称先让位截断）。**无常驻投放条**——整窗即投放目标，拖拽悬停时内容区一圈 accent 边；空态保留完整教学。**选择**：单击选中（accent 描边 + 左上角勾圈）、再点取消、⌘点多选、⌘A 全选、Esc 清空、双击开预览、整卡可拖出，右键菜单与 shelf 对齐（Copy Image / Save As… / Show Preview / Delete）。**底栏**：左侧只在有话可说时出状态行（"N cutouts" 计数删除——格子本身就是那些抠图），右侧 Export 按钮说出它真正会写的东西：无选中 "Export All…"、有选中 "Export N…"（复数走 catalog），条目集 = `AppModel.exportTargets`。多图批次的顶部进度条保留；行尾 ✓ Done 取消——占位卡在原格变成结果就是那个 ✓。p2 的 "Waiting" 仍不做：排队与执行的分界在 PluckKit 的 `PluckQueue` 里，猜一个就是给正在处理的图贴静态标签。

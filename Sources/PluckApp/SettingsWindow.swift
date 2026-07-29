@@ -95,7 +95,7 @@ struct SettingsView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             Form {
-                LanguageSection(preferences: preferences)
+                GeneralSection(preferences: preferences)
 
                 ModelsSection(store: models, preferences: preferences)
 
@@ -221,26 +221,51 @@ private struct UpdatesSection: View {
     }
 }
 
-/// One row, at the top, because it decides how every other row in the window reads.
+/// Where Pluck shows up, and what language it does it in — the section that decides how
+/// every other row in the window reads, so it comes first.
 ///
-/// Each option is written in the language it selects: "English" is always English and
-/// "简体中文" is always 简体中文, no matter what the app is currently speaking. This is the
-/// convention every language picker on every platform follows, and the reason is that the
-/// person who needs this control is by definition someone the current language is failing.
-/// A menu that says "Chinese, Simplified" to a user who cannot read English is a menu that
-/// only works for people who did not need it. Only "System" is translated — it names a
-/// behaviour rather than a language, and the person reading it can read what is around it.
+/// The two presence switches are one decision in two halves and are written as such: the
+/// Dock switch is disabled while the menu bar icon is off, because with neither there would
+/// be nothing on screen to click. `Preferences` enforces that as an invariant rather than
+/// this view enforcing it as a disabled control — a rule that only exists in a `.disabled`
+/// modifier is a rule the next surface to touch these booleans will not have.
 ///
-/// So the two language names are `Text(verbatim:)` and appear in no catalog: they are not
-/// copy, and a translator who "improved" them would break the control.
-private struct LanguageSection: View {
+/// Each language option is written in the language it selects: "English" is always English
+/// and "简体中文" is always 简体中文, no matter what the app is currently speaking. This is
+/// the convention every language picker on every platform follows, and the reason is that
+/// the person who needs this control is by definition someone the current language is
+/// failing. A menu that says "Chinese, Simplified" to a user who cannot read English is a
+/// menu that only works for people who did not need it. Only "System" is translated — it
+/// names a behaviour rather than a language, and the person reading it can read what is
+/// around it. So the two language names are `Text(verbatim:)` and appear in no catalog:
+/// they are not copy, and a translator who "improved" them would break the control.
+private struct GeneralSection: View {
     @Bindable var preferences: Preferences
 
-    /// A labelled row, not a headed section. The other two sections are headed because each
-    /// is a list of things with a sentence about them; this is one pop-up menu, and a
-    /// `Language` header over a row whose label would also read `Language` is the word twice.
     var body: some View {
         Section {
+            Toggle(isOn: $preferences.showsMenuBarIcon) {
+                Text(L.s("Show Pluck in the menu bar"))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Toggle(isOn: $preferences.hidesDockIcon) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(L.s("Hide the Dock icon"))
+                        .fixedSize(horizontal: false, vertical: true)
+                    if !preferences.canHideDockIcon {
+                        // Said out loud, because a control that is grey for a reason the user
+                        // cannot see reads as a broken control rather than as an unavailable
+                        // one.
+                        Text(L.s("Needs the menu bar icon — otherwise there would be nowhere left to click."))
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+            }
+            .disabled(!preferences.canHideDockIcon)
+
             Picker(selection: $preferences.languageID) {
                 Text(L.s("System")).tag(L.systemID)
                 Text(verbatim: "English").tag("en")
@@ -249,6 +274,8 @@ private struct LanguageSection: View {
                 Text(L.s("Language"))
             }
             .pickerStyle(.menu)
+        } header: {
+            Text(L.s("General")).font(.headline)
         }
     }
 }

@@ -24,9 +24,29 @@
 	<string>__BUILD_VERSION__</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>14.0</string>
-	<!-- Accessory app: menu bar only, no Dock icon, no window on launch. -->
-	<key>LSUIElement</key>
-	<true/>
+	<!-- A Dock app that also lives in the menu bar (decisions.md 2026-07-29). `LSUIElement`
+	     is deliberately absent rather than false: this is the launch-time policy, and the
+	     accessory shape is reached at runtime through `NSApp.setActivationPolicy` when the
+	     user asks for it in Settings ▸ General. -->
+	<!-- Dropping images on the Dock icon reaches `application(_:open:)`, which is the same
+	     entry point as a drop on the shelf. Viewer, not Editor, and rank Alternate: Pluck
+	     reads a picture and writes a new file beside it — it is not claiming to be the app
+	     that owns your PNGs, and it must never displace Preview in Finder's "Open with". -->
+	<key>CFBundleDocumentTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>Image</string>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>LSHandlerRank</key>
+			<string>Alternate</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>public.image</string>
+			</array>
+		</dict>
+	</array>
 	<key>NSHumanReadableCopyright</key>
 	<string>Pluck is free software, released under the MIT license.</string>
 	<key>NSPrincipalClass</key>

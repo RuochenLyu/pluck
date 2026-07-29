@@ -370,3 +370,13 @@
 - **开关的真相在 `Preferences.checksForUpdates`，不在 Sparkle 的 `SUEnableAutomaticChecks`**：Sparkle 自己把这个布尔持久化在同一个 defaults 域里，于是有两份。定为单向：`Info.plist` 里的 `SUEnableAutomaticChecks=true` 只负责**压掉 Sparkle 首启的"要不要自动检查"询问框**（ADR 已经替用户答了"是"，再问一次是把决定推回去），启动时 `UpdateController.adopt` 把 Preferences 推进 Sparkle，反向不推。日检间隔同样在运行时重述——plist 里的值只是初值，改过间隔的用户会永远留着旧值。
 - **签名顺序进 `bundle.sh`，不进 `release.sh`**：Sparkle 让 bundle 变成嵌套的（framework 里两个 XPC service、一个 relaunch helper、一个进度 app），嵌套代码必须由内向外签。`release.sh` 原来的做法是"bundle.sh 出 ad-hoc 包，我再对外层 .app 重签一次"——那会留下四块 sparkle-project 签名的代码装在一块我们签名的壳里，`codesign --verify --strict` 认，Gatekeeper 不认。改为 `release.sh` 把身份通过 `CODESIGN_IDENTITY` 交给 `bundle.sh`，签名顺序只存在一份。
 - **rpath 用 `install_name_tool` 加，不用 `Package.swift` 的 `unsafeFlags`**：后者会让整个包无法被任何其他包依赖——PluckKit 的使用者为一条只有 .app 需要的链接参数付账。framework 用 `ditto` 拷（版本化 bundle 由符号链接撑着，`cp -R` 会把它拍平），Headers/Modules 删掉再签。体积代价：1.9 MB → 6.2 MB。
+
+## 2026-07-29 — Dock 优先：任务式处理器的身份是 Dock app，菜单栏是快捷路径
+
+- **决策**：默认激活策略改为 `.regular`（有 Dock 图标），启动即开主窗口，点 Dock 图标（`applicationShouldHandleReopen`）开主窗口而非 shelf；Dock 图标接受拖图（`CFBundleDocumentTypes` + `application(_:open:)`，多文件一次进批量）。Settings 新增「通用 / General」节：`Show Pluck in the menu bar`（默认开）+ `Hide the Dock icon`（仅前者开启时可用）。**这条推翻 `LSUIElement=true` 那条隐含的产品定位**，shelf 与状态项的现行为在菜单栏开启时一个字不动。
+- **背景**：维护者对着实机的判断——Pluck 不是常驻监听器（Ice / Bartender / Dropover 那类），而是**任务式处理器**：用户拿着一批图来，处理完就走。这类工具在 mac 上的既有形态是 ImageOptim / Permute / HandBrake，全部是 Dock app。菜单栏图标对它们是可选的快捷方式，不是身份。
+- **为什么这不只是加一个开关**：`LSUIElement` app 的所有可用性问题（2026-07-27 那条刘海 ADR 整条、启动 700ms 后自动开 shelf 这类逃生通道、"启动后屏幕上什么都没有，分不清是启动了还是失败了"）都源自"没有 Dock 图标"这一个前提。Dock 图标本身就是那些通道的正解，而且它顺带解决了一件 shelf 永远解决不了的事：**拖到 Dock 图标**是 mac 用户对"把这批文件交给这个 app"的第一直觉，而菜单栏图标只有 22×22pt。
+- **两个开关是一个决定的两半，不变式写在 `Preferences` 里而不是写在 `.disabled` 上**：菜单栏关时 `hidesDockIcon` 自动置假。规则只活在一个 `.disabled` 修饰符里，就等于下一个碰这两个布尔的界面不会有这条规则；而它守的是"屏幕上一个可点的东西都没有"这个状态。读取时也过一遍同一条不变式——手工改过的 defaults 域不该造得出无处可点的 app。
+- **`LSUIElement` 是删掉而不是写 false**：plist 里的是**启动期**策略，accessory 形态由运行时的 `setActivationPolicy` 达成（实测即时生效，无需重启）。`.accessory → .regular` 时补一次 `NSApp.activate()`：否则 Dock 里冒出一个图标，前台却还是别人的窗口。
+- **文档类型是 Viewer + Alternate，不是 Editor + Owner**：Pluck 读一张图、在旁边写一个新文件，它不拥有用户的 PNG。抢 Finder 的「打开方式」默认项是这条 plist 最容易造成的伤害，而它换不来任何东西——拖到 Dock 图标与 `open -a` 两条路径都不需要高 rank。
+- **状态项关闭是 `removeStatusItem` 而不是 `isVisible = false`**：后者留着条目和它占的位置，在一条满员的菜单栏上，"关掉了"和"关掉了但还在挤别人"是两回事。

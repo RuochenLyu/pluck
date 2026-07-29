@@ -4,6 +4,12 @@ import SwiftUI
 /// `NSStatusItem` rather than SwiftUI's `MenuBarExtra`: the status item must itself be a
 /// drop target (product-plan §4.3), and `MenuBarExtra` hands out no view to register
 /// dragged types on. Everything below the status item is still SwiftUI.
+///
+/// Pluck is a Dock app that also lives in the menu bar, not the other way round
+/// (decisions.md 2026-07-29). `.regular` is the default policy, the main window opens at
+/// launch, and clicking the Dock icon brings that window back. The status item and the
+/// shelf are unchanged — they are the shortcut, not the identity — and `.accessory` is
+/// still one switch away for anyone who wants the old shape.
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private let preferences = Preferences.shared
@@ -28,7 +34,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private static let pulseKey = "pluck.busy.pulse"
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        NSApp.setActivationPolicy(.accessory)
+        applyPresence()
         // First, and synchronously: whatever the last run left behind is dead weight, and it
         // is dead weight made of the user's photographs. Synchronous because the alternative
         // races — a detached sweep can land after the first drop has already written into
@@ -41,7 +47,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         CutoutArchive.session.discardEverything()
         if !preferences.keepsHistory { CutoutArchive.history.discardEverything() }
         installMainMenu()
-        installStatusItem()
         installShelf()
         installKeyMonitor()
         installDismissMonitors()
@@ -52,11 +57,80 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         installPluckSignal()
         installLanguageObserver()
+        installPresenceObserver()
         // After the status item exists, so the first background check has a surface to put a
         // window next to, and after `Preferences` has been read: the daily cycle must not
         // start for a user who turned it off in a previous launch.
         updates.adopt(preferences)
-        revealIfUnreachable()
+        // A Dock app that starts with nothing on screen has told the user nothing about
+        // whether it started. The accessory shape keeps the old escape hatch instead.
+        if NSApp.activationPolicy() == .regular {
+            mainWindow.show(model: model)
+        } else {
+            revealIfUnreachable()
+        }
+    }
+
+    // MARK: - Where Pluck shows up
+
+    /// The two switches, resolved into the one thing AppKit understands.
+    ///
+    /// Static and pure because the interesting part is the *combination*: hiding the Dock
+    /// icon is only offered while the menu bar icon is on, and an app that answered
+    /// `.accessory` with neither would have no surface at all.
+    nonisolated static func activationPolicy(
+        showsMenuBarIcon: Bool,
+        hidesDockIcon: Bool
+    ) -> NSApplication.ActivationPolicy {
+        showsMenuBarIcon && hidesDockIcon ? .accessory : .regular
+    }
+
+    /// Applies both switches. Called at launch and again on every change — `setActivationPolicy`
+    /// works at runtime, which is what lets this be a switch rather than a "please relaunch".
+    private func applyPresence() {
+        let policy = Self.activationPolicy(
+            showsMenuBarIcon: preferences.showsMenuBarIcon,
+            hidesDockIcon: preferences.hidesDockIcon
+        )
+        if NSApp.activationPolicy() != policy {
+            NSApp.setActivationPolicy(policy)
+            // Going from `.accessory` to `.regular` leaves the process behind whatever was
+            // frontmost, so a Dock icon appears with nothing to show for it.
+            if policy == .regular { NSApp.activate() }
+        }
+        if preferences.showsMenuBarIcon {
+            installStatusItem()
+        } else {
+            removeStatusItem()
+        }
+    }
+
+    private func installPresenceObserver() {
+        let token = NotificationCenter.default.addObserver(
+            forName: .pluckPresenceDidChange,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.applyPresence() }
+        }
+        observers.append(token)
+    }
+
+    /// Images dropped on the Dock icon, double-clicked in Finder, or handed over by
+    /// `open -a Pluck …`. All three arrive here, and all three are the same gesture as a drop
+    /// on the shelf — so they go through the same entry point, in one call, because a folder
+    /// full of images opened at once is one batch and not thirty.
+    func application(_ application: NSApplication, open urls: [URL]) {
+        let payloads = urls.map(DroppedPayload.file)
+        guard !payloads.isEmpty else { return }
+        model.handleDrop(payloads)
+        // Where the results will appear. The shelf is the answer only for the shape of the
+        // app that has no window to raise.
+        if NSApp.activationPolicy() == .regular {
+            mainWindow.show(model: model)
+        } else {
+            openShelf()
+        }
     }
 
     /// Everything AppKit built once and now keeps.
@@ -87,16 +161,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         observers.append(token)
     }
 
-    /// A menu bar an `.accessory` app never draws, and cannot do without.
+    /// The menu bar. Drawn now — Pluck is a `.regular` app by default (decisions.md
+    /// 2026-07-29) — and still mandatory in the `.accessory` shape, which never shows it.
     ///
     /// The main menu is where AppKit resolves key equivalents, so with `NSApp.mainMenu` nil
     /// the save panel's filename field had no ⌘A/⌘C/⌘V/⌘Z at all — the standard Edit items
     /// are not built into `NSTextField`, they are menu items that dispatch `cut:`/`copy:`/
     /// `paste:` down the responder chain — and no window in the app could be closed with ⌘W
-    /// unless `handleKey` below knew about it by name. Nothing here is ever seen: an
-    /// accessory app shows no menu bar even when it is frontmost. The titles still go
-    /// through the catalog, because "invisible" is a fact about today's activation policy
-    /// and not about the strings.
+    /// unless `handleKey` below knew about it by name. It was written when none of it could
+    /// ever be seen, which is why every title was already going through the catalog:
+    /// "invisible" was a fact about the activation policy, not about the strings — and the
+    /// policy has since changed.
     private func installMainMenu() {
         let main = NSMenu()
         main.addItem(Self.submenu(L.s("Pluck"), [
@@ -307,6 +382,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func installStatusItem() {
+        guard statusItem == nil else { return }
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         guard let button = item.button else { return }
         button.image = StatusIcon.idle
@@ -321,6 +397,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         statusItem = item
         dropView = drop
+    }
+
+    /// Taken out of the bar, not hidden in it. `NSStatusItem.isVisible = false` leaves the
+    /// item alive and its slot reserved, which on a full menu bar is the difference between
+    /// "off" and "off, but still pushing your other icons around".
+    private func removeStatusItem() {
+        guard let item = statusItem else { return }
+        shelf.close()
+        NSStatusBar.system.removeStatusItem(item)
+        statusItem = nil
+        dropView = nil
     }
 
     private func installShelf() {
@@ -420,11 +507,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return (rect, screen)
     }
 
-    /// Launching Pluck again while it is already running is the way back in. LaunchServices
-    /// sends this rather than starting a second copy, and for an app with no Dock icon it is
-    /// the only gesture a user can perform that we are guaranteed to receive.
+    /// Clicking the Dock icon, or launching Pluck again while it is already running.
+    ///
+    /// With a Dock icon this is the ordinary "bring the app back" gesture and the main window
+    /// is what it means — a 340pt panel dropping out of the menu bar is not what anyone
+    /// clicking a Dock icon is asking for. Without one it is still the escape hatch it was
+    /// written to be (decisions.md 2026-07-27): a launch of an already-running accessory app
+    /// is the one gesture a user can perform when the status item is unreachable.
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows: Bool) -> Bool {
-        openShelf()
+        if NSApp.activationPolicy() == .regular {
+            mainWindow.show(model: model)
+        } else {
+            openShelf()
+        }
         return true
     }
 
