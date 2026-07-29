@@ -22,6 +22,12 @@ qa/
 # Model weights fetched by Scripts/fetch-models.sh — Release assets, never committed
 models/weights/
 
+# Sparkle's EdDSA public key, as printed by `generate_keys`. Not a secret — it is compiled
+# into every shipped copy — but it is the maintainer's, generated on the maintainer's
+# machine, and a fork that inherited it would build an app that can only accept updates
+# signed by a private key nobody in that fork has.
+Packaging/sparkle_public_key.txt
+
 # Core ML conversion spike toolchain — see docs/roadmap.md v0.3
 .venv/
 models/birefnet_lite_src/

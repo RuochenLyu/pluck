@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<!-- Template. Scripts/bundle.sh substitutes __SHORT_VERSION__ and __BUILD_VERSION__. -->
+<!-- Template. Scripts/bundle.sh substitutes __SHORT_VERSION__ and __BUILD_VERSION__, and
+     either substitutes or deletes __SPARKLE_PUBLIC_ED_KEY__. -->
 <plist version="1.0">
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
@@ -34,5 +35,25 @@
 	<false/>
 	<key>NSSupportsSuddenTermination</key>
 	<false/>
+
+	<!-- Sparkle (decisions.md 2026-07-28). The feed and the update packages live in this
+	     repository's own GitHub Releases: no third-party update server, and the `latest`
+	     redirect means the URL never has to change. -->
+	<key>SUFeedURL</key>
+	<string>https://github.com/RuochenLyu/pluck/releases/latest/download/appcast.xml</string>
+	<!-- Default-on, which is also what suppresses Sparkle's first-launch "may I check for
+	     updates?" dialog: the answer is already yes, and Settings ▸ Updates is where it is
+	     changed. `UpdateController` restates both this and the interval at launch, because
+	     Sparkle persists them as user defaults and this key is only the initial value. -->
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
+	<key>SUScheduledCheckInterval</key>
+	<integer>86400</integer>
+	<!-- The EdDSA public key the appcast's signatures are checked against. Substituted by
+	     Scripts/bundle.sh from SPARKLE_PUBLIC_ED_KEY or Packaging/sparkle_public_key.txt,
+	     and *removed outright* when neither exists — a build with no key must have no
+	     updater at all (UpdateController), never an updater that trusts a placeholder. -->
+	<key>SUPublicEDKey</key>
+	<string>__SPARKLE_PUBLIC_ED_KEY__</string>
 </dict>
 </plist>

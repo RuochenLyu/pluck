@@ -10,7 +10,13 @@ let package = Package(
         .executable(name: "pluck", targets: ["PluckCLI"])
     ],
     dependencies: [
-        .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.3.0")
+        .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.3.0"),
+        // The app target's only third-party dependency, and deliberately the last one
+        // (decisions.md 2026-07-28): updating a non-App-Store Mac app is a signature-checking,
+        // privilege-separated, relaunch-safe problem, and Sparkle is the answer everyone else
+        // already reviewed. PluckKit and the CLI do not see it — nothing in the engine or in
+        // an agent's `pluck` invocation should be able to reach an updater.
+        .package(url: "https://github.com/sparkle-project/Sparkle.git", from: "2.9.4")
     ],
     targets: [
         .target(name: "PluckKit"),
@@ -28,7 +34,10 @@ let package = Package(
         ),
         .executableTarget(
             name: "PluckApp",
-            dependencies: ["PluckKit"],
+            dependencies: [
+                "PluckKit",
+                .product(name: "Sparkle", package: "Sparkle")
+            ],
             resources: [.process("Resources")]
         ),
         .testTarget(name: "PluckKitTests", dependencies: ["PluckKit"]),
