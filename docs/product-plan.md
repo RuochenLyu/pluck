@@ -119,7 +119,7 @@ pluck photo.jpg                        # → photo.png（透明背景）
 pluck *.jpg -o out/                    # 批量
 pluck photo.jpg --model birefnet-lite  # 指定引擎
 cat photo.jpg | pluck - > cut.png      # stdin/stdout 管道
-pluck photo.jpg --json                 # 机器可读：输出路径/尺寸/耗时/是否检测到主体
+pluck photo.jpg --json                 # NDJSON：input/output/width/height/durationMs/engine/ok
 pluck models list / pull birefnet-lite # 模型管理
 ```
 
