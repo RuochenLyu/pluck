@@ -10,6 +10,9 @@ import Foundation
 struct GallerySelection: Equatable {
     private(set) var ids: Set<UUID> = []
 
+    /// Where a ⇧-click measures from: the last card clicked on its own. Finder's rule.
+    private(set) var anchorID: UUID?
+
     var isEmpty: Bool { ids.isEmpty }
     var count: Int { ids.count }
 
@@ -28,6 +31,27 @@ struct GallerySelection: Equatable {
         } else {
             ids = [id]
         }
+        anchorID = id
+    }
+
+    /// ⇧-click: everything between the anchor and here, in the grid's order. The anchor
+    /// stays put, so a second ⇧-click re-measures from the same place — Finder's rule, and
+    /// the reason this cannot be expressed as repeated `click`s.
+    mutating func range(to id: UUID, order: [UUID]) {
+        guard let anchorID,
+              let a = order.firstIndex(of: anchorID),
+              let b = order.firstIndex(of: id)
+        else {
+            click(id)
+            return
+        }
+        ids = Set(order[min(a, b)...max(a, b)])
+    }
+
+    /// Exactly this one, regardless of what was selected — what opening the preview means.
+    mutating func select(only id: UUID) {
+        ids = [id]
+        anchorID = id
     }
 
     mutating func toggle(_ id: UUID) {

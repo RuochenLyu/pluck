@@ -29,6 +29,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // and the files that were already written under it have to expire somewhere.
         CutoutArchive.session.discardEverything()
         if !preferences.keepsHistory { CutoutArchive.history.discardEverything() }
+        // `didSet` does not run for the value read in `init`, and this is the launch that
+        // has to honour an appearance chosen in a previous one.
+        preferences.applyAppearance()
         // Before the menu is built: whether "Check for Updates…" exists depends on it.
         updates.adopt(preferences)
         installMainMenu()

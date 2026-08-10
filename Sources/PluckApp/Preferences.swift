@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import Observation
 import PluckKit
@@ -19,6 +20,34 @@ final class Preferences {
         static let engineID = "pluck.engineID"
         static let languageID = "pluck.languageID"
         static let checksForUpdates = "pluck.checksForUpdates"
+        static let appearanceID = "pluck.appearanceID"
+    }
+
+    /// Which appearance the app draws in: `"system"` (default), `"light"` or `"dark"`.
+    ///
+    /// `NSApp.appearance` is the whole mechanism — nil means "follow the system", and every
+    /// semantic colour in the app re-resolves by itself. Applied immediately, like the
+    /// language switch and for the same reason: "please relaunch" is a tax, not a design.
+    var appearanceID: String {
+        didSet {
+            guard appearanceID != oldValue else { return }
+            defaults.set(appearanceID, forKey: Key.appearanceID)
+            applyAppearance()
+        }
+    }
+
+    /// Pure, so the three legal values — and the fallback for a hand-edited domain — are
+    /// testable without an app instance.
+    nonisolated static func appearance(for id: String) -> NSAppearance? {
+        switch id {
+        case "light": NSAppearance(named: .aqua)
+        case "dark": NSAppearance(named: .darkAqua)
+        default: nil
+        }
+    }
+
+    func applyAppearance() {
+        NSApp.appearance = Self.appearance(for: appearanceID)
     }
 
     /// Whether Pluck asks GitHub once a day whether there is a newer version.
@@ -111,10 +140,12 @@ final class Preferences {
             Key.keepsHistory: true,
             Key.engineID: EngineCatalog.defaultEngineID,
             Key.languageID: L.systemID,
-            Key.checksForUpdates: true
+            Key.checksForUpdates: true,
+            Key.appearanceID: "system"
         ])
         keepsHistory = defaults.bool(forKey: Key.keepsHistory)
         checksForUpdates = defaults.bool(forKey: Key.checksForUpdates)
+        appearanceID = defaults.string(forKey: Key.appearanceID) ?? "system"
         engineID = defaults.string(forKey: Key.engineID) ?? EngineCatalog.defaultEngineID
         languageID = defaults.string(forKey: Key.languageID) ?? L.systemID
         // `didSet` does not run for an assignment in `init`, and this is the launch that has

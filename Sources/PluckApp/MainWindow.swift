@@ -127,9 +127,12 @@ struct MainWindowView: View {
     /// changes it is Settings.
     @State private var engines = ModelStore()
 
-    /// Adaptive square tiles: the column count is the window's to decide, and every tile
-    /// is the same shape — uniform tiles are what make a grid read as calm.
-    private static let columns = [GridItem(.adaptive(minimum: 150, maximum: 200), spacing: 16)]
+    /// Fixed-size tiles, adaptive count: the column count is the window's to decide, but a
+    /// tile never changes size — so the inspector sliding in reflows the grid instead of
+    /// rescaling every card, which was the judder. Finder's icon view works the same way.
+    private static let columns = [
+        GridItem(.adaptive(minimum: Tokens.tileWidth, maximum: Tokens.tileWidth), spacing: 16, alignment: .top)
+    ]
 
     /// One list, newest first — placeholders ahead of results, so a new job appears where
     /// its result will land.
@@ -341,10 +344,9 @@ private enum GalleryCell: Identifiable {
     }
 }
 
-/// A finished cutout: the card, the selection rim, and nothing else standing on the
-/// picture. Copy/Save live in the context menu, the inspector and ⌘C — the hover buttons
-/// and floating caption are gone: controls that appear under the pointer are controls the
-/// user has to discover by accident, and no system app puts chrome on a grid tile.
+/// A finished cutout: square picture, standing footer with the name, the size and the two
+/// quick actions (CleanShot's grammar) — plus the context menu, the inspector and ⌘C for
+/// the same verbs by their other routes.
 struct GalleryCard: View {
     let item: RecentItem
     let model: AppModel
@@ -365,6 +367,23 @@ struct GalleryCard: View {
                         .scaledToFit()
                         .padding(4)
                 }
+            }
+        } footer: {
+            HStack(spacing: 2) {
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(verbatim: item.suggestedName)
+                        .font(.caption.weight(.medium))
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                    Text(verbatim: sizeLine)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
+                        .lineLimit(1)
+                }
+                Spacer(minLength: 4)
+                CardFooterButton(symbol: "doc.on.doc", label: L.s("Copy")) { model.copy(item) }
+                CardFooterButton(symbol: "square.and.arrow.down", label: L.s("Save")) { model.save(item) }
             }
         }
         .overlay(alignment: .topLeading) {
@@ -389,12 +408,20 @@ struct GalleryCard: View {
             withAnimation(.easeOut(duration: Tokens.hoverDuration)) { hovering = on }
         }
         .onAppear { thumbnail = NSImage(data: item.thumbnailPNG) }
-        // Double first, so a double-click opens the preview instead of selecting and then
-        // opening. ⌘ is read from the event stream rather than from a `.modifiers` gesture:
-        // `TapGesture().modifiers(.command)` and a plain `onTapGesture` on the same view
-        // resolve against each other unpredictably.
-        .onTapGesture(count: 2) { model.preview(item) }
-        .onTapGesture { model.select(item, extending: NSEvent.modifierFlags.contains(.command)) }
+        // The single tap fires immediately; the double-click rides alongside as a
+        // *simultaneous* gesture. `onTapGesture(count: 2)` stacked above a plain tap made
+        // SwiftUI hold every click for the double-click timeout — the "one second to
+        // select" lag. A double-click now selects on its first tap (which is what Finder
+        // shows too) and opens the preview on its second.
+        .onTapGesture {
+            let flags = NSEvent.modifierFlags
+            model.select(
+                item,
+                extending: flags.contains(.command),
+                ranging: flags.contains(.shift)
+            )
+        }
+        .simultaneousGesture(TapGesture(count: 2).onEnded { model.preview(item) })
         .onDrag { item.dragProvider() }
         .contextMenu {
             Button { model.copy(item) } label: { Label(L.s("Copy Image"), systemImage: "doc.on.doc") }
@@ -414,6 +441,15 @@ struct GalleryCard: View {
     private var caption: String {
         GalleryCaption.text(
             name: item.suggestedName,
+            width: item.pixelWidth,
+            height: item.pixelHeight,
+            engine: EngineLabels.mark(item.engineID)
+        )
+    }
+
+    /// The footer's second line: size, and the engine when it was not the default one.
+    private var sizeLine: String {
+        GalleryCaption.detail(
             width: item.pixelWidth,
             height: item.pixelHeight,
             engine: EngineLabels.mark(item.engineID)

@@ -1,24 +1,58 @@
 import AppKit
 import SwiftUI
 
-/// The mount every grid slot sits on. Square, and sized by the grid column: uniform tiles
-/// are what make a grid read as a grid (Photos, Finder gallery view) — the previous
-/// fixed-height, variable-width cells left ragged gutters that read as clutter.
-struct CutoutCard<Content: View>: View {
+/// The mount every grid slot sits on: a square picture area over a standing footer —
+/// CleanShot's card grammar. The footer is what answers "what is this and what do I do
+/// with it" without a hover, a hunt through a menu, or a trip to the inspector; hiding
+/// every action behind the pointer was discoverability paid for with usability.
+struct CutoutCard<Content: View, Footer: View>: View {
     var lifted: Bool = false
     @ViewBuilder var content: Content
+    @ViewBuilder var footer: Footer
 
     var body: some View {
-        content
-            .clipShape(RoundedRectangle(cornerRadius: Tokens.thumbnailRadius, style: .continuous))
-            .padding(Tokens.cardPadding)
-            .background(
-                Palette.cardSurface,
-                in: RoundedRectangle(cornerRadius: Tokens.cardRadius, style: .continuous)
-            )
-            .aspectRatio(1, contentMode: .fit)
-            .pluckShadow(lifted ? Tokens.cardHoverShadow : Tokens.cardShadow)
-            .scaleEffect(lifted ? Tokens.hoverLift : 1)
+        VStack(spacing: 0) {
+            content
+                .aspectRatio(1, contentMode: .fit)
+                .clipShape(RoundedRectangle(cornerRadius: Tokens.thumbnailRadius, style: .continuous))
+                .padding(Tokens.cardPadding)
+            footer
+                .padding(.horizontal, 10)
+                .padding(.bottom, 8)
+                .frame(height: Tokens.cardFooterHeight, alignment: .center)
+        }
+        .background(
+            Palette.cardSurface,
+            in: RoundedRectangle(cornerRadius: Tokens.cardRadius, style: .continuous)
+        )
+        .pluckShadow(lifted ? Tokens.cardHoverShadow : Tokens.cardShadow)
+        .scaleEffect(lifted ? Tokens.hoverLift : 1)
+    }
+}
+
+/// A footer action: a small quiet glyph that brightens under the pointer. Borderless on
+/// purpose — the card is the surface, and two bordered buttons in a 160pt footer would be
+/// louder than the picture above them.
+struct CardFooterButton: View {
+    let symbol: String
+    let label: String
+    let action: () -> Void
+
+    @State private var hovering = false
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(hovering ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
+                .frame(width: 22, height: 22)
+                .background(Circle().fill(.quaternary).opacity(hovering ? 1 : 0))
+                .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering = $0 }
+        .accessibilityLabel(label)
+        .help(label)
     }
 }
 
@@ -63,6 +97,18 @@ struct PendingCell: View {
                         .transition(.opacity)
                 }
             }
+        } footer: {
+            VStack(alignment: .leading, spacing: 1) {
+                Text(verbatim: item.name)
+                    .font(.caption.weight(.medium))
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                Text(item.failure?.message ?? L.s("Plucking…"))
+                    .font(.caption2)
+                    .foregroundStyle(item.failure == nil ? AnyShapeStyle(.secondary) : AnyShapeStyle(.red))
+                    .lineLimit(1)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .overlay {
             RoundedRectangle(cornerRadius: Tokens.cardRadius, style: .continuous)

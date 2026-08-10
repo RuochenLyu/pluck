@@ -30,6 +30,14 @@ enum Tokens {
     /// mount, not a mat.
     static let cardPadding: CGFloat = 6
 
+    /// The standing footer under every tile (name, size, the two quick actions). Fixed, so
+    /// every card in a row bottoms out on the same line whatever its text measures.
+    static let cardFooterHeight: CGFloat = 34
+
+    /// One tile, one size. Fixed rather than stretchy: when the inspector slides in and
+    /// out, fixed tiles reflow without rescaling — the rescale was the judder.
+    static let tileWidth: CGFloat = 160
+
     /// Checkerboard: small squares, low contrast. At 8pt and 13% the board was competing
     /// with the cutout for the eye; at 6pt and ~5% it reads as texture.
     static let checkerSquare: CGFloat = 6

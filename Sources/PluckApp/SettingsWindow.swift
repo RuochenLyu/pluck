@@ -98,6 +98,15 @@ struct GeneralPane: View {
         VStack(alignment: .leading, spacing: 0) {
             Form {
                 Section {
+                    Picker(selection: $preferences.appearanceID) {
+                        Text(L.s("System")).tag("system")
+                        Text(L.s("Light")).tag("light")
+                        Text(L.s("Dark")).tag("dark")
+                    } label: {
+                        Text(L.s("Appearance"))
+                    }
+                    .pickerStyle(.menu)
+
                     Picker(selection: $preferences.languageID) {
                         Text(L.s("System")).tag(L.systemID)
                         Text(verbatim: "English").tag("en")

@@ -93,11 +93,15 @@ final class AppModel {
     /// into text operations) and Export, whose file set *is* the selection.
     private(set) var selection = GallerySelection()
 
-    /// A click on a card, with `extending` true when ⌘ was down. The inspector follows the
-    /// click whether or not it is open — that is what makes it an inspector rather than a
-    /// second window that happens to show a picture.
-    func select(_ item: RecentItem, extending: Bool = false) {
-        selection.click(item.id, extending: extending)
+    /// A click on a card — plain, ⌘ (`extending`) or ⇧ (`ranging`). The inspector follows
+    /// the click whether or not it is open — that is what makes it an inspector rather
+    /// than a second window that happens to show a picture.
+    func select(_ item: RecentItem, extending: Bool = false, ranging: Bool = false) {
+        if ranging {
+            selection.range(to: item.id, order: recents.items.map(\.id))
+        } else {
+            selection.click(item.id, extending: extending)
+        }
         previewedID = item.id
     }
 
@@ -360,8 +364,10 @@ final class AppModel {
 
     /// Points the inspector at this cutout and makes sure it is open — a double-click, the
     /// context menu's Show Preview, and a re-pluck delivering all mean the same thing.
+    /// `select(only:)`, not `click`: by the time a double-click's second tap arrives, the
+    /// first has already toggled the card, and a toggle here would undo it.
     func preview(_ item: RecentItem) {
-        selection.click(item.id, extending: false)
+        selection.select(only: item.id)
         previewedID = item.id
         showsPreview = true
     }

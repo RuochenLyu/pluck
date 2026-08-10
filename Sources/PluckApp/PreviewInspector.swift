@@ -39,10 +39,10 @@ private struct ItemInspector: View {
     var body: some View {
         VStack(spacing: 0) {
             ComparisonSlider(item: item)
-                // Follows the picture's shape, but never grows past 4:3 portrait: an
-                // extreme panorama or a tall crop letterboxes onto the board instead of
-                // eating the whole pane.
-                .aspectRatio(max(aspect, 0.75), contentMode: .fit)
+                // Follows the picture's shape down to the golden ratio and no further: the
+                // cutout is what this pane exists to show, so a portrait gets a tall box
+                // (height ≈ 1.618 × width), and only an extreme crop letterboxes.
+                .aspectRatio(max(aspect, 0.618), contentMode: .fit)
                 .clipShape(RoundedRectangle(cornerRadius: Tokens.rowRadius, style: .continuous))
                 .padding(.horizontal, 16)
                 .padding(.top, 16)
