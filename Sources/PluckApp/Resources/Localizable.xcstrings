@@ -1073,6 +1073,23 @@
         }
       }
     },
+    "Name": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Name"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "名称"
+          }
+        }
+      }
+    },
     "Needs the menu bar icon — otherwise there would be nowhere left to click.": {
       "extractionState": "manual",
       "localizations": {
@@ -1528,6 +1545,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "显示预览"
+          }
+        }
+      }
+    },
+    "Size": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Size"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "尺寸"
           }
         }
       }

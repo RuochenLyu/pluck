@@ -156,6 +156,13 @@ final class AppModel {
         }
     }
 
+    /// ⌘C — the copy every grid on this machine answers. The inspector's subject wins when
+    /// it is open on one; otherwise the selection, of which the pasteboard can hold one.
+    func copySelected() {
+        guard let item = previewedItem ?? recents.items.selected(by: selection).first else { return }
+        copy(item)
+    }
+
     /// ⌫ with a selection. Bulk, so ten cards leave in one animation and one Trash trip.
     func discardSelected() {
         let items = recents.items.selected(by: selection)

@@ -10,7 +10,8 @@
       "bytes": 82601951,
       "license": "MIT",
       "source": "https://huggingface.co/ZhengPeng7/BiRefNet_lite",
-      "inputSide": 1024
+      "inputSide": 1024,
+      "version": "1"
     },
     {
       "id": "birefnet-lite-matting",
@@ -21,7 +22,8 @@
       "bytes": 82478402,
       "license": "MIT",
       "source": "https://huggingface.co/ZhengPeng7/BiRefNet_lite-matting",
-      "inputSide": 1024
+      "inputSide": 1024,
+      "version": "1"
     }
   ]
 }

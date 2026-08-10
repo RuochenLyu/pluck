@@ -159,7 +159,7 @@ final class ModelRegistryTests: XCTestCase {
     private var digest = ""
     private var size: Int64 = 0
 
-    override func setUpWithError() throws {
+    override func setUp() async throws {
         let scratch = URL(fileURLWithPath: NSTemporaryDirectory())
             .appendingPathComponent("pluck-registry-\(UUID().uuidString)")
         root = scratch.appendingPathComponent("Models")
@@ -183,7 +183,7 @@ final class ModelRegistryTests: XCTestCase {
         digest = try ModelRegistry.sha256(of: archive, id: "fake")
     }
 
-    override func tearDownWithError() throws {
+    override func tearDown() async throws {
         try? FileManager.default.removeItem(at: root.deletingLastPathComponent())
     }
 
@@ -357,7 +357,7 @@ final class ModelRegistryTests: XCTestCase {
             downloader: downloader
         )
 
-        try? await registry.install("fake")
+        _ = try? await registry.install("fake")
         XCTAssertFalse(FileManager.default.fileExists(atPath: registry.partialURL(for: "fake").path))
     }
 

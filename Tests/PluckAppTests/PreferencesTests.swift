@@ -7,15 +7,15 @@ final class PreferencesTests: XCTestCase {
     private var suite: String!
     private var defaults: UserDefaults!
 
-    override func setUp() {
-        super.setUp()
+    // The async overrides: the sync `setUp`/`tearDown` are nonisolated in the macOS 26
+    // SDK, while these inherit the test class's MainActor isolation.
+    override func setUp() async throws {
         suite = "PluckPrefsTest-\(UUID().uuidString)"
         defaults = UserDefaults(suiteName: suite)
     }
 
-    override func tearDown() {
+    override func tearDown() async throws {
         defaults.removePersistentDomain(forName: suite)
-        super.tearDown()
     }
 
     /// On by default. The grid is the app's only memory of what it has done, and an empty

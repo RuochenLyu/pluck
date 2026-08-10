@@ -3,8 +3,9 @@
 > 本文件是唯一的进度真相源：阶段推进、里程碑范围变化时更新这里。
 > 产品定义与架构见 [product-plan.md](product-plan.md)，决策记录见 [decisions.md](decisions.md)。
 
-## 当前状态（2026-08-10）
+## 当前状态（2026-08-10 晚）
 
+- **第二轮打磨（同日，见 decisions.md 第二条 ADR）**：最低系统升至 **macOS 26**（双写与 `Glass.swift` 全删，零 warning）；网格方形卡（1:1、adaptive 150–200）；卡上 hover 圆钮与文件名胶囊删除（右键 / inspector / 新增 ⌘C 三条路径，tooltip 载名称尺寸）；inspector 改 `Form(.grouped)` + `LabeledContent`（名称/尺寸/引擎 + 两个全宽操作行）；**预览切换卡顿修复**——`CGImageSource` 缩略解码取代"解码→重编码 PNG→再解码"，陈旧解码取消、旧图保留到新图就绪；`ModelDescriptor.version` 预留（manifest 已标 v1，更新检查进 backlog）。290 测试全绿。
 - **UI 全面回归标准组件（2026-08-10，见 decisions.md 同日）**：主窗口 = 标准 titled 窗口 + unified toolbar（Add / 默认引擎菜单 / Preview / Export）+ 卡片网格 + **`.inspector` 预览侧栏**（before/after 滑块、引擎切换、拷贝/存储/删除）；菜单栏 shelf、状态项、预览浮窗、presence 双开关**整体删除**；Settings 改为标准两 tab（General / Models），Updates 节删除、"Check for Updates…" 回到 app 菜单；珊瑚橙退出 UI，控件染色跟随系统 accent。整窗拖放注册在 `NSWindow` 本身；批量进度走 `navigationSubtitle`；⌫ 删除选中。290 测试全绿，实机验收通过。**待办**：app 图标与（已无 menubar 的）视觉识别重设计；伪本地化复跑一轮排版弹性。
 
 ## 历史状态（2026-07-27 深夜）

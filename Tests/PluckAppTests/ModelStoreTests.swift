@@ -55,7 +55,7 @@ final class ModelStoreTests: XCTestCase {
     private var defaults: UserDefaults!
     private var suite = ""
 
-    override func setUpWithError() throws {
+    override func setUp() async throws {
         scratch = URL(fileURLWithPath: NSTemporaryDirectory())
             .appendingPathComponent("pluck-models-\(UUID().uuidString)")
         root = scratch.appendingPathComponent("Models", isDirectory: true)
@@ -78,7 +78,7 @@ final class ModelStoreTests: XCTestCase {
         defaults = UserDefaults(suiteName: suite)
     }
 
-    override func tearDown() {
+    override func tearDown() async throws {
         defaults.removePersistentDomain(forName: suite)
         try? FileManager.default.removeItem(at: scratch)
     }
@@ -261,12 +261,12 @@ final class EnginePreferenceTests: XCTestCase {
     private var defaults: UserDefaults!
     private var suite = ""
 
-    override func setUp() {
+    override func setUp() async throws {
         suite = "PluckEngineTest-\(UUID().uuidString)"
         defaults = UserDefaults(suiteName: suite)
     }
 
-    override func tearDown() {
+    override func tearDown() async throws {
         defaults.removePersistentDomain(forName: suite)
     }
 

@@ -1,14 +1,10 @@
 import AppKit
 import SwiftUI
 
-/// The mount every grid slot sits on.
-///
-/// A cutout used to be a checkerboard rectangle floating directly on the surface — a set of
-/// holes in the window. The card reading — solid light face, board and subject *inside* it —
-/// is what makes a transparent PNG look like an object you can pick up, and it gives the
-/// hover lift something to lift.
+/// The mount every grid slot sits on. Square, and sized by the grid column: uniform tiles
+/// are what make a grid read as a grid (Photos, Finder gallery view) — the previous
+/// fixed-height, variable-width cells left ragged gutters that read as clutter.
 struct CutoutCard<Content: View>: View {
-    let height: CGFloat
     var lifted: Bool = false
     @ViewBuilder var content: Content
 
@@ -16,11 +12,11 @@ struct CutoutCard<Content: View>: View {
         content
             .clipShape(RoundedRectangle(cornerRadius: Tokens.thumbnailRadius, style: .continuous))
             .padding(Tokens.cardPadding)
-            .frame(height: height)
             .background(
                 Palette.cardSurface,
                 in: RoundedRectangle(cornerRadius: Tokens.cardRadius, style: .continuous)
             )
+            .aspectRatio(1, contentMode: .fit)
             .pluckShadow(lifted ? Tokens.cardHoverShadow : Tokens.cardShadow)
             .scaleEffect(lifted ? Tokens.hoverLift : 1)
     }
@@ -30,14 +26,13 @@ struct CutoutCard<Content: View>: View {
 /// looping sweep; the spinner only joins after 250ms so a fast pluck does not flash one.
 struct PendingCell: View {
     let item: PendingItem
-    let height: CGFloat
 
     @State private var thumbnail: NSImage?
     @State private var sweep: CGFloat = 0
     @State private var showsSpinner = false
 
     var body: some View {
-        CutoutCard(height: height) {
+        CutoutCard {
             ZStack {
                 Checkerboard()
                 if let thumbnail {

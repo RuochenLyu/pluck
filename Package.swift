@@ -4,7 +4,7 @@ import PackageDescription
 let package = Package(
     name: "Pluck",
     defaultLocalization: "en",
-    platforms: [.macOS(.v14)],
+    platforms: [.macOS("26.0")],
     products: [
         .library(name: "PluckKit", targets: ["PluckKit"]),
         .executable(name: "pluck", targets: ["PluckCLI"])

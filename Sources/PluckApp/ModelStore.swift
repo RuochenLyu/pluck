@@ -39,7 +39,12 @@ struct ModelRow: Identifiable, Equatable {
     /// not yet.
     var detail: String {
         let size = installedBytes.map(EngineLabels.megabytes) ?? EngineLabels.megabytes(descriptor.bytes)
-        return "\(descriptor.displayName) · \(descriptor.license) · \(size)"
+        var parts = [descriptor.displayName, descriptor.license, size]
+        // The converted asset's version, once the manifest states one — the fact a future
+        // update check will hang off, surfaced now so the row's vocabulary does not change
+        // under people later.
+        if let version = descriptor.version { parts.append("v\(version)") }
+        return parts.joined(separator: " · ")
     }
 }
 

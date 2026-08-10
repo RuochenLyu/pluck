@@ -7,6 +7,7 @@ import XCTest
 /// The checkerboard is the app's statement about transparency, and it used to make that
 /// statement in white on every appearance — a light board under a dark UI is the brightest
 /// thing on screen and reads as a blown-out cutout rather than as "nothing here".
+@MainActor
 final class CheckerboardTests: XCTestCase {
     private func brightness(_ color: NSColor) -> CGFloat {
         let srgb = color.usingColorSpace(.sRGB) ?? color

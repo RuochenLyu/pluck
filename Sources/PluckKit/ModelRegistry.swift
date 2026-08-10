@@ -19,6 +19,11 @@ public struct ModelDescriptor: Sendable, Codable, Equatable {
     public let source: URL
     /// Side length of the square input the converted model expects.
     public let inputSide: Int
+    /// Version of *our converted asset*, not of the upstream weights — the number a future
+    /// "model update available" check will compare against what is installed. Optional so
+    /// every manifest written before it existed still decodes; a nil version can only ever
+    /// be superseded by re-downloading.
+    public let version: String?
 }
 
 public struct ModelManifest: Sendable, Equatable, Codable {

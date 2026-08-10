@@ -235,6 +235,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case "a":
             model.selectAll()
             return true
+        case "c" where !model.selection.isEmpty || model.previewedItem != nil:
+            // Falls through to the Edit menu when nothing is selected — a text field in a
+            // future surface of this window must keep its ordinary ⌘C.
+            model.copySelected()
+            return true
         default:
             return false
         }

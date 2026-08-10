@@ -21,15 +21,13 @@ final class UpdateControllerTests: XCTestCase {
     private var suite: String!
     private var defaults: UserDefaults!
 
-    override func setUp() {
-        super.setUp()
+    override func setUp() async throws {
         suite = "PluckUpdatesTest-\(UUID().uuidString)"
         defaults = UserDefaults(suiteName: suite)
     }
 
-    override func tearDown() {
+    override func tearDown() async throws {
         defaults.removePersistentDomain(forName: suite)
-        super.tearDown()
     }
 
     private var configured: [String: Any] {

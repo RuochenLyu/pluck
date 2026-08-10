@@ -37,8 +37,7 @@ final class SurfaceSnapshotTests: XCTestCase {
     private var suite: String!
     private var defaults: UserDefaults!
 
-    override func setUp() {
-        super.setUp()
+    override func setUp() async throws {
         suite = "PluckSnapshotTest-\(UUID().uuidString)"
         defaults = UserDefaults(suiteName: suite)
         preferences = Preferences(defaults: defaults)
@@ -56,9 +55,8 @@ final class SurfaceSnapshotTests: XCTestCase {
         })
     }
 
-    override func tearDown() {
+    override func tearDown() async throws {
         defaults.removePersistentDomain(forName: suite)
-        super.tearDown()
     }
 
     /// A recognisable block of colour, so a snapshot shows cards with something in them

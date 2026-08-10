@@ -10,7 +10,7 @@ import XCTest
 final class LanguageRouteTests: XCTestCase {
     private var root: URL!
 
-    override func setUpWithError() throws {
+    override func setUp() async throws {
         root = URL(fileURLWithPath: NSTemporaryDirectory())
             .appendingPathComponent("pluck-lproj-\(UUID().uuidString)", isDirectory: true)
         let lproj = root.appendingPathComponent("zh-Hans.lproj", isDirectory: true)
@@ -19,7 +19,7 @@ final class LanguageRouteTests: XCTestCase {
             .write(to: lproj.appendingPathComponent("Localizable.strings"), atomically: true, encoding: .utf8)
     }
 
-    override func tearDownWithError() throws {
+    override func tearDown() async throws {
         try? FileManager.default.removeItem(at: root)
     }
 
@@ -71,24 +71,28 @@ final class LanguageSwitchTests: XCTestCase {
     /// language, and nothing else in the app looks wrong.
     func testSwitchingAnnouncesItself() {
         let language = Language()
-        var announcements = 0
+        // A box rather than a captured `var`: the observer closure is Sendable in the
+        // macOS 26 SDK. Posts here are synchronous on the main thread, so a plain field
+        // behind `@unchecked` is honest.
+        final class Count: @unchecked Sendable { var value = 0 }
+        let announcements = Count()
         let token = NotificationCenter.default.addObserver(
             forName: .pluckLanguageDidChange,
             object: language,
             queue: nil
-        ) { _ in announcements += 1 }
+        ) { _ in announcements.value += 1 }
         defer { NotificationCenter.default.removeObserver(token) }
 
         language.use("zh-Hans")
         XCTAssertEqual(language.id, "zh-Hans")
-        XCTAssertEqual(announcements, 1)
+        XCTAssertEqual(announcements.value, 1)
 
         // Idempotent: `Preferences` calls this on every launch, and a launch that changed
         // nothing must not send every menu in the app off to rebuild itself.
         language.use("zh-Hans")
-        XCTAssertEqual(announcements, 1)
+        XCTAssertEqual(announcements.value, 1)
 
         language.use(L.systemID)
-        XCTAssertEqual(announcements, 2)
+        XCTAssertEqual(announcements.value, 2)
     }
 }

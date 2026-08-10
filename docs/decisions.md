@@ -414,3 +414,14 @@
 - **决策四：珊瑚橙退出 UI**。所有控件染色回归系统 accent（`Color.accentColor`），跟随用户在系统设置里选的主题色；品牌色只留给 app 图标（图标重设计另开任务）。`Palette.coral` 删除。
 - **保留**：卡片语言（CutoutCard/棋盘格/hover 出 Copy/Save 玻璃圆钮——悬浮在图片上的控件正是 HIG 允许自定玻璃的"最重要功能元素"）、指纹去重闪边、占位卡扫光、历史持久化、CLI 与 PluckKit 一概不动。
 - **验收**：290 测试全绿；实机截图确认标准窗口/toolbar/inspector/选中标记随系统 accent。`ImageRenderer` 与 `cacheDisplay` 的既有约束不变。
+
+
+## 2026-08-10（第二轮）— 最低系统升至 macOS 26；网格方形化；hover 控件删除；inspector 用 Form；预览解码走 CGImageSource
+
+- **背景**：维护者对照实机与 Finder（macOS 26）再审：网格间距不均、卡上 hover 出现的圆钮与文件名胶囊"偶尔冒出来"又乱、inspector 手排的按钮行不像系统、点卡片切换预览有可感知的卡顿。另参照自家 run-shelf 项目（长期打磨系统感）的做法：全语义色、系统字级、`LabeledContent` + `Form(.grouped)`、零 hover 自定义控件、丰富的原生右键菜单。
+- **最低系统 macOS 26**：维护者拍板放弃 14/15 兼容。`platforms: [.macOS("26.0")]`，全部 `#available(macOS 26.0, *)` 双写删除；随删的还有 `Glass.swift` 整个文件（pluckGlass/GlassGroup/GlassCircleButton 已无使用者）。代价与收获都写明：收获是"标准组件即玻璃"不再需要任何自备实现，代价是老系统用户没有安装包——1.0 尚未发布，此刻是改这条最便宜的时刻。macOS 26 SDK 把 `XCTestCase` 变为 MainActor 隔离而 `setUp`/`tearDown` 保持 nonisolated，全部改用 `async` override 消化，零 warning 恢复。
+- **网格方形化**：`CutoutCard` 改为 1:1、由列宽决定尺寸（Photos/Finder gallery 的语法），固定高度+可变宽度造成的破碎沟槽消失；列 `adaptive(150…200)`、间距 16、内边距 20。
+- **hover 控件删除**：卡上不再有悬浮圆钮与文件名胶囊。动作走三条系统路径：右键菜单（`Label` + systemImage + destructive 角色）、inspector 的操作区、⌘C（新增，`copySelected`——inspector 主体优先，其次选中项）。文件名/尺寸降级为 `.help` tooltip 与无障碍标签。轻微 hover lift 保留为唯一指针反馈。
+- **inspector 重排**：对比图之下改为 `Form(.grouped)` —— `LabeledContent` 三行（名称/尺寸/引擎），操作是底部 Section 的两个全宽 `Label` 行（拷贝/存储…），删除交给 ⌫ 与右键。对比图纵横比夹到 3:4 为止，极端比例在板上留白而不是吃掉整栏。
+- **预览卡顿根因与修复**：旧路径对结果图做"读全量 PNG→解码→缩小→**再编码 PNG**→主线程**再解码**"，PNG 重编码是点击到出图延迟的大头。改为 `CGImageSource` 缩略解码（`kCGImageSourceThumbnailMaxPixelSize`，1120px）直接从两个文件出 `CGImage`，一次解码零编码；`task(id:)` 取消陈旧解码，切换时旧图保留到新图就绪（空白闪烁才是"卡"的观感来源）。`ItemInspector` 不再 `.id()` 整体重建。
+- **模型更新的预留**：`ModelDescriptor.version: String?`（可选解码，旧 manifest 兼容），语义是"我们转换资产的版本"；manifest 两条各标 `"version": "1"`，Settings 行尾显示 `· v1`。更新检查机制（对比 manifest 与已装版本、Sparkle 带来新 manifest 后提示重新下载）记入 backlog，不在本期。

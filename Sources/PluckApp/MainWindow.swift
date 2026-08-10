@@ -127,9 +127,9 @@ struct MainWindowView: View {
     /// changes it is Settings.
     @State private var engines = ModelStore()
 
-    /// ~132–150pt, adaptive: the column count is the window's to decide.
-    private static let columns = [GridItem(.adaptive(minimum: 132, maximum: 150), spacing: 12)]
-    private static let cellHeight: CGFloat = 132
+    /// Adaptive square tiles: the column count is the window's to decide, and every tile
+    /// is the same shape — uniform tiles are what make a grid read as calm.
+    private static let columns = [GridItem(.adaptive(minimum: 150, maximum: 200), spacing: 16)]
 
     /// One list, newest first — placeholders ahead of results, so a new job appears where
     /// its result will land.
@@ -242,23 +242,22 @@ struct MainWindowView: View {
 
     private var grid: some View {
         ScrollView {
-            LazyVGrid(columns: Self.columns, spacing: 12) {
+            LazyVGrid(columns: Self.columns, spacing: 16) {
                 ForEach(cells) { cell in
                     switch cell {
                     case .pending(let item):
-                        PendingCell(item: item, height: Self.cellHeight)
+                        PendingCell(item: item)
                     case .done(let item):
                         GalleryCard(
                             item: item,
                             model: model,
-                            height: Self.cellHeight,
                             isSelected: model.selection.contains(item.id),
                             highlighted: model.highlightedItemID == item.id
                         )
                     }
                 }
             }
-            .padding(16)
+            .padding(20)
         }
         .overlay {
             if dropTarget.isTargeted {
@@ -342,12 +341,13 @@ private enum GalleryCell: Identifiable {
     }
 }
 
-/// A finished cutout: the card, selection, and the name and size of the file, which appear
-/// under the pointer rather than standing permanently on top of the picture they describe.
+/// A finished cutout: the card, the selection rim, and nothing else standing on the
+/// picture. Copy/Save live in the context menu, the inspector and ⌘C — the hover buttons
+/// and floating caption are gone: controls that appear under the pointer are controls the
+/// user has to discover by accident, and no system app puts chrome on a grid tile.
 struct GalleryCard: View {
     let item: RecentItem
     let model: AppModel
-    let height: CGFloat
     let isSelected: Bool
     let highlighted: Bool
 
@@ -355,7 +355,7 @@ struct GalleryCard: View {
     @State private var hovering = false
 
     var body: some View {
-        CutoutCard(height: height, lifted: hovering) {
+        CutoutCard(lifted: hovering) {
             ZStack {
                 Checkerboard()
                 if let thumbnail {
@@ -367,19 +367,6 @@ struct GalleryCard: View {
                 }
             }
         }
-        .overlay(alignment: .topTrailing) {
-            if hovering {
-                HoverActions {
-                    GlassCircleButton(symbol: "doc.on.doc", label: L.s("Copy")) { model.copy(item) }
-                    GlassCircleButton(symbol: "arrow.down.to.line", label: L.s("Save")) { model.save(item) }
-                }
-                .padding(Tokens.cardPadding)
-                .transition(.opacity)
-            }
-        }
-        .overlay(alignment: .bottom) {
-            if hovering { caption.transition(.opacity) }
-        }
         .overlay(alignment: .topLeading) {
             if isSelected {
                 SelectionBadge()
@@ -387,14 +374,15 @@ struct GalleryCard: View {
                     .transition(.scale.combined(with: .opacity))
             }
         }
-        // A rim, not a wash: a selected card that goes blue all over hides the one thing the
-        // user selected it for. The de-duplication flash borrows the same rim — it is a
+        // A rim, not a wash: a selected card that goes accent all over hides the one thing
+        // the user selected it for. The de-duplication flash borrows the same rim — it is a
         // moment, not a state, and the badge is what disambiguates selection.
         .overlay {
             RoundedRectangle(cornerRadius: Tokens.cardRadius, style: .continuous)
                 .strokeBorder(Color.accentColor, lineWidth: 2)
                 .opacity(highlighted || isSelected ? 1 : 0)
         }
+        .contentShape(RoundedRectangle(cornerRadius: Tokens.cardRadius, style: .continuous))
         .animation(.easeInOut(duration: 0.22), value: highlighted)
         .animation(.easeOut(duration: Tokens.hoverDuration), value: isSelected)
         .onHover { on in
@@ -409,48 +397,27 @@ struct GalleryCard: View {
         .onTapGesture { model.select(item, extending: NSEvent.modifierFlags.contains(.command)) }
         .onDrag { item.dragProvider() }
         .contextMenu {
-            Button(L.s("Copy Image")) { model.copy(item) }
-            Button(L.s("Save As…")) { model.save(item) }
-            Button(L.s("Show Preview")) { model.preview(item) }
+            Button { model.copy(item) } label: { Label(L.s("Copy Image"), systemImage: "doc.on.doc") }
+            Button { model.save(item) } label: { Label(L.s("Save As…"), systemImage: "square.and.arrow.down") }
+            Button { model.preview(item) } label: { Label(L.s("Show Preview"), systemImage: "sidebar.trailing") }
             Divider()
-            Button(L.s("Delete"), role: .destructive) { model.discard(item) }
+            Button(role: .destructive) { model.discard(item) } label: { Label(L.s("Delete"), systemImage: "trash") }
         }
+        // The tooltip carries what the deleted hover caption used to: name, size, and the
+        // engine when it was not the default one.
+        .help(caption)
         .accessibilityElement(children: .combine)
-        // The whole caption, not just the name: VoiceOver has no hover, so this is the only
-        // place the size and the engine can be said at all.
-        .accessibilityLabel(GalleryCaption.text(
+        .accessibilityLabel(caption)
+        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
+    }
+
+    private var caption: String {
+        GalleryCaption.text(
             name: item.suggestedName,
             width: item.pixelWidth,
             height: item.pixelHeight,
             engine: EngineLabels.mark(item.engineID)
-        ))
-        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
-    }
-
-    /// Name and size, and the engine when it was not the default one. It floats up on hover
-    /// instead of living under the card: a caption below every cell would push the grid
-    /// apart into a table of contents, and the picture is what the user is scanning.
-    private var caption: some View {
-        HStack(spacing: 0) {
-            Text(verbatim: item.suggestedName)
-                .lineLimit(1)
-                .truncationMode(.tail)
-            Text(verbatim: " · " + GalleryCaption.detail(
-                width: item.pixelWidth,
-                height: item.pixelHeight,
-                engine: EngineLabels.mark(item.engineID)
-            ))
-            .lineLimit(1)
-            .layoutPriority(1)
-        }
-        .font(.caption2)
-        .monospacedDigit()
-        .padding(.horizontal, 8)
-        .padding(.vertical, 4)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: Tokens.rowRadius, style: .continuous))
-        .padding(Tokens.cardPadding)
-        .allowsHitTesting(false)
+        )
     }
 }
 

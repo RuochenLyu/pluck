@@ -23,7 +23,7 @@
 	<key>CFBundleVersion</key>
 	<string>__BUILD_VERSION__</string>
 	<key>LSMinimumSystemVersion</key>
-	<string>14.0</string>
+	<string>26.0</string>
 	<!-- A Dock app that also lives in the menu bar (decisions.md 2026-07-29). `LSUIElement`
 	     is deliberately absent rather than false: this is the launch-time policy, and the
 	     accessory shape is reached at runtime through `NSApp.setActivationPolicy` when the

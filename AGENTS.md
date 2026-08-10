@@ -38,7 +38,7 @@ models/manifest.json 可下载模型清单
 
 ## 工程约定
 
-- 语言：Swift 6，SwiftUI；最低系统 macOS 14。
+- 语言：Swift 6，SwiftUI；最低系统 macOS 26（2026-08-10 起，Liquid Glass 原生采纳，无 `#available` 双写）。
 - 构建：SwiftPM 为主（`swift build` / `swift test`）；App 壳与扩展用 Xcode 工程（进入 v0.2 后建立）。
 - CLI 设计面向 agent：`--json` 结构化输出、语义化 exit code（0 成功 / 2 未检测到主体 / 3 模型缺失）、无 TTY 不输出进度、绝不弹 GUI。
 - 提交信息用英文，正文说明 why；一个 PR/提交是一个自洽可评审的单位。
