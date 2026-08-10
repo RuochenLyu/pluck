@@ -205,6 +205,23 @@
         }
       }
     },
+    "Checks GitHub once a day for a new version. Nothing about you or your pictures is sent.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Checks GitHub once a day for a new version. Nothing about you or your pictures is sent."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "每天向 GitHub 查询一次是否有新版本，不会发送任何与你或你的图片有关的信息。"
+          }
+        }
+      }
+    },
     "Choose a folder for the cutouts": {
       "extractionState": "manual",
       "localizations": {
@@ -324,6 +341,23 @@
         }
       }
     },
+    "Click a cutout to compare it with the original.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Click a cutout to compare it with the original."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "点击一张抠图，与原图对比。"
+          }
+        }
+      }
+    },
     "Clipboard": {
       "extractionState": "manual",
       "localizations": {
@@ -371,6 +405,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "关闭"
+          }
+        }
+      }
+    },
+    "Compare original and cutout": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Compare original and cutout"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "对比原图与抠图"
           }
         }
       }
@@ -988,6 +1039,23 @@
         }
       }
     },
+    "Manage Models…": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Manage Models…"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "管理模型…"
+          }
+        }
+      }
+    },
     "Models": {
       "extractionState": "manual",
       "localizations": {
@@ -1035,6 +1103,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "新图片使用"
+          }
+        }
+      }
+    },
+    "No Cutout Selected": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No Cutout Selected"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未选中抠图"
           }
         }
       }
@@ -1209,6 +1294,23 @@
         }
       }
     },
+    "Preview": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Preview"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "预览"
+          }
+        }
+      }
+    },
     "Preview cutout": {
       "extractionState": "manual",
       "localizations": {
@@ -1324,6 +1426,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "存储抠图"
+          }
+        }
+      }
+    },
+    "Save…": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Save…"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "存储…"
           }
         }
       }
@@ -1613,6 +1732,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "这张抠图出自哪个引擎"
+          }
+        }
+      }
+    },
+    "Which engine new images use": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Which engine new images use"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "新图片使用哪个引擎"
           }
         }
       }

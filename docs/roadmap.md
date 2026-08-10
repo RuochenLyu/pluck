@@ -3,7 +3,11 @@
 > 本文件是唯一的进度真相源：阶段推进、里程碑范围变化时更新这里。
 > 产品定义与架构见 [product-plan.md](product-plan.md)，决策记录见 [decisions.md](decisions.md)。
 
-## 当前状态（2026-07-27 深夜）
+## 当前状态（2026-08-10）
+
+- **UI 全面回归标准组件（2026-08-10，见 decisions.md 同日）**：主窗口 = 标准 titled 窗口 + unified toolbar（Add / 默认引擎菜单 / Preview / Export）+ 卡片网格 + **`.inspector` 预览侧栏**（before/after 滑块、引擎切换、拷贝/存储/删除）；菜单栏 shelf、状态项、预览浮窗、presence 双开关**整体删除**；Settings 改为标准两 tab（General / Models），Updates 节删除、"Check for Updates…" 回到 app 菜单；珊瑚橙退出 UI，控件染色跟随系统 accent。整窗拖放注册在 `NSWindow` 本身；批量进度走 `navigationSubtitle`；⌫ 删除选中。290 测试全绿，实机验收通过。**待办**：app 图标与（已无 menubar 的）视觉识别重设计；伪本地化复跑一轮排版弹性。
+
+## 历史状态（2026-07-27 深夜）
 
 - 阶段：**v0.1 全部完成、发布链路跑通；v0.2 第一、二批已落地**（磁盘化 + 历史持久化 + 偏好存储 + Settings 窗口；并发闸 + 主窗口批量队列）。PluckKit（VisionEngine/Compositor/ImageLoader/**PluckPipeline**/**PluckQueue**）、`pluck` CLI、PluckApp 菜单栏 + 主窗口、CC0 测试图片集全部落地，**330 测试全绿**，Swift 6 零 warning。
 - **v0.2 验收状态（2026-07-28 早）**：解锁后已逐屏看过——Settings 窗口（两组、开关、Clear、离线说明）、主窗口空态（虚线投放区 + ⌘V 提示、Export All 正确隐藏）、主窗口列表态（缩略图 + 尺寸 + hover 出 Copy/Save）、多张时的按整图进度条、失败行（红三角 + "No subject found in this image."）、Export All 全链路（9 张落盘、重名让位成 `Cutout 2.png`…、底栏报 `✓ Exported 9 cutouts.`）。历史持久化早已实测：重启后 cutout 原样回来。**仍需维护者本机确认的只剩一项**：拖出到别的 app——自动化驱不动 macOS 拖放，这条只有人手能验。（开机自启已于 2026-07-28 整条删除，见 decisions.md。）

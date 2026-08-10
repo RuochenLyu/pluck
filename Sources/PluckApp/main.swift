@@ -1,10 +1,10 @@
 import AppKit
 
-// SwiftPM builds a bare executable with no Info.plist, so LSUIElement cannot be declared
-// statically; the accessory policy is set here and again on launch. The Xcode app shell
-// (v0.2) will carry the plist and this stays as the belt to its braces.
+// SwiftPM builds a bare executable with no Info.plist, so the activation policy cannot be
+// declared statically; it is set here before the run loop starts. Pluck is a plain Dock
+// app — `Scripts/bundle.sh` supplies the Info.plist for the packaged shape.
 let application = NSApplication.shared
-application.setActivationPolicy(.accessory)
+application.setActivationPolicy(.regular)
 let delegate = AppDelegate()
 application.delegate = delegate
 application.run()

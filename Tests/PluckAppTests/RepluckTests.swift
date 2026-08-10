@@ -128,11 +128,9 @@ final class RepluckTests: XCTestCase {
         XCTAssertEqual(Set(model.recents.items.map(\.sourceID)), [first.sourceID])
     }
 
-    /// The panel that asked is the panel that should end up showing the answer.
-    func testTheNewCutoutIsHandedToThePreviewPanel() async {
+    /// The pane that asked is the pane that should end up showing the answer.
+    func testTheNewCutoutIsHandedToTheInspector() async {
         let model = model(process: onePassMore)
-        var previewed: [UUID] = []
-        model.onPreviewRequest = { item in previewed.append(item.id) }
         model.handleDrop([.data(Data([1]))])
         guard let first = await firstCutout(model) else { return }
 
@@ -140,9 +138,9 @@ final class RepluckTests: XCTestCase {
         await waitUntil("the second cutout") { model.recents.items.count == 2 }
         scratch = model.recents.items.map(\.fileURL)
 
-        XCTAssertEqual(previewed.count, 1)
-        XCTAssertNotEqual(previewed.first, first.id)
-        XCTAssertEqual(previewed.first, model.recents.items.first?.id)
+        XCTAssertTrue(model.showsPreview)
+        XCTAssertNotEqual(model.previewedID, first.id)
+        XCTAssertEqual(model.previewedID, model.recents.items.first?.id)
     }
 
     /// Named an engine, got Vision: for a drop that is the right trade, and here it is a
@@ -247,12 +245,11 @@ final class RepluckTests: XCTestCase {
         // no test can run: loading a real model is a download and a Core ML compile.
         let other = sibling(of: first, engine: "birefnet-lite")
         model.recents.insert(other)
-        var previewed: [UUID] = []
-        model.onPreviewRequest = { item in previewed.append(item.id) }
 
         model.showEngine(EngineCatalog.defaultEngineID, for: other)
 
-        XCTAssertEqual(previewed, [first.id])
+        XCTAssertEqual(model.previewedID, first.id)
+        XCTAssertTrue(model.showsPreview)
         XCTAssertTrue(model.pendingItems.isEmpty)
         XCTAssertEqual(model.recents.items.count, 2)
     }
@@ -283,12 +280,11 @@ final class RepluckTests: XCTestCase {
         model.handleDrop([.data(Data([1]))])
         guard let first = await firstCutout(model) else { return }
         scratch = [first.fileURL]
-        var previewed = 0
-        model.onPreviewRequest = { _ in previewed += 1 }
 
         model.showEngine(first.engineID, for: first)
 
-        XCTAssertEqual(previewed, 0)
+        XCTAssertNil(model.previewedID)
+        XCTAssertFalse(model.showsPreview)
         XCTAssertTrue(model.pendingItems.isEmpty)
         XCTAssertEqual(model.recents.items.count, 1)
     }

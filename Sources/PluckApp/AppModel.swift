@@ -93,9 +93,12 @@ final class AppModel {
     /// into text operations) and Export, whose file set *is* the selection.
     private(set) var selection = GallerySelection()
 
-    /// A click on a card, with `extending` true when ⌘ was down.
+    /// A click on a card, with `extending` true when ⌘ was down. The inspector follows the
+    /// click whether or not it is open — that is what makes it an inspector rather than a
+    /// second window that happens to show a picture.
     func select(_ item: RecentItem, extending: Bool = false) {
         selection.click(item.id, extending: extending)
+        previewedID = item.id
     }
 
     func selectAll() {
@@ -148,19 +151,52 @@ final class AppModel {
     /// Called after anything removes entries from the grid.
     private func pruneSelection() {
         selection.prune(to: recents.items.map(\.id))
+        if let previewedID, !recents.items.contains(where: { $0.id == previewedID }) {
+            self.previewedID = nil
+        }
     }
 
-    private(set) var feedback: StatusFeedback = .idle {
-        didSet { onFeedbackChange?(feedback) }
+    /// ⌫ with a selection. Bulk, so ten cards leave in one animation and one Trash trip.
+    func discardSelected() {
+        let items = recents.items.selected(by: selection)
+        guard !items.isEmpty else { return }
+        if let highlightedItemID, items.contains(where: { $0.id == highlightedItemID }) {
+            self.highlightedItemID = nil
+        }
+        withAnimation(.easeInOut(duration: 0.2)) {
+            for item in items { _ = recents.remove(item.id) }
+        }
+        pruneSelection()
+        discard(items)
     }
 
-    /// The status item lives in AppKit; rather than mirror the state machine there,
-    /// the delegate subscribes to the one owned here.
-    var onFeedbackChange: (@MainActor (StatusFeedback) -> Void)?
+    // MARK: - Default engine
 
-    /// Same shape, same reason: the preview panel is an `NSPanel` owned by the delegate,
-    /// so the grid asks for it rather than reaching into AppKit itself.
-    var onPreviewRequest: (@MainActor (RecentItem) -> Void)?
+    /// The engine new drops go through, read and written through `Preferences` so the
+    /// toolbar menu and Settings stay one fact.
+    var defaultEngineID: String {
+        preferences?.engineID ?? EngineCatalog.defaultEngineID
+    }
+
+    func setDefaultEngine(_ id: String) {
+        preferences?.engineID = id
+    }
+
+    private(set) var feedback: StatusFeedback = .idle
+
+    /// Whether the preview inspector is open. Owned here because three things toggle it —
+    /// the toolbar button, a double-click on a card, and a re-pluck delivering — and the
+    /// inspector's binding has to be the same fact for all of them.
+    var showsPreview = false
+
+    /// The cutout the inspector is describing. Follows the last card clicked, so an open
+    /// inspector reads as "details of the selection", which is what an inspector is.
+    private(set) var previewedID: UUID?
+
+    var previewedItem: RecentItem? {
+        guard let previewedID else { return nil }
+        return recents.items.first { $0.id == previewedID }
+    }
 
     private let pasteboard: any ImagePasteboard
     /// The matting entry point for every path that starts from bytes. Injected for the
@@ -315,8 +351,12 @@ final class AppModel {
         return resolved.engine
     }
 
+    /// Points the inspector at this cutout and makes sure it is open — a double-click, the
+    /// context menu's Show Preview, and a re-pluck delivering all mean the same thing.
     func preview(_ item: RecentItem) {
-        onPreviewRequest?(item)
+        selection.click(item.id, extending: false)
+        previewedID = item.id
+        showsPreview = true
     }
 
     // MARK: - Re-plucking

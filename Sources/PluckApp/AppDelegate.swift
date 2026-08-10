@@ -1,40 +1,23 @@
 import AppKit
 import SwiftUI
 
-/// `NSStatusItem` rather than SwiftUI's `MenuBarExtra`: the status item must itself be a
-/// drop target (product-plan §4.3), and `MenuBarExtra` hands out no view to register
-/// dragged types on. Everything below the status item is still SwiftUI.
-///
-/// Pluck is a Dock app that also lives in the menu bar, not the other way round
-/// (decisions.md 2026-07-29). `.regular` is the default policy, the main window opens at
-/// launch, and clicking the Dock icon brings that window back. The status item and the
-/// shelf are unchanged — they are the shortcut, not the identity — and `.accessory` is
-/// still one switch away for anyone who wants the old shape.
+/// Pluck is a plain Dock app (decisions.md 2026-08-10). One window, standard chrome; the
+/// menu-bar shelf, the status item and the activation-policy switches are gone — the
+/// shortcut surfaces had grown into a second UI, and the standard window is the one users
+/// already know how to operate.
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private let preferences = Preferences.shared
     private lazy var model = AppModel(preferences: preferences)
-    private var statusItem: NSStatusItem?
-    private var dropView: StatusItemDropView?
     private var pluckSignalSource: (any DispatchSourceSignal)?
     private var monitors: [Any] = []
     private var observers: [any NSObjectProtocol] = []
-    private let shelf = ShelfPanelController()
-    private lazy var preview = PreviewPanelController(preferences: preferences)
     private let settings = SettingsWindowController()
     private let about = AboutWindowController()
     private let mainWindow = MainWindowController()
     private let updates = UpdateController()
 
-    /// Set when a click already dismissed the shelf, so the status item's own `mouseDown`
-    /// does not turn around and reopen what that same click just closed.
-    private var swallowIconClick = false
-    private var dropTargeted = false
-
-    private static let pulseKey = "pluck.busy.pulse"
-
     func applicationDidFinishLaunching(_ notification: Notification) {
-        applyPresence()
         // First, and synchronously: whatever the last run left behind is dead weight, and it
         // is dead weight made of the user's photographs. Synchronous because the alternative
         // races — a detached sweep can land after the first drop has already written into
@@ -46,103 +29,42 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // and the files that were already written under it have to expire somewhere.
         CutoutArchive.session.discardEverything()
         if !preferences.keepsHistory { CutoutArchive.history.discardEverything() }
+        // Before the menu is built: whether "Check for Updates…" exists depends on it.
+        updates.adopt(preferences)
         installMainMenu()
-        installShelf()
         installKeyMonitor()
-        installDismissMonitors()
-        model.onFeedbackChange = { [weak self] feedback in self?.apply(feedback) }
-        model.onPreviewRequest = { [weak self] item in
-            guard let self else { return }
-            preview.show(item: item, model: model, beside: shelf.isVisible ? shelf.panel?.frame : nil)
-        }
         installPluckSignal()
         installLanguageObserver()
-        installPresenceObserver()
-        // After the status item exists, so the first background check has a surface to put a
-        // window next to, and after `Preferences` has been read: the daily cycle must not
-        // start for a user who turned it off in a previous launch.
-        updates.adopt(preferences)
-        // A Dock app that starts with nothing on screen has told the user nothing about
-        // whether it started. The accessory shape keeps the old escape hatch instead.
-        if NSApp.activationPolicy() == .regular {
-            mainWindow.show(model: model)
-        } else {
-            revealIfUnreachable()
-        }
-    }
-
-    // MARK: - Where Pluck shows up
-
-    /// The two switches, resolved into the one thing AppKit understands.
-    ///
-    /// Static and pure because the interesting part is the *combination*: hiding the Dock
-    /// icon is only offered while the menu bar icon is on, and an app that answered
-    /// `.accessory` with neither would have no surface at all.
-    nonisolated static func activationPolicy(
-        showsMenuBarIcon: Bool,
-        hidesDockIcon: Bool
-    ) -> NSApplication.ActivationPolicy {
-        showsMenuBarIcon && hidesDockIcon ? .accessory : .regular
-    }
-
-    /// Applies both switches. Called at launch and again on every change — `setActivationPolicy`
-    /// works at runtime, which is what lets this be a switch rather than a "please relaunch".
-    private func applyPresence() {
-        let policy = Self.activationPolicy(
-            showsMenuBarIcon: preferences.showsMenuBarIcon,
-            hidesDockIcon: preferences.hidesDockIcon
-        )
-        if NSApp.activationPolicy() != policy {
-            NSApp.setActivationPolicy(policy)
-            // Going from `.accessory` to `.regular` leaves the process behind whatever was
-            // frontmost, so a Dock icon appears with nothing to show for it.
-            if policy == .regular { NSApp.activate() }
-        }
-        if preferences.showsMenuBarIcon {
-            installStatusItem()
-        } else {
-            removeStatusItem()
-        }
-    }
-
-    private func installPresenceObserver() {
-        let token = NotificationCenter.default.addObserver(
-            forName: .pluckPresenceDidChange,
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in
-            MainActor.assumeIsolated { self?.applyPresence() }
-        }
-        observers.append(token)
+        mainWindow.onDrop = { [weak self] payloads in self?.model.handleDrop(payloads) }
+        mainWindow.onOpenSettings = { [weak self] in self?.showSettings() }
+        mainWindow.show(model: model)
     }
 
     /// Images dropped on the Dock icon, double-clicked in Finder, or handed over by
-    /// `open -a Pluck …`. All three arrive here, and all three are the same gesture as a drop
-    /// on the shelf — so they go through the same entry point, in one call, because a folder
-    /// full of images opened at once is one batch and not thirty.
+    /// `open -a Pluck …`. All three arrive here, and all three are the same gesture as a
+    /// drop on the window — so they go through the same entry point, in one call, because a
+    /// folder full of images opened at once is one batch and not thirty.
     func application(_ application: NSApplication, open urls: [URL]) {
         let payloads = urls.map(DroppedPayload.file)
         guard !payloads.isEmpty else { return }
         model.handleDrop(payloads)
-        // Where the results will appear. The shelf is the answer only for the shape of the
-        // app that has no window to raise.
-        if NSApp.activationPolicy() == .regular {
-            mainWindow.show(model: model)
-        } else {
-            openShelf()
-        }
+        mainWindow.show(model: model)
+    }
+
+    /// Clicking the Dock icon, or launching Pluck again while it is already running: the
+    /// ordinary "bring the app back" gesture, and the main window is what it means.
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows: Bool) -> Bool {
+        mainWindow.show(model: model)
+        return true
     }
 
     /// Everything AppKit built once and now keeps.
     ///
     /// SwiftUI needs no help — its bodies ask `L.s` for their sentences and `L.s` subscribes
     /// them (`Localization.swift`). What cannot be subscribed is a menu that was assembled
-    /// into `NSApp.mainMenu`, a string handed to `NSWindow.title`, or an accessibility label
-    /// set on a view once at birth: those are copies, and copies have to be replaced. This is
-    /// the whole list, and it is short enough to keep honest.
-    ///
-    /// The status item's right-click menu is not on it: it is rebuilt for the duration of
-    /// each click (`showStatusMenu`), so it is already in whatever language is current.
+    /// into `NSApp.mainMenu` or a string handed to `NSWindow.title`: those are copies, and
+    /// copies have to be replaced. This is the whole list, and it is short enough to keep
+    /// honest.
     private func installLanguageObserver() {
         let token = NotificationCenter.default.addObserver(
             forName: .pluckLanguageDidChange,
@@ -152,7 +74,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             MainActor.assumeIsolated {
                 guard let self else { return }
                 self.installMainMenu()
-                self.dropView?.relabel()
                 self.mainWindow.languageDidChange()
                 self.settings.languageDidChange()
                 self.about.languageDidChange()
@@ -161,41 +82,51 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         observers.append(token)
     }
 
-    /// The menu bar. Drawn now — Pluck is a `.regular` app by default (decisions.md
-    /// 2026-07-29) — and still mandatory in the `.accessory` shape, which never shows it.
-    ///
-    /// The main menu is where AppKit resolves key equivalents, so with `NSApp.mainMenu` nil
-    /// the save panel's filename field had no ⌘A/⌘C/⌘V/⌘Z at all — the standard Edit items
-    /// are not built into `NSTextField`, they are menu items that dispatch `cut:`/`copy:`/
-    /// `paste:` down the responder chain — and no window in the app could be closed with ⌘W
-    /// unless `handleKey` below knew about it by name. It was written when none of it could
-    /// ever be seen, which is why every title was already going through the catalog:
-    /// "invisible" was a fact about the activation policy, not about the strings — and the
-    /// policy has since changed.
+    /// The main menu is where AppKit resolves key equivalents: without it the save panel's
+    /// filename field has no ⌘A/⌘C/⌘V/⌘Z at all — the standard Edit items are not built
+    /// into `NSTextField`, they are menu items that dispatch `cut:`/`copy:`/`paste:` down
+    /// the responder chain — and no window could be closed with ⌘W.
     private func installMainMenu() {
+        NSApp.mainMenu = Self.makeMainMenu(target: self, offeringUpdates: updates.isAvailable)
+    }
+
+    /// Built by a static function so the shape of the menu — what is in it, in what order,
+    /// with which shortcut — is assertable without a menu bar to put it in.
+    ///
+    /// "Check for Updates…" sits under About, which is where every Mac app keeps it. It is
+    /// *omitted*, not disabled, when the build has no updater: a greyed item is a question
+    /// the user cannot act on, and Settings is where the reason is written down.
+    static func makeMainMenu(target: AnyObject?, offeringUpdates: Bool = false) -> NSMenu {
         let main = NSMenu()
-        main.addItem(Self.submenu(L.s("Pluck"), [
-            Self.item(L.s("About Pluck"), #selector(showAbout), "", target: self),
-            Self.item(L.s("Settings…"), #selector(showSettings), ",", target: self),
+        var appItems: [NSMenuItem] = [
+            item(L.s("About Pluck"), #selector(showAbout), "", target: target)
+        ]
+        if offeringUpdates {
+            appItems.append(item(L.s("Check for Updates…"), #selector(checkForUpdates), "", target: target))
+        }
+        appItems.append(contentsOf: [
             .separator(),
-            Self.item(L.s("Quit Pluck"), #selector(NSApplication.terminate(_:)), "q")
-        ]))
-        main.addItem(Self.submenu(L.s("File"), [
-            Self.item(L.s("Close"), #selector(NSWindow.performClose(_:)), "w")
+            item(L.s("Settings…"), #selector(showSettings), ",", target: target),
+            .separator(),
+            item(L.s("Quit Pluck"), #selector(NSApplication.terminate(_:)), "q")
+        ])
+        main.addItem(submenu(L.s("Pluck"), appItems))
+        main.addItem(submenu(L.s("File"), [
+            item(L.s("Close"), #selector(NSWindow.performClose(_:)), "w")
         ]))
         // Standard and in the standard order, because these are muscle memory: the point is
         // that a text field in one of our panels behaves like a text field anywhere else.
-        main.addItem(Self.submenu(L.s("Edit"), [
-            Self.item(L.s("Undo"), NSSelectorFromString("undo:"), "z"),
-            Self.item(L.s("Redo"), NSSelectorFromString("redo:"), "z", modifiers: [.command, .shift]),
+        main.addItem(submenu(L.s("Edit"), [
+            item(L.s("Undo"), NSSelectorFromString("undo:"), "z"),
+            item(L.s("Redo"), NSSelectorFromString("redo:"), "z", modifiers: [.command, .shift]),
             .separator(),
-            Self.item(L.s("Cut"), #selector(NSText.cut(_:)), "x"),
-            Self.item(L.s("Copy"), #selector(NSText.copy(_:)), "c"),
-            Self.item(L.s("Paste"), #selector(NSText.paste(_:)), "v"),
-            Self.item(L.s("Delete"), #selector(NSText.delete(_:)), ""),
-            Self.item(L.s("Select All"), #selector(NSText.selectAll(_:)), "a")
+            item(L.s("Cut"), #selector(NSText.cut(_:)), "x"),
+            item(L.s("Copy"), #selector(NSText.copy(_:)), "c"),
+            item(L.s("Paste"), #selector(NSText.paste(_:)), "v"),
+            item(L.s("Delete"), #selector(NSText.delete(_:)), ""),
+            item(L.s("Select All"), #selector(NSText.selectAll(_:)), "a")
         ]))
-        NSApp.mainMenu = main
+        return main
     }
 
     private static func submenu(_ title: String, _ items: [NSMenuItem]) -> NSMenuItem {
@@ -207,7 +138,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     /// A nil `target` means the responder chain, which is what makes the Edit items
-    /// self-disabling: nothing in a shelf full of images answers `paste:`, so the item is
+    /// self-disabling: nothing in a grid full of images answers `paste:`, so the item is
     /// grey there and live in a save panel's name field, with no code of ours deciding it.
     private static func item(
         _ title: String,
@@ -222,7 +153,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return item
     }
 
-    /// SIGUSR1 triggers the same clipboard pluck as ⌘V in the shelf. Exists so the full
+    /// SIGUSR1 triggers the same clipboard pluck as ⌘V in the window. Exists so the full
     /// pipeline is drivable without a GUI (headless QA, and `pkill -USR1 PluckApp` as a
     /// scripting hook).
     private func installPluckSignal() {
@@ -235,14 +166,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         pluckSignalSource = source
     }
 
-    /// ⌘V is scoped to the open shelf rather than being a global hot key (decisions.md
-    /// 2026-07-27). A local monitor sees the event before the responder chain turns it into
-    /// a key equivalent, so it fires whatever SwiftUI happens to have focused; the guards
-    /// keep it from stealing ⌘V from any other window of ours (the save panel, say).
-    ///
-    /// ⌘W rides along for the two borderless panels, for the same reason the File ▸ Close
-    /// item cannot serve them: a window with no close button has `performClose(_:)`
-    /// disabled by AppKit's menu validation, and calling it anyway just beeps.
+    /// ⌘V, ⌘A, Esc and ⌫ in the main window are grid operations, not text operations. A
+    /// local monitor sees the event before the responder chain turns it into a key
+    /// equivalent; the guards keep it from stealing keys from any other window of ours
+    /// (the save panel, say).
     private func installKeyMonitor() {
         let monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             // `NSEvent` is not Sendable, so the isolated hop returns a verdict, not the event.
@@ -252,61 +179,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if let monitor { monitors.append(monitor) }
     }
 
-    /// Click anywhere outside the shelf and it goes away. Mouse monitors need no
-    /// Accessibility permission — that requirement is specific to keyboard events.
-    ///
-    /// Two monitors because they see disjoint worlds: the global one only reports events
-    /// delivered to *other* processes, and the local one only ours. The status item counts
-    /// as ours, which is how clicking the icon while the shelf is open closes it without a
-    /// separate toggle.
-    private func installDismissMonitors() {
-        let mask: NSEvent.EventTypeMask = [.leftMouseDown, .rightMouseDown, .otherMouseDown]
-        let global = NSEvent.addGlobalMonitorForEvents(matching: mask, handler: { [weak self] _ in
-            MainActor.assumeIsolated { self?.dismissShelf(hitting: nil) }
-        })
-        if let global { monitors.append(global) }
-
-        let local = NSEvent.addLocalMonitorForEvents(matching: mask, handler: { [weak self] event in
-            MainActor.assumeIsolated { self?.dismissShelf(hitting: event.window) }
-            return event
-        })
-        if let local { monitors.append(local) }
-    }
-
-    /// `window` is nil when the click landed in another process — the global monitor never
-    /// learns which window that was, and does not need to.
-    private func dismissShelf(hitting window: NSWindow?) {
-        guard shelf.isVisible else { return }
-        let isStatusItem = window != nil && window === statusItem?.button?.window
-        // A click inside one of our own windows is not a dismissal. That covers the shelf
-        // itself and also the preview and save panels, which are opened *from* the shelf —
-        // pulling it out from under them would read as a glitch, not as a dismissal.
-        //
-        // The main window is the exception: it is not an auxiliary of the shelf but the
-        // other half of the app, and the shelf floats above every window we own. Leaving it
-        // up would park a 340pt panel over the thing the user just clicked on.
-        if window != nil && !isStatusItem && !mainWindow.owns(window) { return }
-        shelf.close()
-        swallowIconClick = isStatusItem
-    }
-
     /// Whether this is ⌘ and nothing else that matters.
     ///
     /// Equality against `.command` alone was wrong in a way nobody notices until it happens
     /// to them: Caps Lock sets a bit in `deviceIndependentFlagsMask`, so with it on, every
-    /// shortcut in this app stopped working — ⌘V, ⌘W, all of it. The three flags dropped
-    /// here are the ones a user does not think of as part of the chord. `.shift`,
-    /// `.option` and `.control` are *not* dropped: ⇧⌘V is a different key stroke, and this
-    /// monitor must not eat it.
-    ///
-    /// Static and pure because the bug was in a boolean expression, and a boolean
-    /// expression is testable without an event.
+    /// shortcut in this app stopped working. The three flags dropped here are the ones a
+    /// user does not think of as part of the chord. `.shift`, `.option` and `.control` are
+    /// *not* dropped: ⇧⌘V is a different key stroke, and this monitor must not eat it.
     nonisolated static func isCommandOnly(_ flags: NSEvent.ModifierFlags) -> Bool {
         flags.intersection(.deviceIndependentFlagsMask)
             .subtracting([.capsLock, .function, .numericPad]) == .command
     }
 
-    /// The same question for a key that carries no chord at all — Esc. Same three flags
+    /// The same question for a key that carries no chord at all — Esc, ⌫. Same three flags
     /// ignored, for the same reason: Caps Lock is not part of a keystroke the user thinks
     /// they are typing.
     nonisolated static func isUnmodified(_ flags: NSEvent.ModifierFlags) -> Bool {
@@ -314,60 +199,41 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             .subtracting([.capsLock, .function, .numericPad]).isEmpty
     }
 
-    /// Esc's key code. It has no character to match on — `charactersIgnoringModifiers` is the
-    /// escape character itself — and a named constant beats an unexplained 53.
+    /// Esc and forward-delete have no character to match on; named constants beat
+    /// unexplained 53s.
     private static let escapeKeyCode: UInt16 = 53
+    private static let deleteKeyCode: UInt16 = 51
 
     private func handleKey(_ event: NSEvent) -> Bool {
+        guard mainWindow.owns(event.window) else { return false }
         // Esc clears the gallery's selection, and only when there is one to clear: an Esc
         // that is swallowed while nothing is selected is an Esc that never reaches whatever
         // else might have wanted it.
-        if mainWindow.owns(event.window),
-           event.keyCode == Self.escapeKeyCode,
+        if event.keyCode == Self.escapeKeyCode,
            Self.isUnmodified(event.modifierFlags),
            !model.selection.isEmpty {
             model.clearSelection()
             return true
         }
-        guard Self.isCommandOnly(event.modifierFlags) else { return false }
-        let key = event.charactersIgnoringModifiers?.lowercased()
-        // ⌘V never goes through the menu, on any surface. `paste:` is a *text* operation
-        // dispatched to whatever is first responder, and no view in this app implements it;
-        // pasting into Pluck means "matte the clipboard", which only the model can do.
-        //
-        // ⌘W is the other way round wherever AppKit will take it. The main window is a
-        // standard titled, closable window, so the File ▸ Close item validates and closes
-        // it — that dispatch is gone from here. The two panels are borderless: a window
-        // with no close button has `performClose(_:)` disabled by AppKit's own menu
-        // validation, so for them this monitor is still the only route.
-        if mainWindow.owns(event.window) {
-            // ⌘A is Select All in the Edit menu, which dispatches `selectAll:` to the first
-            // responder — a *text* operation, and there is no text in this window. Selecting
-            // in the gallery is the meaning ⌘A has here, and the monitor is the only place
-            // that can claim it before the menu does.
-            switch key {
-            case "v":
-                model.pluckClipboard()
-                return true
-            case "a":
-                model.selectAll()
-                return true
-            default:
-                return false
-            }
-        }
-        if preview.owns(event.window) {
-            guard key == "w" else { return false }
-            preview.close()
+        // ⌫ deletes what is selected — the standard grid gesture, and the keyboard's only
+        // route to Delete now that the context menu is the pointer's.
+        if event.keyCode == Self.deleteKeyCode,
+           Self.isUnmodified(event.modifierFlags),
+           !model.selection.isEmpty {
+            model.discardSelected()
             return true
         }
-        guard shelf.isVisible, event.window === shelf.panel else { return false }
-        switch key {
+        guard Self.isCommandOnly(event.modifierFlags) else { return false }
+        // ⌘V never goes through the menu: `paste:` is a *text* operation dispatched to
+        // whatever is first responder, and no view in this app implements it; pasting into
+        // Pluck means "matte the clipboard", which only the model can do. ⌘A is the same
+        // story — selecting in the gallery is the meaning ⌘A has here.
+        switch event.charactersIgnoringModifiers?.lowercased() {
         case "v":
             model.pluckClipboard()
             return true
-        case "w":
-            shelf.close()
+        case "a":
+            model.selectAll()
             return true
         default:
             return false
@@ -381,232 +247,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         observers.removeAll()
     }
 
-    private func installStatusItem() {
-        guard statusItem == nil else { return }
-        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        guard let button = item.button else { return }
-        button.image = StatusIcon.idle
-
-        let drop = StatusItemDropView(frame: button.bounds)
-        drop.autoresizingMask = [.width, .height]
-        drop.onClick = { [weak self] in self?.iconClicked() }
-        drop.onSecondaryClick = { [weak self] in self?.showStatusMenu() }
-        drop.onDrop = { [weak self] payloads in self?.iconReceived(payloads) }
-        drop.onDragTargeted = { [weak self] on in self?.showDropAffordance(on) }
-        button.addSubview(drop)
-
-        statusItem = item
-        dropView = drop
-    }
-
-    /// Taken out of the bar, not hidden in it. `NSStatusItem.isVisible = false` leaves the
-    /// item alive and its slot reserved, which on a full menu bar is the difference between
-    /// "off" and "off, but still pushing your other icons around".
-    private func removeStatusItem() {
-        guard let item = statusItem else { return }
-        shelf.close()
-        NSStatusBar.system.removeStatusItem(item)
-        statusItem = nil
-        dropView = nil
-    }
-
-    private func installShelf() {
-        shelf.onDrop = { [weak self] payloads in self?.model.handleDrop(payloads) }
-        shelf.install(
-            content: ShelfView(
-                model: model,
-                dropTarget: shelf.dropTarget,
-                onSettings: { [weak self] in self?.showSettings() },
-                onMainWindow: { [weak self] in self?.showMainWindow() }
-            )
-        )
-        mainWindow.onDrop = { [weak self] payloads in self?.model.handleDrop(payloads) }
-    }
-
-    private func showMainWindow() {
-        shelf.close()
-        mainWindow.show(model: model)
-    }
-
-    /// Opening only. Closing is the dismiss monitor's job, and it has already run for this
-    /// same click — a toggle here would fight it.
-    private func iconClicked() {
-        guard !swallowIconClick else {
-            swallowIconClick = false
-            return
-        }
-        openShelf()
-    }
-
-    /// Left button opens the shelf, right button opens a menu: the pattern every menu-bar
-    /// app on this machine follows, and the reason About and Quit no longer need a pull-down
-    /// inside the shelf. Only the two the shelf cannot hold — Settings has a gear of its own
-    /// there, and repeating it here would be a third route to one window.
-    ///
-    /// `statusItem.menu` is set for the duration of the click and cleared after: assigning it
-    /// permanently would make AppKit swallow the *left* click too, and the shelf would become
-    /// unreachable.
-    private func showStatusMenu() {
-        // The dismiss monitor has already closed the shelf for this same right click and
-        // armed the swallow, which would otherwise eat the next left click on the icon.
-        swallowIconClick = false
-        guard let item = statusItem, let button = item.button else { return }
-        item.menu = Self.makeStatusMenu(target: self, offeringUpdates: updates.isAvailable)
-        button.performClick(nil)
-        item.menu = nil
-    }
-
-    /// Built by a static function so the shape of the menu — what is in it, in what order,
-    /// with which shortcut — is assertable without a menu bar to put it in.
-    ///
-    /// "Check for Updates…" sits under About because this is the only pull-down an accessory
-    /// app has, and it is where every other menu-bar app on the machine keeps it. It is
-    /// *omitted*, not disabled, when the build has no updater: a greyed item in a three-item
-    /// menu is a question the user cannot act on, and Settings is where the reason is written
-    /// down. Settings is still deliberately absent — the shelf's gear opens it in one click.
-    static func makeStatusMenu(target: AnyObject?, offeringUpdates: Bool = false) -> NSMenu {
-        let menu = NSMenu()
-        menu.addItem(item(L.s("About Pluck"), #selector(showAbout), "", target: target))
-        if offeringUpdates {
-            menu.addItem(item(L.s("Check for Updates…"), #selector(checkForUpdates), "", target: target))
-        }
-        menu.addItem(.separator())
-        menu.addItem(item(L.s("Quit Pluck"), #selector(NSApplication.terminate(_:)), "q"))
-        return menu
-    }
-
-    /// Dropping on the icon is the primary way in, so the shelf opens on release: the
-    /// pending cell, and then the result, appear where the user is already looking.
-    private func iconReceived(_ payloads: [DroppedPayload]) {
-        model.handleDrop(payloads)
-        openShelf()
-    }
-
-    private func openShelf() {
-        let anchor = statusAnchor()
-        shelf.show(anchor: anchor?.rect, on: anchor?.screen)
-    }
-
-    /// The status item's rect in screen coordinates, or nil when the pointer could not
-    /// actually get to it.
-    ///
-    /// A menu bar with no room left still hands back a button; it just parks it off the end
-    /// of the bar or under the camera housing. With no Dock icon and no window, an app in
-    /// that state has no surface at all — reported 2026-07-27 on a notched machine — so
-    /// every path that opens the shelf has to have an answer for "and if there is no icon?".
-    private func statusAnchor() -> (rect: NSRect, screen: NSScreen)? {
-        guard let button = statusItem?.button, let window = button.window else { return nil }
-        let rect = window.convertToScreen(button.convert(button.bounds, to: nil))
-        guard rect.width > 1,
-              let screen = NSScreen.screens.first(where: { $0.frame.intersects(rect) })
-        else { return nil }
-        // The two auxiliary areas are the stretches of the menu bar row the notch leaves
-        // exposed. Touching neither means sitting behind it.
-        let exposed = [screen.auxiliaryTopLeftArea, screen.auxiliaryTopRightArea].compactMap { $0 }
-        guard exposed.isEmpty || exposed.contains(where: { $0.intersects(rect) }) else { return nil }
-        return (rect, screen)
-    }
-
-    /// Clicking the Dock icon, or launching Pluck again while it is already running.
-    ///
-    /// With a Dock icon this is the ordinary "bring the app back" gesture and the main window
-    /// is what it means — a 340pt panel dropping out of the menu bar is not what anyone
-    /// clicking a Dock icon is asking for. Without one it is still the escape hatch it was
-    /// written to be (decisions.md 2026-07-27): a launch of an already-running accessory app
-    /// is the one gesture a user can perform when the status item is unreachable.
-    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows: Bool) -> Bool {
-        if NSApp.activationPolicy() == .regular {
-            mainWindow.show(model: model)
-        } else {
-            openShelf()
-        }
-        return true
-    }
-
-    /// The status item does not reach its final position until the bar has laid out, so this
-    /// asks once that has had a chance to happen. Opening the shelf is not a nicety here: an
-    /// app that is invisible *and* silent on launch is indistinguishable from one that
-    /// failed to start, and there would be nothing on screen to click to find out.
-    private func revealIfUnreachable() {
-        Task { @MainActor in
-            try? await Task.sleep(nanoseconds: 700_000_000)
-            guard statusAnchor() == nil, !shelf.isVisible else { return }
-            openShelf()
-        }
-    }
-
-    /// Filled ghost plus coral tint while a droppable image is overhead — the icon is the
-    /// only surface available to say "yes, this one".
-    private func showDropAffordance(_ on: Bool) {
-        dropTargeted = on
-        guard let button = statusItem?.button else { return }
-        if on {
-            pulse(false)
-            button.image = StatusIcon.done
-            button.contentTintColor = Palette.coralNS
-        } else {
-            apply(model.feedback)
-        }
-    }
-
-    /// Closes the shelf on the way, like About does: the shelf dismisses on any click
-    /// outside itself, and a window opening behind a panel that is about to vanish reads
-    /// as a glitch.
     @objc private func showSettings() {
-        shelf.close()
         settings.show(model: model, preferences: preferences, updates: updates)
     }
 
     @objc private func showAbout() {
-        shelf.close()
         about.show()
     }
 
-    /// Sparkle puts up its own window, so the shelf goes away first for the same reason it
-    /// does for About and Settings.
     @objc private func checkForUpdates() {
-        shelf.close()
         updates.checkNow()
-    }
-
-    private func apply(_ feedback: StatusFeedback) {
-        // A drag hovering over the icon owns it until it leaves; `showDropAffordance`
-        // replays whatever state was current once it does.
-        guard !dropTargeted, let button = statusItem?.button else { return }
-        pulse(feedback == .busy)
-        switch feedback {
-        case .idle, .busy:
-            button.image = StatusIcon.idle
-            button.contentTintColor = nil
-        case .success:
-            button.image = StatusIcon.done
-            button.contentTintColor = .systemGreen
-        case .failure:
-            button.image = StatusIcon.idle
-            button.contentTintColor = .systemRed
-        }
-        button.alphaValue = 1
-    }
-
-    /// Breathing pulse while work is in flight — the only progress signal left when the
-    /// shelf is closed (the drag-onto-the-icon path). Idempotent: re-entering `.busy`
-    /// while already pulsing must not restack the animation and double the opacity swing.
-    private func pulse(_ on: Bool) {
-        guard let button = statusItem?.button else { return }
-        button.wantsLayer = true
-        guard let layer = button.layer else { return }
-        guard on else {
-            layer.removeAnimation(forKey: Self.pulseKey)
-            return
-        }
-        guard layer.animation(forKey: Self.pulseKey) == nil else { return }
-        let pulse = CABasicAnimation(keyPath: "opacity")
-        pulse.fromValue = 1.0
-        pulse.toValue = 0.45
-        pulse.duration = 0.6
-        pulse.autoreverses = true
-        pulse.repeatCount = .infinity
-        pulse.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-        layer.add(pulse, forKey: Self.pulseKey)
     }
 }

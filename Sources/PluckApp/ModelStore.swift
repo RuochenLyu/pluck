@@ -147,6 +147,7 @@ final class ModelStore {
         switch outcome {
         case .success:
             setState(.installed, for: id)
+            NotificationCenter.default.post(name: .pluckModelsDidChange, object: nil)
             await measureInstalled()
         case .failure where cancelled:
             // The user pressed Cancel. The partial file stays on disk, so pressing Download
@@ -181,10 +182,17 @@ final class ModelStore {
         if preferences?.engineID == id {
             preferences?.engineID = EngineCatalog.defaultEngineID
         }
+        NotificationCenter.default.post(name: .pluckModelsDidChange, object: nil)
     }
 
     private func setState(_ state: ModelRow.State, for id: String) {
         guard let index = rows.firstIndex(where: { $0.id == id }) else { return }
         rows[index].state = state
     }
+}
+
+extension Notification.Name {
+    /// A model finished installing or was deleted — anything offering an engine list
+    /// (the main window's toolbar menu) should re-read the disk.
+    static let pluckModelsDidChange = Notification.Name("pluck.modelsDidChange")
 }

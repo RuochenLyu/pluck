@@ -15,57 +15,10 @@ final class Preferences {
 
     private enum Key {
         static let keepsHistory = "pluck.keepsHistory"
-        static let previewOriginX = "pluck.preview.x"
-        static let previewOriginY = "pluck.preview.y"
         static let exportDirectory = "pluck.exportDirectory"
         static let engineID = "pluck.engineID"
         static let languageID = "pluck.languageID"
         static let checksForUpdates = "pluck.checksForUpdates"
-        static let showsMenuBarIcon = "pluck.showsMenuBarIcon"
-        static let hidesDockIcon = "pluck.hidesDockIcon"
-    }
-
-    /// Whether the status item is installed at all.
-    ///
-    /// On by default, and no longer the app's identity (decisions.md 2026-07-29): Pluck is a
-    /// task processor, so the Dock icon is the front door and the menu bar is the shortcut.
-    /// Off removes the status item outright rather than dimming it — a menu-bar app's whole
-    /// contract is that the icon is either there or it is not.
-    var showsMenuBarIcon: Bool {
-        didSet {
-            guard showsMenuBarIcon != oldValue else { return }
-            defaults.set(showsMenuBarIcon, forKey: Key.showsMenuBarIcon)
-            // The invariant lives here rather than in the two views that can reach these
-            // switches: with no status item and no Dock icon there is nothing left on screen
-            // to click, which is the state that took a whole ADR to dig out of last time
-            // (decisions.md 2026-07-27, the notched-machine report).
-            if !showsMenuBarIcon { hidesDockIcon = false }
-            announcePresence()
-        }
-    }
-
-    /// Whether the Dock icon is suppressed — only meaningful while the menu bar icon is on.
-    ///
-    /// This is the `.accessory` activation policy under a name that says what the user sees.
-    /// It is *not* stored as "activation policy": the policy is a fact about AppKit, and the
-    /// two booleans are the two things a person can decide.
-    var hidesDockIcon: Bool {
-        didSet {
-            guard hidesDockIcon != oldValue else { return }
-            defaults.set(hidesDockIcon, forKey: Key.hidesDockIcon)
-            announcePresence()
-        }
-    }
-
-    /// Whether the Dock icon switch can be touched at all. False means it is also *off* —
-    /// `showsMenuBarIcon`'s `didSet` has already seen to that.
-    var canHideDockIcon: Bool { showsMenuBarIcon }
-
-    /// `AppDelegate` owns the status item and the activation policy, and neither is a SwiftUI
-    /// view that could observe this object. Same mechanism the language switch uses, for the
-    /// same reason: AppKit surfaces built once have to be told.
-    private func announcePresence() {
-        NotificationCenter.default.post(name: .pluckPresenceDidChange, object: self)
     }
 
     /// Whether Pluck asks GitHub once a day whether there is a newer version.
@@ -135,21 +88,6 @@ final class Preferences {
         }
     }
 
-    /// The corner the user dragged the preview panel to, if they ever did. Stored as two
-    /// numbers because `CGPoint` in defaults would be an archived dictionary, and a
-    /// preference nobody can read with `defaults read` is a preference nobody can debug.
-    var previewTopLeft: CGPoint? {
-        didSet {
-            guard let point = previewTopLeft else {
-                defaults.removeObject(forKey: Key.previewOriginX)
-                defaults.removeObject(forKey: Key.previewOriginY)
-                return
-            }
-            defaults.set(Double(point.x), forKey: Key.previewOriginX)
-            defaults.set(Double(point.y), forKey: Key.previewOriginY)
-        }
-    }
-
     /// Where Export All last put things, so the picker opens there again. A plain path,
     /// not a security-scoped bookmark: Pluck is not sandboxed, and a bookmark would buy
     /// nothing but a blob nobody can read. A folder that has since been deleted or
@@ -173,23 +111,10 @@ final class Preferences {
             Key.keepsHistory: true,
             Key.engineID: EngineCatalog.defaultEngineID,
             Key.languageID: L.systemID,
-            Key.checksForUpdates: true,
-            Key.showsMenuBarIcon: true,
-            Key.hidesDockIcon: false
+            Key.checksForUpdates: true
         ])
         keepsHistory = defaults.bool(forKey: Key.keepsHistory)
         checksForUpdates = defaults.bool(forKey: Key.checksForUpdates)
-        let menuBar = defaults.bool(forKey: Key.showsMenuBarIcon)
-        showsMenuBarIcon = menuBar
-        // Read through the same invariant the setter enforces: a defaults domain edited by
-        // hand — or written by a build that had a third switch — must not be able to produce
-        // an app with no icon anywhere.
-        let hidesDock = defaults.bool(forKey: Key.hidesDockIcon) && menuBar
-        hidesDockIcon = hidesDock
-        // Written back, not just corrected in memory: leaving the impossible value on disk
-        // means switching the menu bar icon back on later silently hides the Dock icon
-        // again, on the strength of a choice this launch already overruled.
-        defaults.set(hidesDock, forKey: Key.hidesDockIcon)
         engineID = defaults.string(forKey: Key.engineID) ?? EngineCatalog.defaultEngineID
         languageID = defaults.string(forKey: Key.languageID) ?? L.systemID
         // `didSet` does not run for an assignment in `init`, and this is the launch that has
@@ -199,21 +124,10 @@ final class Preferences {
            FileManager.default.fileExists(atPath: path) {
             exportDirectory = URL(fileURLWithPath: path, isDirectory: true)
         }
-        if defaults.object(forKey: Key.previewOriginX) != nil {
-            previewTopLeft = CGPoint(
-                x: defaults.double(forKey: Key.previewOriginX),
-                y: defaults.double(forKey: Key.previewOriginY)
-            )
-        }
     }
 
     /// The archive new cutouts should be written to. Reading it per cutout rather than
     /// caching it is deliberate: flipping the preference has to take effect on the next
     /// drop, not the next launch.
     var archive: CutoutArchive { keepsHistory ? .history : .session }
-}
-
-extension Notification.Name {
-    /// Where Pluck shows up — the Dock icon, the status item — has changed.
-    static let pluckPresenceDidChange = Notification.Name("pluck.presenceDidChange")
 }

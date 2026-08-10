@@ -105,7 +105,9 @@ protocol MattingEngine {
 
 ### 4.3 App 交互（全部走 PluckKit）
 
-- **形态：Dock app + 可选菜单栏（2026-07-29 定案，见 decisions.md 同日）**。默认 `.regular`：有 Dock 图标、启动即开主窗口、点 Dock 图标开主窗口、**Dock 图标接受拖图**（`CFBundleDocumentTypes` public.image / Viewer / Alternate → `application(_:open:)` → 同一条 `handleDrop` 管线，多文件一次进批量）。Settings ▸ 通用两个开关：`Show Pluck in the menu bar`（默认开，关=移除状态项）与 `Hide the Dock icon`（仅前者开启时可用，开=运行时 `setActivationPolicy(.accessory)`，即原来的形态）。两开关不得同时导致"无处可点"，不变式在 `Preferences` 内。**这条推翻此前"菜单栏为主入口"的定位**：Pluck 是任务式处理器（ImageOptim / Permute 那一类），不是常驻监听器。
+> **2026-08-10 重定稿（见 decisions.md 同日）**：本节此前的"菜单栏 shelf / 状态项 / 预览浮窗 / presence 开关"全部作废。现行形态：**纯 Dock app，一个标准窗口**——`.titled` + unified toolbar（Add / 默认引擎菜单 / Preview / Export），内容区为不透明标准背景上的卡片网格，**预览是 `.inspector` 侧栏**（before/after 滑块、引擎切换、拷贝/存储/删除），单击选中即更新、双击或工具栏按钮打开。入口：拖入窗口、拖 Dock 图标、⌘V、Finder 打开方式；批量进度走 `navigationSubtitle`。Settings 为标准两 tab（General / Models）。以下原文仅作历史记录保留。
+
+- ~~**形态：Dock app + 可选菜单栏（2026-07-29 定案，见 decisions.md 同日）**。~~默认 `.regular`：有 Dock 图标、启动即开主窗口、点 Dock 图标开主窗口、**Dock 图标接受拖图**（`CFBundleDocumentTypes` public.image / Viewer / Alternate → `application(_:open:)` → 同一条 `handleDrop` 管线，多文件一次进批量）。Settings ▸ 通用两个开关：`Show Pluck in the menu bar`（默认开，关=移除状态项）与 `Hide the Dock icon`（仅前者开启时可用，开=运行时 `setActivationPolicy(.accessory)`，即原来的形态）。两开关不得同时导致"无处可点"，不变式在 `Preferences` 内。**这条推翻此前"菜单栏为主入口"的定位**：Pluck 是任务式处理器（ImageOptim / Permute 那一类），不是常驻监听器。
 - **菜单栏常驻**（菜单栏图标开启时，行为不变）：**拖到图标是拖放的主路径**——拖入时图标变实心 + 珊瑚色，松手即处理并自动弹出面板。点击图标也可打开面板（只打开，不 toggle）。面板是自绘的非激活 NSPanel（不是 NSPopover，容器视觉要自己控），内含 Recent 网格 + Clear，本身也接受拖放但不是承重路径；点面板外任何地方即关，Esc / ⌘W 同。剪贴板流程：面板内 ⌘V → 抠图 → 结果自动写回剪贴板 → 目标 app ⌘V，**中间不落盘**（2026-07-27 起废弃全局快捷键方案）。点击 Recent 项打开预览面板：before/after 拖拽滑块 + Copy/Save。
 - **处理中反馈**：Recent 网格头部占位卡（输入图缩略图去饱和 + 扫光，>250ms 才出 spinner，完成原地交叉淡出）；面板关闭时由菜单栏图标呼吸脉冲承担。
 - **主窗口**：大拖放区；多文件/文件夹拖入进批量队列，逐张进度 + 失败标记；处理前后对比（滑块）；导出格式与目的地记忆。
@@ -139,6 +141,8 @@ agent 友好设计：`--json` 结构化输出、语义化 exit code（0 成功 /
 - 不上架的判断没问题：CLI、Sparkle、模型旁加载在 MAS 沙盒下都别扭，GitHub + Homebrew 是这类工具的主流通路（Rectangle、Ice 同款）。
 
 ### 4.7 UI 设计定稿（2026-07-27，第二轮原型）
+
+> **2026-08-10 重定稿（见 decisions.md 同日）**：本节的"无边框玻璃面板"体系（四条硬规则的①③④、面板吸色玻璃、主窗口沉浸玻璃、自绘标题区）**作废**。HIG 核实结论：Liquid Glass 属于控件层，窗口与内容背景不做玻璃；玻璃由**标准组件**（toolbar / inspector / 菜单）自动获得，自定玻璃只保留悬浮在图片上的 hover 圆钮。配色回归系统 accent，珊瑚橙只留给 app 图标。卡片语言（实色卡面 + 卡内低对比棋盘格 + `Tokens`）继续有效。以下原文仅作历史记录保留。
 
 定稿图见 [prototypes/](prototypes/)（p1–p6），提示词底稿见 [prototypes/prompts.md](prototypes/prompts.md)。要点：
 

@@ -1,23 +1,23 @@
 import AppKit
+import Combine
+import PluckKit
 import SwiftUI
 
-/// The batch surface: a real, resizable window — on the same glass as everything else.
+/// The one window, in standard clothes: a titled, resizable window with a unified toolbar.
 ///
-/// §4.7 used to grade the glass by surface and gave this window "标准窗口材质保可读性", on
-/// the theory that a window with an arbitrary *other window* behind it cannot afford to be
-/// transparent. That entry is withdrawn (decisions.md 2026-07-28). Liquid Glass is not a
-/// hole in the window: it tints, refracts and lights its own edge, and the deep-tinted
-/// result in `p4-floating.png` is *more* readable than a system-grey fill, not less —
-/// readability is what the tint is for. What is left of the standard window is the part
-/// that carries meaning: the traffic lights and the resize edges, which are how a window
-/// the user can leave open behind other work is operated. They now float on the glass,
-/// with no title bar under them and no "Pluck" written across it — the menu bar has
-/// already said whose window this is.
+/// The previous shape hid the title bar, filled the window with `NSGlassEffectView` and
+/// hand-drew everything the system normally provides. That is exactly what Apple's Liquid
+/// Glass guidance says not to do — glass belongs to the *functional* layer (toolbars,
+/// sidebars, controls), which standard components render themselves; window and content
+/// backgrounds stay opaque so the glass has something to stand out from. Using the standard
+/// window is what buys the toolbar its glass, the scroll-edge effect, and every behaviour a
+/// Mac window is expected to have, with no code here.
 @MainActor
 final class MainWindowController {
-    private var window: NSWindow?
+    private var window: PluckWindow?
 
     var onDrop: (([DroppedPayload]) -> Void)?
+    var onOpenSettings: (() -> Void)?
 
     private let dropTarget = DropTarget()
 
@@ -30,77 +30,60 @@ final class MainWindowController {
         window?.makeKeyAndOrderFront(nil)
     }
 
-    /// ⌘V is dispatched by `AppDelegate`'s key monitor rather than by a menu item — pasting
-    /// into Pluck is not the `paste:` any view here would answer — so the monitor needs to
-    /// know whether the event landed in this window. (⌘W is the File ▸ Close item's job:
-    /// this is a standard closable window, unlike the shelf and preview panels.)
+    /// ⌘V/⌘A/Esc/⌫ are dispatched by `AppDelegate`'s key monitor rather than by menu items —
+    /// they are grid operations, not the text operations the menu would dispatch — so the
+    /// monitor needs to know whether the event landed in this window.
     func owns(_ window: NSWindow?) -> Bool {
         window != nil && window === self.window
     }
 
-    /// The title is invisible on the window itself but not everywhere — Mission Control, the
-    /// Window menu and VoiceOver all read it, and none of them is going to re-ask.
+    /// The toolbar and title are SwiftUI's (`sceneBridgingOptions`), and SwiftUI re-renders
+    /// them itself when the language changes — nothing to do here but keep the fallback
+    /// title honest for Mission Control and VoiceOver.
     func languageDidChange() {
         window?.title = L.s("Pluck")
     }
 
-    private func make(model: AppModel) -> NSWindow {
-        let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 620, height: 540),
-            styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
-            backing: .buffered,
-            defer: false
+    private func make(model: AppModel) -> PluckWindow {
+        let host = NSHostingController(
+            rootView: MainWindowView(
+                model: model,
+                dropTarget: dropTarget,
+                onOpenSettings: { [weak self] in self?.onOpenSettings?() }
+            )
         )
-        // Still set, and still through the catalog: the title is what the window is called
-        // in Mission Control, in the Window menu and to VoiceOver. It is only the *drawn*
-        // one that goes — a chrome-free glass surface with one word floating at the top of
-        // it is a title bar that forgot to draw its own background.
+        // The bridge that makes `.toolbar`, `.navigationTitle` and `.navigationSubtitle`
+        // drive the real NSToolbar and title bar of this AppKit window.
+        host.sceneBridgingOptions = [.toolbars, .title]
+
+        let window = PluckWindow(contentViewController: host)
+        window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
         window.title = L.s("Pluck")
-        window.titleVisibility = .hidden
-        window.titlebarAppearsTransparent = true
-        // Both, or there is no glass: an opaque window paints its `backgroundColor` under
-        // the content view, and `.behindWindow` blending has nothing to reach through.
-        window.isOpaque = false
-        window.backgroundColor = .clear
+        window.toolbarStyle = .unified
+        window.setContentSize(NSSize(width: 760, height: 540))
+        window.minSize = NSSize(width: 560, height: 400)
         window.isReleasedWhenClosed = false
-        window.minSize = NSSize(width: 480, height: 400)
         window.tabbingMode = .disallowed
 
-        // The drop destination is the window's own content view rather than a SwiftUI
-        // `.onDrop`: SwiftUI hands back a provider flattened to `public.jpeg` with a nil
-        // `suggestedName`, and the filename is the one thing a batch list is made of.
-        //
-        // Same three-layer stack as the shelf, and for the same reason (`ShelfBackdropView`):
-        // this view stays a plain `NSView` that only knows about dragging, the glass is
-        // installed into it by `PanelBackdrop`, and AppKit still finds the destination by
-        // walking up the superview chain from whatever it hit.
-        let backdrop = MainWindowContentView()
-        backdrop.dropTarget = dropTarget
-        backdrop.onDrop = { [weak self] payloads in self?.onDrop?(payloads) }
-
-        let hosting = NSHostingView(rootView: MainWindowView(model: model, dropTarget: dropTarget))
-        PanelBackdrop.install(content: hosting, in: backdrop, cornerRadius: 0)
-        window.contentView = backdrop
+        // The drop destination is the window itself, not a SwiftUI `.onDrop`: SwiftUI hands
+        // back a provider flattened to `public.jpeg` with a nil `suggestedName`, and the
+        // filename is the one thing a batch is made of. A drag that no view claims falls
+        // through to the window, so registering here covers the whole surface — grid,
+        // toolbar, empty state — without a custom view under the hosting controller.
+        window.registerForDraggedTypes([.fileURL, .png, .tiff])
+        window.dropTarget = dropTarget
+        window.onDrop = { [weak self] payloads in self?.onDrop?(payloads) }
         return window
     }
 }
 
-/// Same job as `ShelfBackdropView`, and now made of the same nothing: the drag destination
-/// and the box the glass is installed into, and no opinion about which of the two backdrops
-/// the running system will put there.
-final class MainWindowContentView: NSView {
+/// The window as a dragging destination. `NSWindow` receives the `NSDraggingDestination`
+/// messages for types registered on it whenever no subview claims the drag.
+final class PluckWindow: NSWindow {
     var onDrop: (([DroppedPayload]) -> Void)?
     weak var dropTarget: DropTarget?
 
-    override init(frame frameRect: NSRect) {
-        super.init(frame: frameRect)
-        registerForDraggedTypes([.fileURL, .png, .tiff])
-    }
-
-    @available(*, unavailable)
-    required init?(coder: NSCoder) { fatalError("not supported") }
-
-    override func draggingEntered(_ sender: any NSDraggingInfo) -> NSDragOperation {
+    func draggingEntered(_ sender: any NSDraggingInfo) -> NSDragOperation {
         // Nothing at all for a drag of our own — not even the highlight. See
         // `DroppedPayload.isForeignDrag`.
         guard DroppedPayload.isForeignDrag(source: sender.draggingSource) else { return [] }
@@ -109,15 +92,15 @@ final class MainWindowContentView: NSView {
         return accepted ? .copy : []
     }
 
-    override func draggingExited(_ sender: (any NSDraggingInfo)?) {
+    func draggingExited(_ sender: (any NSDraggingInfo)?) {
         setTargeted(false)
     }
 
-    override func draggingEnded(_ sender: any NSDraggingInfo) {
+    func draggingEnded(_ sender: any NSDraggingInfo) {
         setTargeted(false)
     }
 
-    override func performDragOperation(_ sender: any NSDraggingInfo) -> Bool {
+    func performDragOperation(_ sender: any NSDraggingInfo) -> Bool {
         setTargeted(false)
         guard DroppedPayload.isForeignDrag(source: sender.draggingSource) else { return false }
         let payloads = DroppedPayload.read(from: sender.draggingPasteboard)
@@ -131,72 +114,132 @@ final class MainWindowContentView: NSView {
     }
 }
 
-/// The batch surface, as a gallery.
-///
-/// It was a list of filenames with 44pt thumbnails beside them, under a standing dashed
-/// "drop images here" strip. Both were answering questions the user does not have. What is in
-/// this window is *pictures* — the one thing a cutout has to be judged on is what it looks
-/// like at the edges — and a row of text with a stamp-sized picture at the end of it puts the
-/// evidence last. The strip was teaching the drop gesture to someone who had, by definition,
-/// already performed it: the window itself is the target, it lights up under a drag, and the
-/// empty state still says the whole sentence for anyone who has not.
-///
-/// So: the shelf's card, at gallery scale, in an adaptive grid. The two surfaces now show the
-/// same object drawn the same way, which is what makes them one app rather than two lists of
-/// the same files.
+/// The gallery: a grid of cutout cards, a toolbar carrying the verbs, and a preview
+/// inspector on the right — Finder's grammar, because that is the one the user already
+/// knows. Selection updates the inspector; the toolbar button and double-click both open it.
 struct MainWindowView: View {
-    let model: AppModel
+    @Bindable var model: AppModel
     let dropTarget: DropTarget
+    var onOpenSettings: () -> Void = {}
 
-    /// ~132–150pt, adaptive: the column count is the window's to decide, because this window
-    /// is resizable and a fixed count would either strand a 1200pt window with four huge cards
-    /// or crush a 480pt one.
+    /// The engines the toolbar menu can offer right now: Vision plus whatever is installed.
+    /// Reloaded when the model list changes (`.pluckModelsDidChange`) — the only thing that
+    /// changes it is Settings.
+    @State private var engines = ModelStore()
+
+    /// ~132–150pt, adaptive: the column count is the window's to decide.
     private static let columns = [GridItem(.adaptive(minimum: 132, maximum: 150), spacing: 12)]
     private static let cellHeight: CGFloat = 132
 
-    /// Room for the traffic lights, which stand on the glass with no title bar under them.
-    ///
-    /// This was 28pt of dead glass above everything, and it read as a band of nothing while
-    /// still cutting the scroll off at a hard edge — the worst of both readings. The band is
-    /// 10pt now and the clearance has moved *into* the scroll view, where it belongs: at rest
-    /// the first card sits `scrollTopInset` below the traffic lights, and scrolled content
-    /// passes under them through a fade rather than being sliced.
-    ///
-    /// The fade is what the system's own title bar buys with its material. We have no
-    /// material there, so the content dissolves instead of sliding under three buttons with
-    /// nothing between them.
-    private static let titleBarInset: CGFloat = 10
-    private static let scrollTopInset: CGFloat = 22
-    private static let scrollFade: CGFloat = 20
-
-    /// One list, newest first — the same order and the same identities as the shelf grid.
-    /// The p2 mockup queues oldest-first, which reads well for exactly one drop and stops
-    /// meaning anything the moment restored history shares the list: "first" would then be
-    /// a cutout from last week.
+    /// One list, newest first — placeholders ahead of results, so a new job appears where
+    /// its result will land.
     private var cells: [GalleryCell] {
         model.pendingItems.map(GalleryCell.pending) + model.recents.items.map(GalleryCell.done)
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            if let batch = model.batch, batch.total > 1, !model.pendingItems.isEmpty {
-                progress(batch)
-            }
+        Group {
             if cells.isEmpty {
                 dropZone
             } else {
                 grid
             }
-            bottomBar
         }
-        .padding(.top, Self.titleBarInset)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .overlay(alignment: .bottom) { statusCapsule }
+        .inspector(isPresented: $model.showsPreview) {
+            PreviewInspectorView(model: model)
+                .inspectorColumnWidth(min: 280, ideal: 340, max: 480)
+        }
+        .toolbar { toolbarContent }
+        .navigationTitle(L.s("Pluck"))
+        .navigationSubtitle(subtitle)
+        .onReceive(NotificationCenter.default.publisher(for: .pluckModelsDidChange)) { _ in
+            engines.reload()
+        }
         .animation(.easeOut(duration: 0.12), value: dropTarget.isTargeted)
     }
 
-    /// The whole window is the drop target, so the whole window is what answers a drag: one
-    /// accent rim around the content area, in place of a strip that was permanently on screen
-    /// to say what the rim says only when it is true.
+    /// The only progress anyone can honestly report, in the place the system reserves for a
+    /// window's second line. Vision runs a single opaque request per image with no callback,
+    /// so a per-image percentage would be an animation pretending to be information.
+    private var subtitle: String {
+        guard let batch = model.batch, batch.total > 1, !model.pendingItems.isEmpty else { return "" }
+        return String(format: L.s("%1$d of %2$d done"), batch.done, batch.total)
+    }
+
+    @ToolbarContentBuilder private var toolbarContent: some ToolbarContent {
+        ToolbarItem(placement: .navigation) {
+            Button(L.s("Add"), systemImage: "plus") { model.addImages() }
+                .help(L.s("Add images"))
+        }
+        ToolbarItem {
+            engineMenu
+        }
+        ToolbarItem {
+            Button(L.s("Preview"), systemImage: "sidebar.trailing") {
+                model.showsPreview.toggle()
+            }
+            .help(L.s("Show Preview"))
+        }
+        ToolbarItem(placement: .primaryAction) {
+            Button(exportTitle) { model.exportTargeted() }
+                .disabled(model.recents.items.isEmpty)
+                .help(L.s("Export cutouts"))
+        }
+    }
+
+    private var exportTitle: String {
+        let selected = model.selection.count
+        return selected == 0 ? L.s("Export All…") : L.s("Export \(selected)…")
+    }
+
+    /// The default engine, where it can be seen — it is the product's core choice, not a
+    /// buried preference. Only engines that are actually on disk are offered; getting new
+    /// ones is Settings' job, one click away at the bottom of the same menu.
+    private var engineMenu: some View {
+        Menu {
+            Picker(L.s("Engine"), selection: engineSelection) {
+                ForEach(engineChoices, id: \.id) { choice in
+                    Text(choice.name).tag(choice.id)
+                }
+            }
+            .pickerStyle(.inline)
+            .labelsHidden()
+            Divider()
+            Button(L.s("Manage Models…"), action: onOpenSettings)
+        } label: {
+            // The word, not just a wand: which engine is the default is the product's core
+            // choice, and a glyph-only menu hides the state it exists to change.
+            Label(currentEngineName, systemImage: "wand.and.sparkles")
+                .labelStyle(.titleAndIcon)
+        }
+        .help(L.s("Which engine new images use"))
+    }
+
+    private var engineChoices: [(id: String, name: String)] {
+        [(EngineCatalog.defaultEngineID, EngineLabels.name(EngineCatalog.defaultEngineID))]
+            + engines.rows.filter(\.isInstalled).map {
+                ($0.id, EngineLabels.name($0.id, fallback: $0.descriptor.displayName))
+            }
+    }
+
+    /// Reads through the same fallback the pipeline uses: a stored id whose model has been
+    /// deleted shows as Vision, and only a deliberate choice stores anything.
+    private var engineSelection: Binding<String> {
+        Binding(
+            get: {
+                let stored = model.defaultEngineID
+                return engineChoices.contains { $0.id == stored } ? stored : EngineCatalog.defaultEngineID
+            },
+            set: { model.setDefaultEngine($0) }
+        )
+    }
+
+    private var currentEngineName: String {
+        engineChoices.first { $0.id == engineSelection.wrappedValue }?.name
+            ?? EngineLabels.name(EngineCatalog.defaultEngineID)
+    }
+
     private var grid: some View {
         ScrollView {
             LazyVGrid(columns: Self.columns, spacing: 12) {
@@ -217,15 +260,6 @@ struct MainWindowView: View {
             }
             .padding(16)
         }
-        // The scroll view brings a background of its own — the system's window backdrop,
-        // which is the one thing this window no longer has. Hidden, the cards sit on glass.
-        .scrollContentBackground(.hidden)
-        .scrollIndicators(.automatic)
-        // Clearance for the traffic lights, inside the scroll rather than above it: the
-        // first card stands clear at rest, and everything after it scrolls the full height
-        // of the window instead of stopping at an invisible line 28pt down.
-        .contentMargins(.top, Self.scrollTopInset, for: .scrollContent)
-        .mask(topFade)
         .overlay {
             if dropTarget.isTargeted {
                 RoundedRectangle(cornerRadius: Tokens.cardRadius, style: .continuous)
@@ -237,53 +271,8 @@ struct MainWindowView: View {
         }
     }
 
-    /// The gradient the missing title bar's material would otherwise have been. Opaque
-    /// everywhere except the top `scrollFade` points, where content on its way past the
-    /// traffic lights dissolves instead of being cut.
-    private var topFade: some View {
-        LinearGradient(
-            stops: [
-                .init(color: .black.opacity(0), location: 0),
-                .init(color: .black, location: 1)
-            ],
-            startPoint: .top,
-            endPoint: .bottom
-        )
-        .frame(height: Self.scrollFade)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .background(alignment: .bottom) {
-            Color.black.frame(maxWidth: .infinity, maxHeight: .infinity)
-                .padding(.top, Self.scrollFade)
-        }
-    }
-
-    /// The only progress anyone can honestly report. Vision runs a single opaque request
-    /// per image with no callback, so the per-row "60%" in the mockup would be a spinner
-    /// wearing a number.
-    private func progress(_ batch: BatchProgress) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(String(format: L.s("%1$d of %2$d done"), batch.done, batch.total))
-                .font(.callout)
-                .foregroundStyle(.secondary)
-                .monospacedDigit()
-                .fixedSize(horizontal: false, vertical: true)
-            ProgressView(value: batch.fraction)
-                .progressViewStyle(.linear)
-                .tint(Palette.coral)
-        }
-        .padding(.horizontal, 16)
-        .padding(.top, 16)
-        .padding(.bottom, 12)
-    }
-
-    /// The empty state, standing directly on the glass.
-    ///
-    /// It used to be a dashed rectangle over a `.quaternary` wash — the standing drop banner
-    /// the gallery pass deleted, grown to fill the window. Two reasons it goes now: the wash
-    /// is a system-grey fill on a surface whose whole point is that it takes its colour from
-    /// what is behind it, and the dash is a hairline inside a panel, which v2 bans everywhere
-    /// else in the app. What answers a drag is the same accent rim the grid uses, and it says
-    /// it only when it is true.
+    /// The empty state: the whole window is the drop target, and this is the sentence that
+    /// teaches the gesture to anyone who has not performed it yet.
     private var dropZone: some View {
         let targeted = dropTarget.isTargeted
         return VStack(spacing: 8) {
@@ -298,8 +287,6 @@ struct MainWindowView: View {
                 .font(.callout)
                 .foregroundStyle(.secondary)
         }
-        // The window is resizable down to 480pt and the empty state is two sentences: they
-        // wrap and centre rather than being cut off at the window's edge.
         .multilineTextAlignment(.center)
         .fixedSize(horizontal: false, vertical: true)
         .padding(.horizontal, 24)
@@ -314,165 +301,35 @@ struct MainWindowView: View {
         .padding(16)
     }
 
-    /// The offline claim used to live here. It is a standing fact about the product, not a
-    /// status, and it is already stated in Settings and in About — repeating it under every
-    /// batch made it wallpaper.
-    ///
-    /// The cutout count that replaced it has gone the same way: the grid is *made of* the
-    /// cutouts, and a number counting the things the user is looking at is a caption on a
-    /// photograph saying "photograph". What is left is the line that only speaks when
-    /// something has happened, and the verb.
-    ///
-    /// And no `.bar` under them. A material strip is how you separate a footer from an
-    /// opaque content area; on glass it is a second, greyer pane of glass laid over the
-    /// first, which is the giveaway that a surface was assembled from stock parts. The
-    /// status line and the button stand on the window's own substance.
-    private var bottomBar: some View {
-        HStack(spacing: 8) {
-            // The verb that was missing. Every route into this window was a drag, which
-            // leaves anyone who arrived by clicking the Dock icon with nothing to press —
-            // and "drop images here" is not an instruction someone with the Finder closed
-            // can follow. It is first because it is where a batch starts.
-            BarButton(L.s("Add"), symbol: "plus") { model.addImages() }
-            if let status = model.status {
-                statusIcon(status.kind)
-                Text(status.text)
-                    .font(.caption)
+    /// A failure still needs a sentence. This is the line that exists only while there is
+    /// something to say, floating over the grid rather than reserving a standing bar
+    /// against the chance of bad news.
+    @ViewBuilder private var statusCapsule: some View {
+        if let status = model.status {
+            HStack(spacing: 8) {
+                Image(systemName: status.kind == .warning ? "exclamationmark.triangle.fill" : "checkmark.circle")
+                    .font(.system(size: 13, weight: .regular))
                     .foregroundStyle(status.kind == .warning ? AnyShapeStyle(.red) : AnyShapeStyle(.secondary))
+                Text(status.text)
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
                     .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            Spacer(minLength: 12)
-            if !model.recents.items.isEmpty {
-                // One word for both directions — the label *is* the state, which is cheaper
-                // than a second button that spends most of its life greyed out.
-                BarButton(model.isEverythingSelected ? L.s("Deselect All") : L.s("Select All")) {
-                    model.toggleSelectAll()
-                }
-                // The shelf's Clear, in the surface where the grid is actually big enough to
-                // need clearing. Same call, so the two cannot drift apart.
-                BarButton(L.s("Clear")) { model.clearRecents() }
-                // Coral, as in p2. §4.7's one-tint-per-screen rule is about the accent not
-                // being spent on decoration; the progress bar and the primary action are the
-                // same voice saying "this is the thing in motion and the thing to press",
-                // which is how p2 draws them. It was changed to the system accent in an
-                // earlier pass by reading the rule as a headcount — that was the mistake.
-                // A large capsule, not a small rounded rect: it is the window's one primary
-                // verb, and v2's reference products all give the single committing action a
-                // body you could hit without looking.
-                ExportButton(selected: model.selection.count) { model.exportTargeted() }
-                    // The label changes width as the selection does, and the count is
-                    // pluralised by the catalog; a fixed frame here would clip "Export 12…"
-                    // in the first language whose word for it is longer than English's.
-                    .layoutPriority(1)
-            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: Tokens.rowRadius, style: .continuous))
+            .pluckShadow(Tokens.cardShadow)
+            .padding(12)
+            .transition(.opacity)
+            .accessibilityElement(children: .combine)
         }
-        .padding(.horizontal, 16)
-        .frame(minHeight: 52)
-    }
-
-    private func statusIcon(_ kind: StatusLine.Kind) -> some View {
-        Group {
-            switch kind {
-            case .warning:
-                Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.red)
-            case .info:
-                Image(systemName: "checkmark.circle").foregroundStyle(.secondary)
-            }
-        }
-        .font(.system(size: 12))
     }
 }
 
-/// A secondary action on the standing bar: glass on macOS 26, bordered below it, capsule on
-/// both.
-///
-/// The shelf's header controls are chrome-free glyphs because they sit on a 340pt panel with
-/// two thirds of a line spare. This bar has to hold three words and a committing button on a
-/// window the user can drag to 480pt, so the vocabulary is the same substance in the shape
-/// that carries a word — which is exactly what Settings' `RowButton` already is, and for the
-/// same reason: on 26, `.bordered` is the *old* control, and one surface still wearing it is
-/// what "native" stops meaning.
-private struct BarButton: View {
-    let title: String
-    var symbol: String?
-    let action: () -> Void
-
-    init(_ title: String, symbol: String? = nil, action: @escaping () -> Void) {
-        self.title = title
-        self.symbol = symbol
-        self.action = action
-    }
-
-    @ViewBuilder
-    var body: some View {
-        if #available(macOS 26.0, *) {
-            base.buttonStyle(.glass)
-        } else {
-            base.buttonStyle(.bordered)
-        }
-    }
-
-    private var base: some View {
-        Button(action: action) {
-            if let symbol {
-                // The glyph carries the meaning and the word carries the certainty; a lone
-                // plus on a bar with three other buttons is a puzzle, and a lone "Add" is
-                // the only control here with nothing for the eye to catch.
-                Label(title, systemImage: symbol)
-            } else {
-                Text(title)
-            }
-        }
-        .buttonBorderShape(.capsule)
-        .lineLimit(1)
-    }
-}
-
-/// The window's one primary verb, in whichever prominent style the system has.
-///
-/// `.glassProminent` on macOS 26: it is the same shape and the same coral as
-/// `.borderedProminent` below it, drawn as a tinted lens instead of as a flat capsule, which
-/// is what puts it in the same family as the round glass buttons on the cards above it. The
-/// tint is still coral rather than the accent — §4.7's one-tint-per-screen rule is about not
-/// spending the accent on decoration, and p2 draws the progress bar and the committing action
-/// in the same voice on purpose.
-///
-/// It names what it will actually write. With a selection, "Export All…" would be a button
-/// that does something other than what it says, which is the one thing a committing action
-/// may never be.
-private struct ExportButton: View {
-    let selected: Int
-    let action: () -> Void
-
-    @ViewBuilder
-    var body: some View {
-        if #available(macOS 26.0, *) {
-            base.buttonStyle(.glassProminent)
-        } else {
-            base.buttonStyle(.borderedProminent)
-        }
-    }
-
-    private var title: String {
-        // Through the catalog, plural and all: "Export 1…" is a different string from
-        // "Export 4…" in most of the languages this app has not been translated into yet.
-        selected == 0 ? L.s("Export All…") : L.s("Export \(selected)…")
-    }
-
-    private var base: some View {
-        Button(title, action: action)
-            .controlSize(.large)
-            .buttonBorderShape(.capsule)
-            .tint(Palette.coral)
-    }
-}
-
-
-/// A grid slot, in whichever of its two lives it is currently in — the same shape the shelf
-/// uses, for the same reason: a job finishing must be a content change in one cell rather
-/// than a delete from one array and an insert into another, which SwiftUI would animate as
-/// the grid reflowing around the gap.
+/// A grid slot, in whichever of its two lives it is currently in — a job finishing must be
+/// a content change in one cell rather than a delete from one array and an insert into
+/// another, which SwiftUI would animate as the grid reflowing around the gap.
 private enum GalleryCell: Identifiable {
     case pending(PendingItem)
     case done(RecentItem)
@@ -485,14 +342,9 @@ private enum GalleryCell: Identifiable {
     }
 }
 
-/// A finished cutout, at gallery scale.
-///
-/// The shelf's `CutoutCard` and nothing else: same mount, same board, same radius family, so
-/// the object a user recognises in the menu-bar panel is the object they recognise here. What
-/// this one adds is what a batch surface needs and a 92pt shelf tile has no room for —
-/// selection, and the name and size of the file, which appear under the pointer rather than
-/// standing permanently on top of the picture they describe.
-private struct GalleryCard: View {
+/// A finished cutout: the card, selection, and the name and size of the file, which appear
+/// under the pointer rather than standing permanently on top of the picture they describe.
+struct GalleryCard: View {
     let item: RecentItem
     let model: AppModel
     let height: CGFloat
@@ -515,8 +367,6 @@ private struct GalleryCard: View {
                 }
             }
         }
-        // Top-trailing, opposite the selection mark: the pair used to sit bottom-trailing on
-        // the shelf tile, and here the bottom of the card is where the caption comes up.
         .overlay(alignment: .topTrailing) {
             if hovering {
                 HoverActions {
@@ -538,11 +388,11 @@ private struct GalleryCard: View {
             }
         }
         // A rim, not a wash: a selected card that goes blue all over hides the one thing the
-        // user selected it for. Accent for the selection, coral for the de-duplication flash —
-        // the two never mean the same thing, and the flash wins the corner it lands in.
+        // user selected it for. The de-duplication flash borrows the same rim — it is a
+        // moment, not a state, and the badge is what disambiguates selection.
         .overlay {
             RoundedRectangle(cornerRadius: Tokens.cardRadius, style: .continuous)
-                .strokeBorder(highlighted ? Palette.coral : Color.accentColor, lineWidth: 2)
+                .strokeBorder(Color.accentColor, lineWidth: 2)
                 .opacity(highlighted || isSelected ? 1 : 0)
         }
         .animation(.easeInOut(duration: 0.22), value: highlighted)
@@ -554,8 +404,7 @@ private struct GalleryCard: View {
         // Double first, so a double-click opens the preview instead of selecting and then
         // opening. ⌘ is read from the event stream rather than from a `.modifiers` gesture:
         // `TapGesture().modifiers(.command)` and a plain `onTapGesture` on the same view
-        // resolve against each other unpredictably, and the flags at the moment of the tap
-        // are the same fact by a shorter route.
+        // resolve against each other unpredictably.
         .onTapGesture(count: 2) { model.preview(item) }
         .onTapGesture { model.select(item, extending: NSEvent.modifierFlags.contains(.command)) }
         .onDrag { item.dragProvider() }
@@ -578,17 +427,10 @@ private struct GalleryCard: View {
         .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
     }
 
-    /// Name and size, and the engine when it was not the default one — the row subtitle's
-    /// facts, minus the timestamp, which was the least useful of them in a list already
-    /// ordered by time.
-    ///
-    /// It floats up on hover instead of living under the card. A caption below every cell
-    /// would push the grid apart into a table of contents, and the file's name is not what
-    /// the user is scanning for: the picture is.
+    /// Name and size, and the engine when it was not the default one. It floats up on hover
+    /// instead of living under the card: a caption below every cell would push the grid
+    /// apart into a table of contents, and the picture is what the user is scanning.
     private var caption: some View {
-        // Two `Text`s, so the name is what gives way. The size is four characters and an ×,
-        // and it is the fact that survives being read at a glance; a filename that has lost
-        // its last three letters is still the file.
         HStack(spacing: 0) {
             Text(verbatim: item.suggestedName)
                 .lineLimit(1)
@@ -606,15 +448,14 @@ private struct GalleryCard: View {
         .padding(.horizontal, 8)
         .padding(.vertical, 4)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .pluckGlass(in: RoundedRectangle(cornerRadius: Tokens.rowRadius, style: .continuous), fallback: .thinMaterial)
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: Tokens.rowRadius, style: .continuous))
         .padding(Tokens.cardPadding)
         .allowsHitTesting(false)
     }
 }
 
-/// The corner mark that says "this one". Filled, because an outline circle on a photograph is
-/// a shape the eye has to find; and small, because the rim around the card is already carrying
-/// the state at a glance — this is what disambiguates it from the coral de-duplication flash.
+/// The corner mark that says "this one". Filled, because an outline circle on a photograph
+/// is a shape the eye has to find.
 private struct SelectionBadge: View {
     var body: some View {
         ZStack {

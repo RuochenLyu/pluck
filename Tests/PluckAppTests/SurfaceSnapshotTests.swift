@@ -142,15 +142,6 @@ final class SurfaceSnapshotTests: XCTestCase {
         )
     }
 
-    func testTheShelfDraws() throws {
-        try snapshot(
-            "dk-shelf",
-            width: ShelfView.size.width,
-            height: ShelfView.size.height,
-            ShelfView(model: model, dropTarget: DropTarget(), onSettings: {}, onMainWindow: {})
-        )
-    }
-
     /// Height is the form's own — Settings is sized to `fittingSize` at birth, so a fixed
     /// frame here would snapshot a window shape the app never puts on screen.
     func testSettingsDraws() throws {
@@ -158,7 +149,19 @@ final class SurfaceSnapshotTests: XCTestCase {
             "dk-settings",
             width: 480,
             height: nil,
-            SettingsView(model: model, preferences: preferences, updates: UpdateController())
+            GeneralPane(model: model, preferences: preferences, updates: UpdateController())
+        )
+    }
+
+    /// The inspector, pointed at a real cutout: the comparison box, the details and the
+    /// action row are the redesign's centrepiece.
+    func testThePreviewInspectorDraws() throws {
+        model.preview(model.recents.items[0])
+        try snapshot(
+            "dk-inspector",
+            width: 340,
+            height: 520,
+            PreviewInspectorView(model: model)
         )
     }
 
@@ -201,11 +204,9 @@ final class SurfaceSnapshotTests: XCTestCase {
             "dk-settings-models",
             width: 480,
             height: nil,
-            SettingsView(
-                model: model,
-                preferences: preferences,
-                updates: UpdateController(),
-                models: ModelStore(registry: registry, engines: EngineProvider(catalog: EngineCatalog(registry: nil)))
+            ModelsForm(
+                store: ModelStore(registry: registry, engines: EngineProvider(catalog: EngineCatalog(registry: nil))),
+                preferences: preferences
             )
         )
     }

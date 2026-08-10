@@ -404,3 +404,13 @@
 - **实测两条，都值得记**：①`ImageRenderer` 对任何含 `.glassEffect` / `.buttonStyle(.glass)` 的层级返回**完全透明**的图，而且是整棵树一起没，不只是玻璃那块——本 app 每个表面都有玻璃，所以它会安安静静地渲出几张空白矩形并断言尺寸正确。②`NSHostingView.cacheDisplay` 可用：玻璃**substance** 渲不出来（窗口服务器在图层树之外合成），但画在它上面的卡片、文字、字形、控件全在——这正好是要看的东西（间距、节奏、换行、控件位置）。
 - **决策**：`SurfaceSnapshotTests` 用 `cacheDisplay` + 离屏真窗口渲染五个表面，断言"确实画了东西"，并在设了 `PLUCK_SNAPSHOT_DIR` 时落 PNG。玻璃背板自身的正确性归 `PanelBackdropTests`——那个是逐像素断言，不是靠看。
 - **一个必须写下来的渲染假象**：`.buttonStyle(.glass)` 按钮里的 SF Symbol 在 `cacheDisplay` 里**不出现**（文字出现）。这不是 bug：同一个按钮 `Label("Add", systemImage:)` 的 `fittingSize` 是 70pt，纯 `Text("Add")` 是 48.5pt，与 `.bordered` 完全一致——图标是排了版的，只是画在 cacheDisplay 够不到的效果层里。不写下来，下一个人会去"修"一个不存在的 bug。
+
+## 2026-08-10 — 回归标准组件：单窗口 + toolbar + inspector；shelf 与状态项整体删除；配色回归系统 accent
+
+- **背景**：维护者对着实机的判断——UI 不像一个精致的 Mac 产品，像原型：布局交互偏离苹果规范、设置过复杂（presence 双开关、整节更新披露文案）、理解成本过高（同一手势在两个表面语义相反：shelf 单击=预览，主窗口单击=选中）、珊瑚橙品牌色与系统组件打架。对照 HIG（Materials / Adopting Liquid Glass）核实后确认根因：**Liquid Glass 属于控件层（toolbar/sidebar/控件），窗口与内容背景不该是玻璃**，而 Pluck 把 `NSGlassEffectView` 当整窗背景、藏标题栏、手绘一切系统本来会给的东西。"标准组件自动获得玻璃"才是官方采纳路径。
+- **决策一：一个窗口讲完整个故事**。主窗口回归标准形态——`.titled` + unified toolbar（经 `NSHostingController.sceneBridgingOptions` 桥接 SwiftUI `.toolbar`/`.navigationTitle`/`.navigationSubtitle`），内容背景不透明。工具栏：Add（+）/ 默认引擎菜单（词+图标，核心卖点放明面，菜单尾部 Manage Models… 直达设置）/ Preview 开关 / Export。**预览改为 `.inspector` 侧栏**（Finder 语法）：before/after 滑块、文件名尺寸、引擎切换（Re-pluck）、拷贝/存储/删除全在窗内；单击选中即更新，双击或工具栏按钮打开；独立浮动预览窗及其位置记忆、层级声明、拖动条带全部删除。批量进度进 `navigationSubtitle`；状态句保留为浮动短句；⌫ 删除选中项。整窗仍是拖放目标——注册在 `NSWindow` 本身（无视图认领的拖放落到窗口），SwiftUI onDrop 仍因丢文件名不可用。
+- **决策二：菜单栏整体删除**。shelf 面板、状态项、拖放图标、刘海兜底、点外即关的双事件监视器、`swallowIconClick`、presence 双开关与其不变式——全删（约 App 层三分之一的代码与五个测试文件）。**这条推翻 2026-07-29「Dock 优先」里"菜单栏是快捷路径"的那半**：快捷路径本身长成了第二个 UI，两套网格、两套右键菜单、手势语义还互相矛盾。高频单张场景的正解是 roadmap 上的 Finder Quick Action，不是自建一个 340pt 的迷你 app。`.regular` 由 `main.swift` 直接声明。
+- **决策三：Settings 回归标准两 tab**（`NSTabViewController(.toolbar)`，System Settings 形态）。General = 语言 + 历史（Clear 带体积）+ 一行更新开关与一句话披露；Models = 默认引擎 Picker + 模型管理清单，**一行不减**（本地模型可选是核心卖点，后续还会扩清单）。Updates 整节的三段披露删除，"Check for Updates…" 回到 app 菜单 About 之下（Mac 惯例位置）；无签名密钥的构建两处一起消失而非置灰。
+- **决策四：珊瑚橙退出 UI**。所有控件染色回归系统 accent（`Color.accentColor`），跟随用户在系统设置里选的主题色；品牌色只留给 app 图标（图标重设计另开任务）。`Palette.coral` 删除。
+- **保留**：卡片语言（CutoutCard/棋盘格/hover 出 Copy/Save 玻璃圆钮——悬浮在图片上的控件正是 HIG 允许自定玻璃的"最重要功能元素"）、指纹去重闪边、占位卡扫光、历史持久化、CLI 与 PluckKit 一概不动。
+- **验收**：290 测试全绿；实机截图确认标准窗口/toolbar/inspector/选中标记随系统 accent。`ImageRenderer` 与 `cacheDisplay` 的既有约束不变。

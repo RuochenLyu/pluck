@@ -3,7 +3,7 @@ import XCTest
 
 @testable import PluckApp
 
-/// Pluck has no menu bar to show, so its shortcuts are decided by one boolean expression in
+/// Grid shortcuts are decided by one boolean expression in
 /// a local event monitor. That expression used to be an equality test against `.command`,
 /// which meant every shortcut in the app — paste, close, all of it — silently stopped
 /// working while Caps Lock was on.
@@ -32,36 +32,35 @@ final class KeyEquivalentTests: XCTestCase {
         XCTAssertFalse(AppDelegate.isCommandOnly([.command, .control]))
     }
 
-    /// About and Quit moved out of the shelf's gear and onto the status item's right button,
-    /// which is where a menu-bar app is looked for. Settings is deliberately not repeated
-    /// here: the gear opens it in one click, and two doors to one window is one too many.
+    /// The app menu, asserted by shape: About first, then the update check when the build
+    /// carries a signing key, then Settings, then Quit — the standard order, so the one
+    /// place a user looks for these is the place they are.
     @MainActor
-    func testTheStatusItemsRightClickMenuCarriesAboutAndQuit() {
-        let menu = AppDelegate.makeStatusMenu(target: nil)
-        XCTAssertEqual(menu.items.map(\.title), [L.s("About Pluck"), "", L.s("Quit Pluck")])
-        XCTAssertTrue(menu.items[1].isSeparatorItem)
-        XCTAssertEqual(menu.items.last?.keyEquivalent, "q")
-        XCTAssertEqual(menu.items.last?.keyEquivalentModifierMask, .command)
-        XCTAssertEqual(menu.items.last?.action, #selector(NSApplication.terminate(_:)))
+    func testTheAppMenuCarriesAboutSettingsAndQuit() {
+        let menu = AppDelegate.makeMainMenu(target: nil)
+        let app = menu.items.first?.submenu
+        XCTAssertEqual(
+            app?.items.map(\.title),
+            [L.s("About Pluck"), "", L.s("Settings…"), "", L.s("Quit Pluck")]
+        )
+        XCTAssertEqual(app?.items.last?.keyEquivalent, "q")
+        XCTAssertEqual(app?.items.last?.action, #selector(NSApplication.terminate(_:)))
     }
 
-    /// This pull-down is the only one an accessory app has, so it is the only place a user
-    /// can ask for an update check without opening Settings — under About, where every other
-    /// menu-bar app on the machine keeps it.
+    /// Under About, where every Mac app keeps it.
     @MainActor
     func testCheckForUpdatesSitsUnderAboutWhenTheBuildCanCheck() {
-        let menu = AppDelegate.makeStatusMenu(target: nil, offeringUpdates: true)
-        XCTAssertEqual(
-            menu.items.map(\.title),
-            [L.s("About Pluck"), L.s("Check for Updates…"), "", L.s("Quit Pluck")]
-        )
+        let menu = AppDelegate.makeMainMenu(target: nil, offeringUpdates: true)
+        let titles = menu.items.first?.submenu?.items.map(\.title)
+        XCTAssertEqual(titles?.prefix(2), [L.s("About Pluck"), L.s("Check for Updates…")])
     }
 
-    /// Omitted rather than greyed in a build with no signing key. A three-item menu has no
-    /// room to explain why one of its items is dead, and Settings says so in a sentence.
+    /// Omitted rather than greyed in a build with no signing key: a greyed item is a
+    /// question the user cannot act on, and Settings says why in a sentence.
     @MainActor
     func testABuildThatCannotUpdateDoesNotOfferTo() {
-        let titles = AppDelegate.makeStatusMenu(target: nil, offeringUpdates: false).items.map(\.title)
+        let menu = AppDelegate.makeMainMenu(target: nil, offeringUpdates: false)
+        let titles = menu.items.first?.submenu?.items.map(\.title) ?? []
         XCTAssertFalse(titles.contains(L.s("Check for Updates…")))
     }
 
