@@ -82,11 +82,17 @@ final class MainWindowController {
 
 /// The window as a dragging destination. `NSWindow` receives the `NSDraggingDestination`
 /// messages for types registered on it whenever no subview claims the drag.
+///
+/// Every method is explicitly `@objc`, and that is the fix for a silent failure: AppKit
+/// discovers a destination's abilities with `responds(to:)`, `NSWindow` does not declare
+/// these selectors (which is why `override` would not compile), and a plain Swift method
+/// on an NSObject subclass gets no ObjC entry point — so the window answered "no" to
+/// every probe and a drop onto it did nothing at all.
 final class PluckWindow: NSWindow {
     var onDrop: (([DroppedPayload]) -> Void)?
     weak var dropTarget: DropTarget?
 
-    func draggingEntered(_ sender: any NSDraggingInfo) -> NSDragOperation {
+    @objc func draggingEntered(_ sender: any NSDraggingInfo) -> NSDragOperation {
         // Nothing at all for a drag of our own — not even the highlight. See
         // `DroppedPayload.isForeignDrag`.
         guard DroppedPayload.isForeignDrag(source: sender.draggingSource) else { return [] }
@@ -95,15 +101,15 @@ final class PluckWindow: NSWindow {
         return accepted ? .copy : []
     }
 
-    func draggingExited(_ sender: (any NSDraggingInfo)?) {
+    @objc func draggingExited(_ sender: (any NSDraggingInfo)?) {
         setTargeted(false)
     }
 
-    func draggingEnded(_ sender: any NSDraggingInfo) {
+    @objc func draggingEnded(_ sender: any NSDraggingInfo) {
         setTargeted(false)
     }
 
-    func performDragOperation(_ sender: any NSDraggingInfo) -> Bool {
+    @objc func performDragOperation(_ sender: any NSDraggingInfo) -> Bool {
         setTargeted(false)
         guard DroppedPayload.isForeignDrag(source: sender.draggingSource) else { return false }
         let payloads = DroppedPayload.read(from: sender.draggingPasteboard)
