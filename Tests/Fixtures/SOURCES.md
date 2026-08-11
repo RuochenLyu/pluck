@@ -27,6 +27,22 @@ fake upscaling).
 | product-01.jpg | Product on plain background | https://stocksnap.io/photo/juice-drinks-E30B9YV1OR ("Juice Drinks" — teapot pouring onto a mug, solid blue background) | Filip Mroz | CC0 1.0 | 2026-07-27 |
 | product-02.jpg | Product on plain background | https://stocksnap.io/photo/mug-cup-MVYHPT6H7C ("Mug Cup") | Candace McDaniel | CC0 1.0 | 2026-07-27 |
 
+## Styled (non-photographic) fixtures — 2026-08-11
+
+Five fixtures cover the input styles the photo set left blind: flat illustration,
+line art, pixel art, sticker. All are **original output of this repository** —
+drawn by `Scripts/make-styled-fixtures.swift` (deterministic, re-runnable), with
+`illo-01` compositing this repo's own ImageGen icon layer
+(`Packaging/icon/layer-cat.png`). No external sources, no license to verify.
+
+| File | Category | Origin |
+|---|---|---|
+| illo-01.jpg | Flat illustration, subject on scene | Repo ImageGen layer + programmatic dusk scene |
+| illo-02.jpg | Flat illustration, geometric character | Programmatic |
+| lineart-01.jpg | Line art, strokes only on white | Programmatic |
+| pixel-01.jpg | Pixel art, sprite on patterned ground | Programmatic |
+| sticker-01.jpg | Sticker style, white-stroked shape on flat ground | Programmatic |
+
 ## Notes
 
 - License verification method: queried the [Openverse API](https://api.openverse.org/v1/images/)

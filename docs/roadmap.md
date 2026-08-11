@@ -7,6 +7,7 @@
 
 - **第三轮打磨（交互手感）**：单击选中延迟修复（双击改为并行手势，不再阻塞单击）；卡片去 hover 抬升/阴影（tile 静态，Finder 语义），改为**常驻 footer**（名称/尺寸 + 拷贝/存储小图标，CleanShot 的信息架构、原生实现）；**单击即预览**——inspector 默认打开、状态持久（Finder 预览栏语义）；⇧ 范围多选（锚点规则）；**列表视图**（`List` 原生选择语义 + 斑马纹 + 行尾快捷按钮 + focus 修复），toolbar 连体视图切换组（`ControlGroup`）；导出改图标按钮（`square.and.arrow.up`），批量进度移入 toolbar（spinner + n/m），窗口标题不再绘制；外观偏好（跟随系统/浅色/深色，即时生效）；对比图跟随图片比例至黄金比例 0.618。290 全绿。
 - **图标定稿（2026-08-11，见 decisions.md 同日）**：cat-1——珊瑚猫走出照片卡、卡留猫形洞；三图层进 `Packaging/icon/`，`make-icon.swift` 改为分层合成（构图参数对真实 Dock 调定），bundle 管线自动出新图标。**待办**：Icon Composer 玻璃版（素材已备，五分钟 GUI 摆位）；伪本地化复跑。
+- **发布前模型审计（2026-08-11，见 research.md A.7）**：补 5 张风格化 fixture（插画/线稿/像素/贴纸，程序化生成零 license 负担），17×3 全矩阵实测。结论：**1.0 不引入新模型**——三引擎互补成立（Vision 快且唯一会拒绝无主体、lite 救线稿、matting 独有真透明玻璃）。Backlog：anime 测试图（ImageGen 产线）、BiRefNet 无主体启发式拒绝（阈值需实验）、SkyTNT anime-segmentation（Apache-2.0）作为按需引入候选。
 
 ## 历史状态（2026-08-10 晚）
 
