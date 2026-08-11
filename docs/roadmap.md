@@ -23,7 +23,7 @@ CLI `models list` 报 `updateAvailable`。
    公钥写 `Packaging/sparkle_public_key.txt` → `SPARKLE_BIN=... ./Scripts/release.sh` 出签名 appcast。
 2. **Finder Quick Action**：Xcode appex 壳 + 签名/公证链路验证（唯一剩余功能项）。
 3. **skills/pluck/SKILL.md**：已定稿（含 `-o` 语义、`--json` 契约、`updateAvailable`）。✅
-4. **边缘 decontamination**（Compositor 去背景色渗透）——评估是否进 1.0 或推 1.1。
+4. ~~边缘 decontamination~~ **维护者裁定不做（2026-08-11）**：decontamination = 抠图边缘的背景色渗透清理（如绿背景在发丝边缘留下的绿边），非去水印。裁定连同 1.1 一起移出计划；如未来用户反馈边缘偏色再重新评估。
 5. **营销物料**：发丝 before/after 素材；"画的翻拍"双引擎语义分歧图（A.7 实测样本）；README 已更新。
 6. **发布工程**：CI 化 release.sh、GitHub Release（DMG + CLI 二进制）、Homebrew tap、HN/少数派/V2EX。
 7. **收尾验证**：伪本地化复跑一轮（文案在 8 月多轮改动后）；Icon Composer 玻璃版图标（非阻塞，素材已备）。
