@@ -31,7 +31,7 @@
 
 1. **100% 离线**——你的照片从不离开这台 Mac。无账号、无上传、无遥测，开源代码可验证。
 2. **秒出结果**——系统级模型（与 Finder「移除背景」同源），无需下载任何东西，装完即用。
-3. **原生体验**——菜单栏拖拽、Finder 右键、popover 里 ⌘V 即抠即回剪贴板（不落盘闭环）、批量拖入带进度。
+3. **原生体验**——标准单窗口：拖入/⌘V（位图粘贴即抠即回剪贴板，不落盘闭环）、before/after 对比 inspector、逐图换引擎、网格/列表双视图、批量进度；Finder 右键（规划中）。
 4. **可扩展的高质量模式**——按需下载 MIT 协议的高精度模型（发丝级边缘），不满意随时切回。
 5. **为 AI agent 而生**——自带 CLI 和 agent skill，Claude Code / 任何 agent 一行命令抠图。
 6. **免费，永远免费**——没有订阅、没有"预览高清下载低清"、没有水印。
@@ -52,9 +52,7 @@ pluck/
 │   │   ├── ModelRegistry.swift      # 模型清单、下载、校验、存储管理
 │   │   └── Compositor.swift         # mask → 透明 PNG / 纯色 / 自定义背景合成
 │   ├── PluckCLI/            # 命令行（swift-argument-parser）
-│   └── PluckApp/            # SwiftUI app
-│       ├── MenuBar/         # 菜单栏常驻 + 拖放目标
-│       └── MainWindow/      # 批量队列、对比预览、导出
+│   └── PluckApp/            # SwiftUI app（单窗口：toolbar + 网格/列表 + 预览 inspector）
 ├── Extensions/
 │   └── FinderQuickAction/   # Action Extension（右键「Pluck 移除背景」）
 ├── skills/

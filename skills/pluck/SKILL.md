@@ -22,7 +22,7 @@ except an explicit `pluck models pull`.
   Output is always PNG.
 - Photos with no clear foreground subject (landscapes, textures, flat scans) legitimately
   produce **exit 2 / `no_subject`**. That is an answer, not a bug — don't retry in a loop.
-- macOS 14+ only.
+- macOS 26+ only.
 
 ## Install
 
@@ -176,8 +176,11 @@ code, to know which files exist.
 `pluck models list --json` is a different, simpler shape (one line per engine):
 
 ```json
-{"id":"birefnet-lite","summary":"BiRefNet_lite via Core ML, 1024px (MIT)","builtIn":false,"installed":true}
+{"id":"birefnet-lite","summary":"BiRefNet_lite via Core ML, 1024px (MIT)","builtIn":false,"installed":true,"updateAvailable":false}
 ```
+
+`updateAvailable: true` means the app/CLI shipped a newer conversion of an installed
+model; `pluck models pull <id> --force` fetches it. Never true for `builtIn`.
 
 ## Handling failures
 

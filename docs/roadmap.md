@@ -3,11 +3,30 @@
 > 本文件是唯一的进度真相源：阶段推进、里程碑范围变化时更新这里。
 > 产品定义与架构见 [product-plan.md](product-plan.md)，决策记录见 [decisions.md](decisions.md)。
 
-## 当前状态（2026-08-11）
+## 当前状态（2026-08-11）— 1.0 发布准备
 
-- **第三轮打磨（交互手感）**：单击选中延迟修复（双击改为并行手势，不再阻塞单击）；卡片去 hover 抬升/阴影（tile 静态，Finder 语义），改为**常驻 footer**（名称/尺寸 + 拷贝/存储小图标，CleanShot 的信息架构、原生实现）；**单击即预览**——inspector 默认打开、状态持久（Finder 预览栏语义）；⇧ 范围多选（锚点规则）；**列表视图**（`List` 原生选择语义 + 斑马纹 + 行尾快捷按钮 + focus 修复），toolbar 连体视图切换组（`ControlGroup`）；导出改图标按钮（`square.and.arrow.up`），批量进度移入 toolbar（spinner + n/m），窗口标题不再绘制；外观偏好（跟随系统/浅色/深色，即时生效）；对比图跟随图片比例至黄金比例 0.618。290 全绿。
-- **图标定稿（2026-08-11，见 decisions.md 同日）**：cat-1——珊瑚猫走出照片卡、卡留猫形洞；三图层进 `Packaging/icon/`，`make-icon.swift` 改为分层合成（构图参数对真实 Dock 调定），bundle 管线自动出新图标。**待办**：Icon Composer 玻璃版（素材已备，五分钟 GUI 摆位）；伪本地化复跑。
-- **发布前模型审计（2026-08-11，见 research.md A.7）**：补 6 张公开 CC0 风格化 fixture（anime×2/卡通/墨绘/水彩翻拍/浮世绘，Openverse 核验，同既有采集政策），18×3 全矩阵实测。结论：**1.0 不引入新模型，anime 盲区实测不成立**——三引擎对 anime/卡通/墨绘全部合格；互补点坐实（Vision 快且唯一拒绝无主体、"画的翻拍"上 Vision 抠画框/BiRefNet 抠画中主体两种语义并存、matting 独有真透明玻璃但低对比线稿褪淡）。Backlog：BiRefNet 无主体启发式拒绝（阈值需实验）；纯轮廓线稿建议切 lite（进 FAQ）。
+**产品形态已定稿**：纯 Dock app，单标准窗口（unified toolbar：Add / 引擎菜单 / 网格·列表切换 /
+预览开关 / 导出；内容区卡片网格或列表；预览 = `.inspector` 侧栏，before/after 滑块停在黄金分割、
+逐图换引擎、拷贝/存储）。单击即预览（inspector 默认开、状态持久），⇧/⌘ 多选，⌘C/⌘V/⌘A/⌫ 全键盘路径。
+Settings 两 tab（General：外观/语言/历史/更新开关；Models：默认引擎 + 模型管理含 Update）。
+外观跟随系统或手选，控件全走系统 accent。图标 = 珊瑚猫走出照片卡（`Packaging/icon/` 三图层，
+`make-icon.swift` 合成）。最低系统 macOS 26。**294 测试全绿，零 warning。**
+
+**模型链路已定稿**：Vision（默认，唯一会拒绝无主体）+ BiRefNet lite（利落边）+ lite-matting
+（柔细边，独有真透明玻璃）。发布前 18×3 实测（research.md A.7）：anime/卡通/墨绘全引擎合格，
+**1.0 不引入新模型**。模型更新走收据比对（零网络检查），Settings 行出 Update 按钮，
+CLI `models list` 报 `updateAvailable`。
+
+### 发布清单（按序）
+
+1. **Sparkle 密钥（维护者，唯一硬阻塞）**：`generate_keys` → 私钥进 Keychain（备份！）→
+   公钥写 `Packaging/sparkle_public_key.txt` → `SPARKLE_BIN=... ./Scripts/release.sh` 出签名 appcast。
+2. **Finder Quick Action**：Xcode appex 壳 + 签名/公证链路验证（唯一剩余功能项）。
+3. **skills/pluck/SKILL.md**：已定稿（含 `-o` 语义、`--json` 契约、`updateAvailable`）。✅
+4. **边缘 decontamination**（Compositor 去背景色渗透）——评估是否进 1.0 或推 1.1。
+5. **营销物料**：发丝 before/after 素材；"画的翻拍"双引擎语义分歧图（A.7 实测样本）；README 已更新。
+6. **发布工程**：CI 化 release.sh、GitHub Release（DMG + CLI 二进制）、Homebrew tap、HN/少数派/V2EX。
+7. **收尾验证**：伪本地化复跑一轮（文案在 8 月多轮改动后）；Icon Composer 玻璃版图标（非阻塞，素材已备）。
 
 ## 历史状态（2026-08-10 晚）
 

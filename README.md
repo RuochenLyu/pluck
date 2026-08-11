@@ -14,17 +14,25 @@ Your photos never leave your Mac — no account, no upload, no subscription, no 
 - **Offline by default.** Apple's on-device Vision framework; optional higher-quality
   BiRefNet models (MIT-licensed, [published here](https://github.com/RuochenLyu/pluck/releases/tag/models-v1))
   downloaded on demand and verified against pinned SHA256 digests. Auditable — it's all here.
-- **Native and zero-config.** Menu-bar shelf with drag & drop and ⌘V, batch window with
-  progress, history that survives relaunches. A Finder Quick Action is planned.
+- **Engines that disagree usefully.** Vision is instant and honest about "no subject";
+  BiRefNet Clean Cut rescues line art and reaches *into* a photographed painting where
+  Vision lifts the framed object; Fine Edges renders glass actually transparent. Measured,
+  not marketed — see the [audit](docs/research.md).
+- **Native and zero-config.** One standard window: drag images in (or ⌘V straight from
+  the clipboard), compare before/after side by side, switch engines per image, export the
+  batch. Grid and list views, history that survives relaunches. A Finder Quick Action is
+  planned.
 - **Built for AI agents too.** The same engine ships as a `pluck` CLI: `--json` NDJSON
   output, semantic exit codes, no GUI, no TTY assumptions.
 - **Free forever.** No "HD behind a paywall", no weekly subscription.
 
 ## Architecture
 
-`PluckKit` (Swift library, the only engine) → thin shells: SwiftUI menu-bar app and the
+`PluckKit` (Swift library, the only engine) → thin shells: a SwiftUI app and the
 `pluck` CLI. Vision runs built-in; BiRefNet variants run through Core ML after an explicit
-`pluck models pull <id>` (or a click in Settings). Requires macOS 14+.
+`pluck models pull <id>` (or a click in Settings). Model updates arrive with app updates
+and are compared locally against install receipts — checking costs no network request.
+Requires macOS 26+.
 
 ```bash
 swift build            # library + CLI
@@ -41,7 +49,7 @@ because a privacy claim is worth exactly what its exceptions are worth:
 | What | When | Turn it off |
 |---|---|---|
 | **Model download** | Only when you click Download in Settings ▸ Models, or run `pluck models pull`. Fetches a BiRefNet package from this repo's GitHub Releases and checks it against a SHA256 digest pinned in [`models/manifest.json`](models/manifest.json). | Never happens unless you ask. |
-| **Update check** | Once a day, the app asks GitHub whether a newer version exists. Nothing about you or your images is sent. Updates are signed with EdDSA and verified before installation ([Sparkle](https://sparkle-project.org)). | Settings ▸ Updates ▸ *Check for updates automatically*. Off means Pluck makes no request of its own, ever. |
+| **Update check** | Once a day, the app asks GitHub whether a newer version exists. Nothing about you or your images is sent. Updates are signed with EdDSA and verified before installation ([Sparkle](https://sparkle-project.org)). | Settings ▸ General ▸ *Check for updates automatically*. Off means Pluck makes no request of its own, ever. |
 
 The `pluck` CLI never checks for updates — the only network call it can make is an explicit
 `models pull`.

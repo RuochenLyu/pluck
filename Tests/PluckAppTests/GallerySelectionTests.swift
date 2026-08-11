@@ -26,31 +26,20 @@ final class SelectAllToggleTests: XCTestCase {
         return model
     }
 
-    func testTheButtonTakesTheWholeGridAndThenGivesItBack() {
+    /// ⌘A, which is the whole of "select everything" now that the button pair is gone.
+    func testSelectAllTakesTheWholeGrid() {
         let model = model(items: 3)
-        XCTAssertFalse(model.isEverythingSelected)
-
-        model.toggleSelectAll()
+        model.selectAll()
         XCTAssertEqual(model.selection.count, 3)
-        XCTAssertTrue(model.isEverythingSelected)
-
-        model.toggleSelectAll()
+        model.clearSelection()
         XCTAssertTrue(model.selection.isEmpty)
     }
 
-    /// An empty grid has nothing selected *and* nothing to select — the button must not read
-    /// "Deselect All" over a window with no cutouts in it.
-    func testAnEmptyGridIsNotFullySelected() {
-        XCTAssertFalse(model(items: 0).isEverythingSelected)
-    }
-
-    /// A partial selection is not "everything", so the button offers to complete it rather
-    /// than to throw it away.
-    func testAPartialSelectionStillOffersSelectAll() {
+    /// ⌘A over a partial selection completes it rather than toggling it away.
+    func testSelectAllCompletesAPartialSelection() {
         let model = model(items: 3)
         model.select(model.recents.items[0])
-        XCTAssertFalse(model.isEverythingSelected)
-        model.toggleSelectAll()
+        model.selectAll()
         XCTAssertEqual(model.selection.count, 3)
     }
 }

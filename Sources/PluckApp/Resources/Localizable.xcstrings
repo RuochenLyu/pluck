@@ -171,23 +171,6 @@
         }
       }
     },
-    "Check Now": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Check Now"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "立即检查"
-          }
-        }
-      }
-    },
     "Check for Updates…": {
       "extractionState": "manual",
       "localizations": {
@@ -218,23 +201,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "自动检查更新"
-          }
-        }
-      }
-    },
-    "Checks GitHub once a day for a new version. Nothing about you or your pictures is sent.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Checks GitHub once a day for a new version. Nothing about you or your pictures is sent."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "每天向 GitHub 查询一次是否有新版本，不会发送任何与你或你的图片有关的信息。"
           }
         }
       }
@@ -290,23 +256,6 @@
         }
       }
     },
-    "Clear": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Clear"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "清空"
-          }
-        }
-      }
-    },
     "Clear History": {
       "extractionState": "manual",
       "localizations": {
@@ -354,40 +303,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "清空最近的抠图"
-          }
-        }
-      }
-    },
-    "Clear recent cutouts (%@)": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Clear recent cutouts (%@)"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "清空最近的抠图（%@）"
-          }
-        }
-      }
-    },
-    "Clearing puts them in the Trash, the same as deleting one from the grid.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Clearing puts them in the Trash, the same as deleting one from the grid."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "清空会把它们放进废纸篓，和单独删除一张一样，随时可以找回。"
           }
         }
       }
@@ -596,23 +511,6 @@
         }
       }
     },
-    "Deselect All": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Deselect All"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "取消全选"
-          }
-        }
-      }
-    },
     "Download": {
       "extractionState": "manual",
       "localizations": {
@@ -660,23 +558,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "把图片拖到这里"
-          }
-        }
-      }
-    },
-    "Drop or paste images here": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Drop or paste images here"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "拖入或粘贴图片"
           }
         }
       }
@@ -971,23 +852,6 @@
         }
       }
     },
-    "Hide the Dock icon": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Hide the Dock icon"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "隐藏程序坞图标"
-          }
-        }
-      }
-    },
     "High-quality matting: BiRefNet (MIT)": {
       "extractionState": "manual",
       "localizations": {
@@ -1052,23 +916,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "退出后保留最近的抠图"
-          }
-        }
-      }
-    },
-    "Kept only on this Mac. Turn this off and cutouts are forgotten when you quit.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Kept only on this Mac. Turn this off and cutouts are forgotten when you quit."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "只存在这台 Mac 上。关掉它，抠图会在你退出时被忘掉。"
           }
         }
       }
@@ -1209,23 +1056,6 @@
         }
       }
     },
-    "Needs the menu bar icon — otherwise there would be nowhere left to click.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Needs the menu bar icon — otherwise there would be nowhere left to click."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "需要保留菜单栏图标，否则将无处可点。"
-          }
-        }
-      }
-    },
     "New images use": {
       "extractionState": "manual",
       "localizations": {
@@ -1290,40 +1120,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "这张图里没找到主体。"
-          }
-        }
-      }
-    },
-    "Once a day, Pluck asks GitHub whether a newer version exists. Nothing about you or your pictures is sent. Turn this off and Pluck never connects on its own.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Once a day, Pluck asks GitHub whether a newer version exists. Nothing about you or your pictures is sent. Turn this off and Pluck never connects on its own."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Pluck 每天向 GitHub 问一次有没有新版本，不会送出关于你或你的图片的任何东西。关掉它，Pluck 就不会自己联网。"
-          }
-        }
-      }
-    },
-    "Open main window": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Open main window"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "打开主窗口"
           }
         }
       }
@@ -1396,23 +1192,6 @@
         }
       }
     },
-    "Pluck — drag an image here or click to open": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Pluck — drag an image here or click to open"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Pluck — 把图片拖到这里，或者点一下打开"
-          }
-        }
-      }
-    },
     "Plucking…": {
       "extractionState": "manual",
       "localizations": {
@@ -1447,23 +1226,6 @@
         }
       }
     },
-    "Preview cutout": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Preview cutout"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "预览抠图"
-          }
-        }
-      }
-    },
     "Quit Pluck": {
       "extractionState": "manual",
       "localizations": {
@@ -1477,23 +1239,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "退出 Pluck"
-          }
-        }
-      }
-    },
-    "Recent": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Recent"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "最近"
           }
         }
       }
@@ -1566,23 +1311,6 @@
         }
       }
     },
-    "Save…": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Save…"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "存储…"
-          }
-        }
-      }
-    },
     "Select All": {
       "extractionState": "manual",
       "localizations": {
@@ -1600,23 +1328,6 @@
         }
       }
     },
-    "Settings": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Settings"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "设置"
-          }
-        }
-      }
-    },
     "Settings…": {
       "extractionState": "manual",
       "localizations": {
@@ -1630,23 +1341,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "设置…"
-          }
-        }
-      }
-    },
-    "Show Pluck in the menu bar": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Show Pluck in the menu bar"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "在菜单栏中显示 Pluck"
           }
         }
       }
@@ -1787,23 +1481,6 @@
         }
       }
     },
-    "This build carries no update signing key, so it cannot check for updates.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "This build carries no update signing key, so it cannot check for updates."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "这个版本没有带更新签名密钥，因此无法检查更新。"
-          }
-        }
-      }
-    },
     "This cutout’s file is no longer on disk.": {
       "extractionState": "manual",
       "localizations": {
@@ -1855,23 +1532,6 @@
         }
       }
     },
-    "Updates": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Updates"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "更新"
-          }
-        }
-      }
-    },
     "Version %@": {
       "extractionState": "manual",
       "localizations": {
@@ -1906,23 +1566,6 @@
         }
       }
     },
-    "Which engine made this cutout": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Which engine made this cutout"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "这张抠图出自哪个引擎"
-          }
-        }
-      }
-    },
     "Which engine new images use": {
       "extractionState": "manual",
       "localizations": {
@@ -1936,23 +1579,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "新图片使用哪个引擎"
-          }
-        }
-      }
-    },
-    "Your pictures never leave this Mac. Pluck has no account, no telemetry and no uploads.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Your pictures never leave this Mac. Pluck has no account, no telemetry and no uploads."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "你的图片从不离开这台 Mac。Pluck 没有账号、没有遥测、也不上传任何东西。"
           }
         }
       }
@@ -1987,23 +1613,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "或按 ⌘V 粘贴"
-          }
-        }
-      }
-    },
-    "⌘V": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "⌘V"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "⌘V"
           }
         }
       }

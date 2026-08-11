@@ -5,15 +5,6 @@ import PluckKit
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// Transient status-item feedback. v0.1 never interrupts with an alert: the icon is the
-/// entire notification surface.
-enum StatusFeedback: Equatable, Sendable {
-    case idle
-    case busy
-    case success
-    case failure
-}
-
 /// A job that has been accepted but has no result yet. It occupies a grid cell from the
 /// instant the user drops or pastes, so the wait has a location on screen instead of being
 /// a silent gap (decisions.md 2026-07-27).
@@ -109,18 +100,6 @@ final class AppModel {
         selection.selectAll(recents.items.map(\.id))
     }
 
-    /// Whether Select All has anything left to do — which is also what its label says.
-    var isEverythingSelected: Bool {
-        !recents.items.isEmpty && selection.count == recents.items.count
-    }
-
-    /// One control for both directions. A separate Deselect button would be a second thing
-    /// on the bar that is greyed out most of the time; a button whose word changes with the
-    /// state is the state.
-    func toggleSelectAll() {
-        if isEverythingSelected { clearSelection() } else { selectAll() }
-    }
-
     /// The `+ Add` button in the main window's bar.
     ///
     /// It exists because a window whose only way in is a drag is a window that cannot be
@@ -193,8 +172,6 @@ final class AppModel {
         preferences?.engineID = id
     }
 
-    private(set) var feedback: StatusFeedback = .idle
-
     /// Whether the preview inspector is open. Owned here because three things toggle it —
     /// the toolbar button, a double-click on a card, and a re-pluck delivering — and the
     /// inspector's binding has to be the same fact for all of them. Mirrored to
@@ -239,7 +216,6 @@ final class AppModel {
     private let process: @Sendable (Data, String, any MattingEngine) async throws -> ProcessedImage
     private let engines: EngineProvider
     private var inFlight = 0
-    private var feedbackToken = 0
     private var highlightToken = 0
     private var statusToken = 0
 
@@ -576,7 +552,6 @@ final class AppModel {
             // would be the worst of the three possible outcomes.
             guard let data = await Self.bytes(of: item) else { return reportMissingFile() }
             pasteboard.writePNG(data)
-            flash(.success)
         }
     }
 
@@ -590,9 +565,11 @@ final class AppModel {
             panel.title = L.s("Save cutout")
             NSApp.activate()
             guard panel.runModal() == .OK, let url = panel.url else { return }
-            // Same confirmation Copy gives. The panel closing means "the dialog is done",
-            // not "the bytes are on disk", and those are not the same event.
-            flash(await Self.write(data, to: url) ? .success : .failure)
+            // The panel closing means "the dialog is done", not "the bytes are on disk";
+            // a failed write still needs a sentence.
+            if await !Self.write(data, to: url) {
+                report(.warning, PluckFailure.notWritten.message)
+            }
         }
     }
 
@@ -608,7 +585,6 @@ final class AppModel {
 
     private func reportMissingFile() {
         report(.warning, PluckFailure.fileGone.message)
-        flash(.failure)
     }
 
     /// Writes what the export button is offering — the selection, or the whole grid — into
@@ -650,10 +626,8 @@ final class AppModel {
     private func reportExport(written: Int, of total: Int) {
         if written == total {
             report(.info, String(format: L.s("Exported %d cutouts."), written))
-            flash(.success)
         } else {
             report(.warning, String(format: L.s("Exported %1$d of %2$d — the rest could not be written."), written, total))
-            flash(.failure)
         }
     }
 
@@ -726,7 +700,6 @@ final class AppModel {
         }
         batch?.total += 1
         inFlight += 1
-        feedback = .busy
         // A new attempt supersedes the last complaint. Leaving it up would let a stale
         // "no subject found" sit over a drop that is going perfectly well.
         clearStatus()
@@ -801,7 +774,6 @@ final class AppModel {
         // duplicated is already flashing its border, which is the whole answer.
         if case .superseded = outcome {
             withAnimation(.easeInOut(duration: 0.25)) { pendingItems.removeAll { $0.id == ticket } }
-            flash(.success)
             return
         }
         // A `.success` with no entry is a bug, not a user-facing state; treat it as the
@@ -809,7 +781,6 @@ final class AppModel {
         // `deliver` has already turned a failed write into `.failure(.notWritten)`.
         guard case .success = outcome, let item else {
             fail(ticket, reason: outcome.failureReason ?? .unknown)
-            flash(.failure)
             return
         }
         // The result inherits the ticket's identity rather than minting a new one — the
@@ -835,7 +806,6 @@ final class AppModel {
         // The oldest entries fall off the end of a fixed-capacity list, and one of them may
         // well have been selected while the user was dropping the batch that pushed it off.
         if !result.evicted.isEmpty { pruneSelection() }
-        flash(.success)
         // A re-pluck was asked for from the panel that is still showing the old cutout, so
         // the panel is where the answer belongs. Only on a genuine insert: a promotion means
         // the grid already held these exact bytes, and the cell it flashes is the answer.
@@ -891,14 +861,4 @@ final class AppModel {
         }
     }
 
-    private func flash(_ state: StatusFeedback) {
-        feedback = state
-        feedbackToken += 1
-        let token = feedbackToken
-        Task { @MainActor in
-            try? await Task.sleep(nanoseconds: 500_000_000)
-            guard token == self.feedbackToken else { return }
-            self.feedback = self.inFlight > 0 ? .busy : .idle
-        }
-    }
 }
