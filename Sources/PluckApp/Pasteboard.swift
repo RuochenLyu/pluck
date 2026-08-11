@@ -3,10 +3,18 @@ import Foundation
 import PluckKit
 import UniformTypeIdentifiers
 
+/// What a ⌘V actually found. Three answers, because the clipboard has three shapes worth
+/// distinguishing: copied files (a batch, with real filenames), a bare bitmap (a
+/// screenshot, a browser image), and nothing usable at all.
+enum ClipboardContent: Equatable, Sendable {
+    case files([URL])
+    case bitmap(data: Data, name: String)
+    case none
+}
+
 /// Narrow seam over `NSPasteboard` so the clipboard round trip can be tested headlessly.
 protocol ImagePasteboard: Sendable {
-    /// Raw encoded image bytes plus a name hint, or nil when the clipboard holds no image.
-    func readImage() -> (data: Data, name: String)?
+    func read() -> ClipboardContent
     func writePNG(_ data: Data)
 }
 
@@ -35,19 +43,25 @@ struct SystemPasteboard: ImagePasteboard {
         return DispatchQueue.main.sync { MainActor.assumeIsolated { body() } }
     }
 
-    func readImage() -> (data: Data, name: String)? {
-        onMain { readImageOnMain() }
+    func read() -> ClipboardContent {
+        onMain { readOnMain() }
     }
 
     @MainActor
-    private func readImageOnMain() -> (data: Data, name: String)? {
+    private func readOnMain() -> ClipboardContent {
         let pasteboard = NSPasteboard(name: name)
-        // File URLs first: a copied Finder item carries the original encoding and
-        // a real filename, both of which the flattened bitmap flavors throw away.
+        // File URLs first: copied Finder items carry the original encodings and real
+        // filenames, both of which the flattened bitmap flavors throw away. *All* of them —
+        // a ⌘C over five photos is a batch, and taking the first was silently dropping four.
         if let urls = pasteboard.readObjects(forClasses: [NSURL.self], options: nil) as? [URL],
-           let url = urls.first(where: { UTType(filenameExtension: $0.pathExtension)?.conforms(to: .image) == true }),
-           let data = try? Data(contentsOf: url) {
-            return (data, url.deletingPathExtension().lastPathComponent)
+           !urls.isEmpty {
+            let images = urls.filter {
+                UTType(filenameExtension: $0.pathExtension)?.conforms(to: .image) == true
+            }
+            // Files that are not images are the answer "no", not a reason to fall through:
+            // Finder parks an *icon bitmap* beside the file URLs, and the fallback below
+            // would happily matte a 512px generic-document icon.
+            return images.isEmpty ? .none : .files(images)
         }
         for type in [NSPasteboard.PasteboardType.png, .tiff] {
             if let data = pasteboard.data(forType: type), !data.isEmpty {
@@ -55,10 +69,10 @@ struct SystemPasteboard: ImagePasteboard {
                 // pasted image after what Pluck was about to do to it, which in a list of
                 // twenty is twenty rows called the same thing; where it came from is the
                 // only fact about it anyone has.
-                return (data, L.s("Clipboard"))
+                return .bitmap(data: data, name: L.s("Clipboard"))
             }
         }
-        return nil
+        return .none
     }
 
     func writePNG(_ data: Data) {
@@ -94,10 +108,14 @@ struct ClipboardPlucker: Sendable {
     /// out to be redundant has already overwritten the user's clipboard by the time anyone
     /// downstream could throw the result away.
     func run(onInput: @Sendable (Data) async -> Bool = { _ in true }) async -> (outcome: PluckOutcome, result: ProcessedImage?) {
-        guard let input = pasteboard.readImage() else { return (.failure(.noInput), nil) }
-        guard await onInput(input.data) else { return (.superseded, nil) }
+        // Bitmaps only: copied *files* take the drop pipeline (`AppModel.pluckClipboard`
+        // routes them before this type is involved), because a file batch wants filenames
+        // and placelholder-per-file, and writing one cutout back over a five-file clipboard
+        // would answer a question nobody asked.
+        guard case .bitmap(let data, let name) = pasteboard.read() else { return (.failure(.noInput), nil) }
+        guard await onInput(data) else { return (.superseded, nil) }
         do {
-            let processed = try await process(input.data, input.name)
+            let processed = try await process(data, name)
             pasteboard.writePNG(processed.pngData)
             return (.success, processed)
         } catch {

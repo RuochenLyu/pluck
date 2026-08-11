@@ -353,7 +353,7 @@ final class RepluckTests: XCTestCase {
 }
 
 private final class MockPasteboard: ImagePasteboard, @unchecked Sendable {
-    func readImage() -> (data: Data, name: String)? { nil }
+    func read() -> ClipboardContent { .none }
     func writePNG(_ data: Data) {}
 }
 

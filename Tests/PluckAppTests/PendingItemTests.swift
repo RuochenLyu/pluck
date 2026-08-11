@@ -12,7 +12,9 @@ private final class MockPasteboard: ImagePasteboard, @unchecked Sendable {
         self.stored = stored
     }
 
-    func readImage() -> (data: Data, name: String)? { stored }
+    func read() -> ClipboardContent {
+        stored.map { .bitmap(data: $0.data, name: $0.name) } ?? .none
+    }
 
     /// Writing feeds the read side, the way the real clipboard does. Without that round
     /// trip the tests would never see the situation that actually happens: a pluck leaves
@@ -129,16 +131,17 @@ final class PendingItemTests: XCTestCase {
         await waitUntil("the placeholder to fade out", timeout: 8) { model.pendingItems.isEmpty }
     }
 
-    /// An empty clipboard never reaches the engine, but it did claim a cell — that cell
-    /// has to come back, or ⌘V on nothing leaves a permanent ghost in the grid.
-    func testEmptyClipboardStillRetiresItsPlaceholder() async {
+    /// An empty clipboard never claims a cell at all: a red card for a paste that never
+    /// had a picture in it read as a failed job, when nothing was ever going to run. The
+    /// answer is one sentence on the status line.
+    func testEmptyClipboardMakesNoPlaceholderAndSaysWhy() {
         let model = model(clipboard: nil) { _, _, _ in
             XCTFail("should not process without input")
             return processed([0])
         }
         model.pluckClipboard()
-        XCTAssertEqual(model.pendingItems.count, 1)
-        await waitUntil("the placeholder to turn red") { model.pendingItems.first?.failure != nil }
+        XCTAssertTrue(model.pendingItems.isEmpty)
+        XCTAssertEqual(model.statusMessage, PluckFailure.noInput.message)
     }
 
     /// The whole point of the unit: a red rim is not a reason. What the cell carries and

@@ -284,7 +284,24 @@ final class AppModel {
 
     // MARK: - Entry points
 
+    /// ⌘V, routed by what the clipboard actually holds. Copied files are a drop — the
+    /// same batch, the same filenames, the same placeholders as dragging them in. A bare
+    /// bitmap keeps the write-back loop (⌘V here, ⌘V into the target app, nothing on
+    /// disk). Nothing usable is one sentence on the status line and **no placeholder**:
+    /// a red card for a paste that never had a picture in it read as a failed job, when
+    /// nothing was ever going to run.
     func pluckClipboard() {
+        switch pasteboard.read() {
+        case .none:
+            report(.warning, PluckFailure.noInput.message)
+        case .files(let urls):
+            handleDrop(urls.map(DroppedPayload.file))
+        case .bitmap:
+            pluckBitmapClipboard()
+        }
+    }
+
+    private func pluckBitmapClipboard() {
         let ticket = beginWork(name: L.s("Clipboard image"))
         let process = process
         // The weak capture is hoisted into its own `@Sendable` closure: a `[weak self]`

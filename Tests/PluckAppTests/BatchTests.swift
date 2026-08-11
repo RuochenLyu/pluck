@@ -229,6 +229,6 @@ private actor Gate {
 
 /// Drops never read the clipboard, but `AppModel` needs one; this one has nothing to give.
 private final class MockPasteboard: ImagePasteboard, @unchecked Sendable {
-    func readImage() -> (data: Data, name: String)? { nil }
+    func read() -> ClipboardContent { .none }
     func writePNG(_ data: Data) {}
 }

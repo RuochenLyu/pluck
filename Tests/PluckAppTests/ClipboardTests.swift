@@ -12,7 +12,9 @@ private final class MockPasteboard: ImagePasteboard, @unchecked Sendable {
         self.stored = stored
     }
 
-    func readImage() -> (data: Data, name: String)? { stored }
+    func read() -> ClipboardContent {
+        stored.map { .bitmap(data: $0.data, name: $0.name) } ?? .none
+    }
 
     func writePNG(_ data: Data) { written.append(data) }
 }
