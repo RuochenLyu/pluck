@@ -1,0 +1,295 @@
+/* Pluck landing — one stylesheet, no build step. Cream ground, coral accent:
+   the icon's own palette. Dark mode follows the system. */
+
+:root {
+  --bg: #faf6f0;
+  --bg-raised: #ffffff;
+  --ink: #1d1a17;
+  --ink-2: #6d675f;
+  --ink-3: #a39c92;
+  --coral: #ee4b45;
+  --coral-2: #ff8c66;
+  --line: rgba(29, 26, 23, 0.08);
+  --radius: 14px;
+  --shadow: 0 1px 3px rgba(29, 26, 23, 0.07), 0 12px 40px rgba(29, 26, 23, 0.06);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #191614;
+    --bg-raised: #242019;
+    --ink: #f2ede6;
+    --ink-2: #b3aca2;
+    --ink-3: #776f65;
+    --line: rgba(242, 237, 230, 0.09);
+    --shadow: 0 1px 3px rgba(0, 0, 0, 0.3), 0 12px 40px rgba(0, 0, 0, 0.35);
+  }
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC",
+    "Helvetica Neue", "Segoe UI", sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+.wrap { max-width: 1060px; margin: 0 auto; padding: 0 24px; }
+
+/* ---- nav ---- */
+nav {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 20px 0;
+}
+.brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--ink); }
+.brand img { width: 32px; height: 32px; }
+.brand span { font-weight: 700; font-size: 18px; letter-spacing: -0.01em; }
+.nav-links { display: flex; align-items: center; gap: 22px; }
+.nav-links a { color: var(--ink-2); text-decoration: none; font-size: 15px; }
+.nav-links a:hover { color: var(--ink); }
+
+/* ---- hero ---- */
+header { text-align: center; padding: 56px 0 0; }
+.hero-icon { width: 108px; height: 108px; margin-bottom: 24px; }
+h1 {
+  font-size: clamp(34px, 6vw, 56px);
+  line-height: 1.12;
+  letter-spacing: -0.02em;
+  font-weight: 800;
+  max-width: 17em;
+  margin: 0 auto;
+}
+h1 em { font-style: normal; color: var(--coral); }
+.sub {
+  margin: 18px auto 0;
+  max-width: 34em;
+  font-size: clamp(16px, 2.2vw, 19px);
+  color: var(--ink-2);
+}
+.cta { margin-top: 32px; display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+.btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 13px 26px; border-radius: 999px;
+  font-size: 16px; font-weight: 600; text-decoration: none;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+.btn:active { transform: scale(0.98); }
+.btn-primary {
+  background: linear-gradient(180deg, var(--coral-2), var(--coral));
+  color: #fff;
+  box-shadow: 0 6px 20px rgba(238, 75, 69, 0.32);
+}
+.btn-primary:hover { box-shadow: 0 8px 26px rgba(238, 75, 69, 0.42); }
+.btn-secondary {
+  background: var(--bg-raised);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+}
+.cta-note { margin-top: 14px; font-size: 13.5px; color: var(--ink-3); }
+.cta-note a { color: inherit; }
+
+.hero-shot {
+  margin: 52px auto -8px;
+  max-width: 920px;
+}
+.hero-shot img {
+  width: 100%; height: auto; display: block;
+  border-radius: 16px;
+  box-shadow: 0 2px 6px rgba(29, 26, 23, 0.08), 0 32px 80px rgba(29, 26, 23, 0.16);
+}
+
+/* ---- sections ---- */
+section { padding: 88px 0 0; }
+.kicker {
+  color: var(--coral); font-weight: 700; font-size: 14px;
+  text-transform: uppercase; letter-spacing: 0.08em;
+}
+h2 { font-size: clamp(26px, 4vw, 36px); letter-spacing: -0.015em; margin-top: 8px; }
+.lede { color: var(--ink-2); max-width: 40em; margin-top: 12px; }
+
+.grid {
+  display: grid; gap: 18px; margin-top: 36px;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+.card {
+  background: var(--bg-raised);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 26px;
+  box-shadow: var(--shadow);
+}
+.card h3 { font-size: 17.5px; margin-bottom: 8px; letter-spacing: -0.01em; }
+.card p { font-size: 15px; color: var(--ink-2); }
+.card .glyph { font-size: 26px; margin-bottom: 14px; display: block; }
+
+/* ---- privacy ---- */
+.privacy {
+  margin-top: 36px;
+  background: var(--bg-raised);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 34px;
+}
+.privacy table { width: 100%; border-collapse: collapse; margin-top: 18px; font-size: 14.5px; }
+.privacy th, .privacy td { text-align: left; padding: 10px 14px 10px 0; vertical-align: top; }
+.privacy th { color: var(--ink-3); font-weight: 600; font-size: 13px; text-transform: uppercase; letter-spacing: 0.05em; }
+.privacy td { color: var(--ink-2); border-top: 1px solid var(--line); }
+.privacy td:first-child { color: var(--ink); font-weight: 600; white-space: nowrap; }
+
+/* ---- CLI ---- */
+pre {
+  margin-top: 28px;
+  background: #211d19;
+  color: #efe9e1;
+  border-radius: var(--radius);
+  padding: 26px 30px;
+  overflow-x: auto;
+  font-size: 14px;
+  line-height: 1.75;
+  box-shadow: var(--shadow);
+}
+@media (prefers-color-scheme: dark) {
+  pre { background: #14110e; border: 1px solid var(--line); }
+}
+pre .c { color: #857c70; }
+pre .p { color: #ff9a76; }
+code {
+  font-family: ui-monospace, "SF Mono", SFMono-Regular, Menlo, monospace;
+}
+p > code, li > code {
+  background: var(--bg-raised);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 1.5px 6px;
+  font-size: 0.9em;
+}
+
+/* ---- footer ---- */
+footer {
+  margin-top: 96px;
+  border-top: 1px solid var(--line);
+  padding: 34px 0 48px;
+  display: flex; justify-content: space-between; align-items: center;
+  flex-wrap: wrap; gap: 14px;
+  color: var(--ink-3); font-size: 14px;
+}
+footer a { color: var(--ink-2); text-decoration: none; }
+footer a:hover { color: var(--ink); }
+footer .links { display: flex; gap: 18px; }
+
+@media (max-width: 640px) {
+  header { padding-top: 36px; }
+  .hero-icon { width: 84px; height: 84px; }
+  section { padding-top: 64px; }
+  .privacy { padding: 24px; }
+  .privacy td:first-child { white-space: normal; }
+  /* In-page anchors would wrap vertically at this width; the sections are one
+     scroll away anyway. GitHub and the language switch stay. */
+  .nav-links a[href^="#"] { display: none; }
+  .nav-links { gap: 16px; }
+}
+
+/* ---- diff (before/after) — the product's own wipe, on the page ---- */
+.diff {
+  position: relative;
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: var(--shadow);
+  touch-action: none;
+  cursor: ew-resize;
+  user-select: none; -webkit-user-select: none;
+}
+.diff img { display: block; width: 100%; height: auto; pointer-events: none; }
+.diff .after {
+  position: absolute; inset: 0;
+  clip-path: inset(0 0 0 var(--pos, 38.2%));
+  /* The checkerboard lives on this layer, not on the container: a transparent PNG
+     over the bare container would show the *original* through its alpha, and the
+     whole point of the wipe is that it doesn't. */
+  background:
+    conic-gradient(from 0deg, rgba(127,127,127,0.22) 25%, transparent 0 50%,
+      rgba(127,127,127,0.22) 0 75%, transparent 0) 0 0 / 18px 18px,
+    var(--bg-raised);
+}
+.diff .after img { position: absolute; inset: 0; width: 100%; height: 100%; }
+.diff .seam {
+  position: absolute; top: 0; bottom: 0; left: var(--pos, 38.2%);
+  width: 2px; margin-left: -1px;
+  background: #fff;
+  box-shadow: 0 0 6px rgba(0,0,0,0.35);
+  pointer-events: none;
+}
+.diff .knob {
+  position: absolute; top: 50%; left: var(--pos, 38.2%);
+  transform: translate(-50%, -50%);
+  width: 34px; height: 34px; border-radius: 50%;
+  background: rgba(255,255,255,0.92);
+  box-shadow: 0 2px 10px rgba(0,0,0,0.28);
+  display: flex; align-items: center; justify-content: center;
+  color: #443f39; font-size: 14px;
+  pointer-events: none;
+  backdrop-filter: blur(4px);
+}
+.diff .tag {
+  position: absolute; bottom: 10px;
+  font-size: 11.5px; font-weight: 600;
+  padding: 3px 9px; border-radius: 999px;
+  background: rgba(20,17,14,0.55); color: #fff;
+  backdrop-filter: blur(6px);
+  pointer-events: none;
+}
+.diff .tag-a { left: 10px; }
+.diff .tag-b { right: 10px; }
+
+.hero-diff { max-width: 560px; margin: 48px auto 0; }
+.hero-hint { margin-top: 14px; font-size: 13.5px; color: var(--ink-3); text-align: center; }
+
+/* ---- engine demos ---- */
+.demo-grid {
+  display: grid; gap: 22px; margin-top: 36px;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  align-items: start;
+}
+.demo h3 { font-size: 17px; margin-bottom: 4px; }
+.demo .note { font-size: 14px; color: var(--ink-2); margin-bottom: 14px; }
+
+/* ---- screenshot section, right-sized ---- */
+.shot { max-width: 780px; margin: 40px auto 0; }
+.shot img {
+  width: 100%; height: auto; display: block;
+  border-radius: 14px;
+  box-shadow: 0 2px 6px rgba(29,26,23,0.08), 0 24px 60px rgba(29,26,23,0.14);
+}
+
+/* ---- language dropdown ---- */
+.lang { position: relative; }
+.lang summary {
+  list-style: none; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 6px;
+  color: var(--ink-2); font-size: 15px;
+  padding: 6px 10px; border-radius: 8px;
+}
+.lang summary::-webkit-details-marker { display: none; }
+.lang summary:hover { color: var(--ink); background: var(--line); }
+.lang summary::after { content: "▾"; font-size: 10px; opacity: 0.7; }
+.lang[open] summary { color: var(--ink); }
+.lang menu {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 10;
+  min-width: 140px; padding: 6px;
+  background: var(--bg-raised);
+  border: 1px solid var(--line); border-radius: 10px;
+  box-shadow: var(--shadow);
+}
+.lang menu a {
+  display: block; padding: 7px 10px; border-radius: 6px;
+  text-decoration: none; color: var(--ink); font-size: 14.5px;
+}
+.lang menu a:hover { background: var(--line); }
+.lang menu a[aria-current] { color: var(--coral); font-weight: 600; }

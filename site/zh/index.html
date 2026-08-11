@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pluck — Mac 上的离线抠图工具</title>
+  <meta name="description" content="Pluck 是一个小巧的原生 Mac 抠图应用。全程本机处理，不上传、不注册、不订阅。免费开源，还带一个 AI agent 能直接用的命令行。">
+  <link rel="canonical" href="https://pluck.aix4u.com/zh/">
+  <link rel="alternate" hreflang="en" href="https://pluck.aix4u.com/">
+  <link rel="alternate" hreflang="zh-Hans" href="https://pluck.aix4u.com/zh/">
+  <link rel="alternate" hreflang="x-default" href="https://pluck.aix4u.com/">
+  <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png">
+  <link rel="apple-touch-icon" href="/assets/icon-192.png">
+  <link rel="stylesheet" href="/assets/style.css">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Pluck">
+  <meta property="og:title" content="Pluck — Mac 上的离线抠图工具">
+  <meta property="og:description" content="拖进来，抠出去。全程本机，免费开源。">
+  <meta property="og:url" content="https://pluck.aix4u.com/zh/">
+  <meta property="og:image" content="https://pluck.aix4u.com/assets/og.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Pluck — Mac 上的离线抠图工具">
+  <meta name="twitter:description" content="拖进来，抠出去。全程本机，免费开源。">
+  <meta name="twitter:image" content="https://pluck.aix4u.com/assets/og.png">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "Pluck",
+    "operatingSystem": "macOS 26+",
+    "applicationCategory": "DesignApplication",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+    "description": "小巧的原生 Mac 抠图应用。全程本机处理，免费开源，附带 AI agent 可直接使用的命令行工具。",
+    "url": "https://pluck.aix4u.com/zh/",
+    "downloadUrl": "https://github.com/RuochenLyu/pluck/releases",
+    "license": "https://opensource.org/licenses/MIT"
+  }
+  </script>
+</head>
+<body>
+  <div class="wrap">
+    <nav>
+      <a class="brand" href="/zh/">
+        <img src="/assets/icon-64.png" alt="" width="32" height="32">
+        <span>Pluck</span>
+      </a>
+      <div class="nav-links">
+        <a href="#engines">引擎</a>
+        <a href="#privacy">隐私</a>
+        <a href="#cli">命令行</a>
+        <a href="https://github.com/RuochenLyu/pluck">GitHub</a>
+        <details class="lang">
+          <summary>简体中文</summary>
+          <menu>
+            <a href="/" lang="en">English</a>
+            <a href="/zh/" aria-current="page">简体中文</a>
+          </menu>
+        </details>
+      </div>
+    </nav>
+
+    <header>
+      <img class="hero-icon" src="/assets/icon-512.png" alt="Pluck 应用图标" width="108" height="108">
+      <h1>拖进来，<em>抠出去</em>。</h1>
+      <p class="sub">Pluck 是一个小巧的原生 Mac 抠图应用。照片不出电脑，抠图就地完成。
+        不用注册，不用上传，更不用每周交钱。</p>
+      <div class="cta">
+        <a class="btn btn-primary" href="https://github.com/RuochenLyu/pluck/releases/latest">下载 Mac 版</a>
+        <a class="btn btn-secondary" href="https://github.com/RuochenLyu/pluck">看看源码</a>
+      </div>
+      <p class="cta-note">免费开源 · macOS 26+ · MIT 协议</p>
+
+      <div class="hero-diff">
+        <div class="diff" style="--pos: 38.2%">
+          <img src="/assets/demo/dog-original.jpg" alt="抠图前的照片：花园里的狗" width="880" height="880" fetchpriority="high">
+          <div class="after"><img src="/assets/demo/dog-cutout.png" alt="抠图后的效果：毛发完整保留" width="880" height="880"></div>
+          <div class="seam"></div>
+          <div class="knob">⇄</div>
+          <span class="tag tag-a">原图</span>
+          <span class="tag tag-b">抠图</span>
+        </div>
+        <p class="hero-hint">拖一下试试——这是真实的处理结果，毛都没少一根。</p>
+      </div>
+    </header>
+
+    <section id="engines">
+      <p class="kicker">三个引擎</p>
+      <h2>同一张图，不止一个答案</h2>
+      <p class="lede">大多数工具只给你一个模型。Pluck 装了三个——因为"主体到底是什么"，
+        不同的图有不同的答案，有时候连你自己想要哪个答案，都得看过才知道。</p>
+      <div class="demo-grid">
+        <div class="demo">
+          <h3>一张翻拍的画</h3>
+          <p class="note">Apple Vision 认为主体是这幅带框的画，把它整个取下来；
+            利落边却看进了画里，只把猫抠了出来。拖动对比这两个答案。</p>
+          <div class="diff" style="--pos: 50%">
+            <img src="/assets/demo/painting-vision.png" alt="Vision 的结果：整幅带框的画" width="760" height="950">
+            <div class="after"><img src="/assets/demo/painting-lite.png" alt="利落边的结果：画中的猫" width="760" height="950"></div>
+            <div class="seam"></div>
+            <div class="knob">⇄</div>
+            <span class="tag tag-a">Vision</span>
+            <span class="tag tag-b">利落边</span>
+          </div>
+        </div>
+        <div class="demo">
+          <h3>一杯红酒</h3>
+          <p class="note">柔细边保留了真实的透明度——玻璃后面能看到棋盘格，
+            因为玻璃本来就是透的。这一手，另外两个引擎都做不到。</p>
+          <div class="diff" style="--pos: 38.2%">
+            <img src="/assets/demo/glass-original.jpg" alt="有背景的红酒杯照片" width="900" height="545">
+            <div class="after"><img src="/assets/demo/glass-matting.png" alt="柔细边的结果：真正透明的玻璃杯" width="900" height="545"></div>
+            <div class="seam"></div>
+            <div class="knob">⇄</div>
+            <span class="tag tag-a">原图</span>
+            <span class="tag tag-b">柔细边</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="features">
+      <p class="kicker">为什么是 Pluck</p>
+      <h2>小而美，规规矩矩</h2>
+      <div class="grid">
+        <div class="card">
+          <span class="glyph">🔒</span>
+          <h3>不联网，才谈得上隐私</h3>
+          <p>抠图跑在 Mac 自己的芯片上——系统的 Vision 框架，或本地 Core ML 模型。
+            应用里没有账号，也压根没有上传这条路。</p>
+        </div>
+        <div class="card">
+          <span class="glyph">🪄</span>
+          <h3>三个引擎，各有脾气</h3>
+          <p>Vision 秒出结果，图里没主体它会直说；利落边擅长硬朗的边缘和线稿；
+            柔细边能留住每一根发丝。一张图不满意，换个引擎马上再看。</p>
+        </div>
+        <div class="card">
+          <span class="glyph">🖥️</span>
+          <h3>是 Mac 应用，不是套壳网页</h3>
+          <p>拖进来，或者直接 ⌘V。一个窗口：网格或列表看图，旁边就是前后对比，
+            看完一键导出。举止和你的其他窗口一样，因为它就是原生的。</p>
+        </div>
+        <div class="card">
+          <span class="glyph">🤖</span>
+          <h3>你的 AI 也会用</h3>
+          <p>同一个引擎做成了 <code>pluck</code> 命令行：JSON 输出、规矩的退出码、
+            永不弹窗。让 Claude 或任何 agent 一行命令处理整个文件夹。</p>
+        </div>
+        <div class="card">
+          <span class="glyph">📦</span>
+          <h3>大模型，想要才下</h3>
+          <p>高精度引擎是一个 83 MB 的可选下载，哈希校验后才落盘。
+            检查模型更新走本地比对，一个网络请求都不发。</p>
+        </div>
+        <div class="card">
+          <span class="glyph">💛</span>
+          <h3>免费就是免费</h3>
+          <p>没有水印，没有"高清版 9.9 一周"，没有试用倒计时。
+            MIT 开源——代码随便看，自己编译也行，永远是你的。</p>
+        </div>
+      </div>
+      <div class="shot">
+        <img src="/assets/screenshot-zh.png" alt="Pluck 主窗口：抠图网格与检查器里的前后对比" width="1520" height="1184" loading="lazy">
+      </div>
+    </section>
+
+    <section id="privacy">
+      <p class="kicker">隐私</p>
+      <h2>会联网的事，一共两件</h2>
+      <p class="lede">隐私承诺值多少钱，全看例外交代得清不清楚。Pluck 的例外全在这里：</p>
+      <div class="privacy">
+        <table>
+          <tr><th>哪件事</th><th>什么时候</th><th>怎么关</th></tr>
+          <tr>
+            <td>下载模型</td>
+            <td>只在你点了下载、或运行 <code>pluck models pull</code> 的时候。
+              下载的文件要对上签名应用里钉死的校验值才会安装。</td>
+            <td>你不点，它不动。</td>
+          </tr>
+          <tr>
+            <td>检查更新</td>
+            <td>应用每天问一次 GitHub 有没有新版本。关于你和你照片的信息，一个字节都不捎带。</td>
+            <td>设置 → 通用。关掉后就再没有任何主动请求。</td>
+          </tr>
+        </table>
+      </div>
+    </section>
+
+    <section id="cli">
+      <p class="kicker">终端与 agent</p>
+      <h2>同一个引擎，一行命令</h2>
+      <p class="lede">结构化输出、有含义的退出码、永不弹 GUI。自己写脚本可以，
+        把<a href="https://github.com/RuochenLyu/pluck/blob/main/skills/pluck/SKILL.md">内置的 agent skill</a> 丢给 Claude 也可以。</p>
+      <pre><code><span class="p">pluck</span> photo.jpg                        <span class="c"># → photo.png，背景没了</span>
+<span class="p">pluck</span> shots/*.jpg -o cutouts/ --json   <span class="c"># 一次一个文件夹，NDJSON 输出</span>
+<span class="p">pluck</span> photo.jpg --model birefnet-lite-matting
+<span class="p">pluck</span> models list                      <span class="c"># 这台机器能跑哪些引擎</span></code></pre>
+    </section>
+
+    <footer>
+      <div>© 2026 Pluck · MIT 协议</div>
+      <div class="links">
+        <a href="https://github.com/RuochenLyu/pluck">GitHub</a>
+        <a href="https://github.com/RuochenLyu/pluck/blob/main/skills/pluck/SKILL.md">Agent skill</a>
+        <a href="https://github.com/RuochenLyu/pluck/blob/main/docs/research.md">引擎实测</a>
+        <a href="/" lang="en">English</a>
+      </div>
+    </footer>
+  </div>
+  <script src="/assets/script.js" defer></script>
+</body>
+</html>

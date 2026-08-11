@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pluck — Remove image backgrounds offline on your Mac</title>
+  <meta name="description" content="Pluck is a tiny native Mac app that removes photo backgrounds entirely on your device. No cloud, no account, no subscription. Free, open source, with a CLI your AI agent can drive.">
+  <link rel="canonical" href="https://pluck.aix4u.com/">
+  <link rel="alternate" hreflang="en" href="https://pluck.aix4u.com/">
+  <link rel="alternate" hreflang="zh-Hans" href="https://pluck.aix4u.com/zh/">
+  <link rel="alternate" hreflang="x-default" href="https://pluck.aix4u.com/">
+  <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png">
+  <link rel="apple-touch-icon" href="/assets/icon-192.png">
+  <link rel="stylesheet" href="/assets/style.css">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Pluck">
+  <meta property="og:title" content="Pluck — Remove image backgrounds offline on your Mac">
+  <meta property="og:description" content="Drop a photo, take the subject. On-device, free, open source.">
+  <meta property="og:url" content="https://pluck.aix4u.com/">
+  <meta property="og:image" content="https://pluck.aix4u.com/assets/og.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Pluck — Remove image backgrounds offline on your Mac">
+  <meta name="twitter:description" content="Drop a photo, take the subject. On-device, free, open source.">
+  <meta name="twitter:image" content="https://pluck.aix4u.com/assets/og.png">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "Pluck",
+    "operatingSystem": "macOS 26+",
+    "applicationCategory": "DesignApplication",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+    "description": "A tiny native Mac app that removes photo backgrounds entirely on-device. Free, open source, with a CLI built for AI agents.",
+    "url": "https://pluck.aix4u.com/",
+    "downloadUrl": "https://github.com/RuochenLyu/pluck/releases",
+    "license": "https://opensource.org/licenses/MIT"
+  }
+  </script>
+</head>
+<body>
+  <div class="wrap">
+    <nav>
+      <a class="brand" href="/">
+        <img src="/assets/icon-64.png" alt="" width="32" height="32">
+        <span>Pluck</span>
+      </a>
+      <div class="nav-links">
+        <a href="#engines">Engines</a>
+        <a href="#privacy">Privacy</a>
+        <a href="#cli">CLI</a>
+        <a href="https://github.com/RuochenLyu/pluck">GitHub</a>
+        <details class="lang">
+          <summary>English</summary>
+          <menu>
+            <a href="/" aria-current="page">English</a>
+            <a href="/zh/" lang="zh-Hans">简体中文</a>
+          </menu>
+        </details>
+      </div>
+    </nav>
+
+    <header>
+      <img class="hero-icon" src="/assets/icon-512.png" alt="Pluck app icon" width="108" height="108">
+      <h1>Drop a photo.<br><em>Take the subject.</em></h1>
+      <p class="sub">Pluck is a tiny, native Mac app that removes backgrounds right on your
+        device. No cloud, no account, no subscription — your photos stay yours.</p>
+      <div class="cta">
+        <a class="btn btn-primary" href="https://github.com/RuochenLyu/pluck/releases/latest">Download for Mac</a>
+        <a class="btn btn-secondary" href="https://github.com/RuochenLyu/pluck">View source</a>
+      </div>
+      <p class="cta-note">Free &amp; open source · macOS 26+ · MIT license</p>
+
+      <div class="hero-diff">
+        <div class="diff" style="--pos: 38.2%">
+          <img src="/assets/demo/dog-original.jpg" alt="A dog photographed in a garden, before background removal" width="880" height="880" fetchpriority="high">
+          <div class="after"><img src="/assets/demo/dog-cutout.png" alt="The same dog with the background removed, fur intact" width="880" height="880"></div>
+          <div class="seam"></div>
+          <div class="knob">⇄</div>
+          <span class="tag tag-a">Original</span>
+          <span class="tag tag-b">Cutout</span>
+        </div>
+        <p class="hero-hint">Drag the handle — this is a real result, fur and all.</p>
+      </div>
+    </header>
+
+    <section id="engines">
+      <p class="kicker">Three engines</p>
+      <h2>Same photo, different answers</h2>
+      <p class="lede">Most tools give you one model and call it a day. Pluck ships three,
+        because pictures disagree about what "the subject" is — and sometimes the
+        interesting question is which answer you meant.</p>
+      <div class="demo-grid">
+        <div class="demo">
+          <h3>A photo of a painting</h3>
+          <p class="note">Apple Vision lifts the framed painting — the object.
+            Clean Cut reaches <em>into</em> the frame and takes the cat.
+            Drag to compare the two answers.</p>
+          <div class="diff" style="--pos: 50%">
+            <img src="/assets/demo/painting-vision.png" alt="Vision's result: the whole framed painting, lifted as one object" width="760" height="950">
+            <div class="after"><img src="/assets/demo/painting-lite.png" alt="Clean Cut's result: just the cat from inside the painting" width="760" height="950"></div>
+            <div class="seam"></div>
+            <div class="knob">⇄</div>
+            <span class="tag tag-a">Vision</span>
+            <span class="tag tag-b">Clean Cut</span>
+          </div>
+        </div>
+        <div class="demo">
+          <h3>A glass of wine</h3>
+          <p class="note">Fine Edges keeps real transparency — the checkerboard shows
+            through the glass, because glass is see-through. No other engine here does that.</p>
+          <div class="diff" style="--pos: 38.2%">
+            <img src="/assets/demo/glass-original.jpg" alt="A wine glass photographed against a background" width="900" height="545">
+            <div class="after"><img src="/assets/demo/glass-matting.png" alt="Fine Edges' result: the glass cut out with true transparency" width="900" height="545"></div>
+            <div class="seam"></div>
+            <div class="knob">⇄</div>
+            <span class="tag tag-a">Original</span>
+            <span class="tag tag-b">Fine Edges</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="features">
+      <p class="kicker">Why Pluck</p>
+      <h2>Small, sharp, and honest about how it works</h2>
+      <div class="grid">
+        <div class="card">
+          <span class="glyph">🔒</span>
+          <h3>Nothing to upload, nowhere to leak</h3>
+          <p>Matting runs on your Mac's own silicon — Apple's Vision framework or a local
+            Core ML model. There's no account and no upload path in the app. At all.</p>
+        </div>
+        <div class="card">
+          <span class="glyph">🪄</span>
+          <h3>Three engines, three opinions</h3>
+          <p>Vision answers instantly and says so when there's no subject. Clean Cut nails
+            hard edges and line art. Fine Edges keeps every strand of hair. Switch per
+            photo, compare live.</p>
+        </div>
+        <div class="card">
+          <span class="glyph">🖥️</span>
+          <h3>A Mac app, not a website in a box</h3>
+          <p>Drag in, or just ⌘V. One window: your cutouts in a grid or a list, a
+            before/after wipe beside them, export when you're done. It behaves like your
+            other windows because it's built like them.</p>
+        </div>
+        <div class="card">
+          <span class="glyph">🤖</span>
+          <h3>Your agent can drive it</h3>
+          <p>The same engine ships as a <code>pluck</code> CLI — JSON output, honest exit
+            codes, no GUI. Claude or any coding agent can batch a folder in one line.</p>
+        </div>
+        <div class="card">
+          <span class="glyph">📦</span>
+          <h3>Big models, only if you ask</h3>
+          <p>The high-quality engines are an 83&nbsp;MB download away, checksummed against
+            the signed app. Update checks compare local files — they cost zero network
+            requests.</p>
+        </div>
+        <div class="card">
+          <span class="glyph">💛</span>
+          <h3>Free means free</h3>
+          <p>No watermark. No "HD unlocks for $9.99/week". No trial timer.
+            MIT-licensed — read the code, build it yourself, keep it forever.</p>
+        </div>
+      </div>
+      <div class="shot">
+        <img src="/assets/screenshot-en.png" alt="Pluck's main window: a grid of cutouts with a before/after comparison in the inspector" width="1520" height="1184" loading="lazy">
+      </div>
+    </section>
+
+    <section id="privacy">
+      <p class="kicker">Privacy</p>
+      <h2>The complete list of what ever goes online</h2>
+      <p class="lede">A privacy promise is worth exactly what its exceptions are worth.
+        Here are all of them — both of them:</p>
+      <div class="privacy">
+        <table>
+          <tr><th>What</th><th>When</th><th>Off switch</th></tr>
+          <tr>
+            <td>Model download</td>
+            <td>Only when you click Download or run <code>pluck models pull</code>,
+              verified against a checksum pinned inside the signed app.</td>
+            <td>Doesn't happen unless you ask.</td>
+          </tr>
+          <tr>
+            <td>Update check</td>
+            <td>Once a day the app asks GitHub if there's a newer version. Nothing about
+              you or your photos goes along for the ride.</td>
+            <td>Settings → General. Off means silence.</td>
+          </tr>
+        </table>
+      </div>
+    </section>
+
+    <section id="cli">
+      <p class="kicker">Terminal &amp; agents</p>
+      <h2>The same engine, one command away</h2>
+      <p class="lede">Structured output, meaningful exit codes, no GUI ever. Script it
+        yourself, or hand the <a href="https://github.com/RuochenLyu/pluck/blob/main/skills/pluck/SKILL.md">included agent skill</a> to Claude.</p>
+      <pre><code><span class="p">pluck</span> photo.jpg                        <span class="c"># → photo.png, background gone</span>
+<span class="p">pluck</span> shots/*.jpg -o cutouts/ --json   <span class="c"># a folder at a time, NDJSON out</span>
+<span class="p">pluck</span> photo.jpg --model birefnet-lite-matting
+<span class="p">pluck</span> models list                      <span class="c"># what this machine can run</span></code></pre>
+    </section>
+
+    <footer>
+      <div>© 2026 Pluck · MIT License</div>
+      <div class="links">
+        <a href="https://github.com/RuochenLyu/pluck">GitHub</a>
+        <a href="https://github.com/RuochenLyu/pluck/blob/main/skills/pluck/SKILL.md">Agent skill</a>
+        <a href="https://github.com/RuochenLyu/pluck/blob/main/docs/research.md">Engine audit</a>
+        <a href="/zh/" lang="zh-Hans">简体中文</a>
+      </div>
+    </footer>
+  </div>
+  <script src="/assets/script.js" defer></script>
+</body>
+</html>

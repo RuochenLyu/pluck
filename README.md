@@ -2,6 +2,8 @@
 
 **Lift subjects out of photos. Offline, free, open source.**
 
+English · [简体中文](README.zh-Hans.md)
+
 Pluck is a native macOS app (and CLI) that removes image backgrounds entirely on-device.
 Your photos never leave your Mac — no account, no upload, no subscription, no watermark.
 

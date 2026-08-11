@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://pluck.aix4u.com/sitemap.xml
