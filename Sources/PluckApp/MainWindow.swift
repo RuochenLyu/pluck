@@ -52,13 +52,16 @@ final class MainWindowController {
                 onOpenSettings: { [weak self] in self?.onOpenSettings?() }
             )
         )
-        // The bridge that makes `.toolbar`, `.navigationTitle` and `.navigationSubtitle`
-        // drive the real NSToolbar and title bar of this AppKit window.
-        host.sceneBridgingOptions = [.toolbars, .title]
+        // The bridge that makes `.toolbar` drive the real NSToolbar of this AppKit window.
+        host.sceneBridgingOptions = [.toolbars]
 
         let window = PluckWindow(contentViewController: host)
         window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
+        // Set for Mission Control, the Window menu and VoiceOver — but not drawn: the app
+        // has no document to name, and none of the system apps this window is patterned on
+        // (Notes, Freeform) spend title-bar room restating who they are.
         window.title = L.s("Pluck")
+        window.titleVisibility = .hidden
         window.toolbarStyle = .unified
         window.setContentSize(NSSize(width: 760, height: 540))
         window.minSize = NSSize(width: 560, height: 400)
@@ -127,6 +130,8 @@ struct MainWindowView: View {
     /// changes it is Settings.
     @State private var engines = ModelStore()
 
+    @FocusState private var listFocused: Bool
+
     /// Fixed-size tiles, adaptive count: the column count is the window's to decide, but a
     /// tile never changes size — so the inspector sliding in reflows the grid instead of
     /// rescaling every card, which was the judder. Finder's icon view works the same way.
@@ -144,6 +149,8 @@ struct MainWindowView: View {
         Group {
             if cells.isEmpty {
                 dropZone
+            } else if model.layout == .list {
+                list
             } else {
                 grid
             }
@@ -154,20 +161,10 @@ struct MainWindowView: View {
                 .inspectorColumnWidth(min: 280, ideal: 340, max: 480)
         }
         .toolbar { toolbarContent }
-        .navigationTitle(L.s("Pluck"))
-        .navigationSubtitle(subtitle)
         .onReceive(NotificationCenter.default.publisher(for: .pluckModelsDidChange)) { _ in
             engines.reload()
         }
         .animation(.easeOut(duration: 0.12), value: dropTarget.isTargeted)
-    }
-
-    /// The only progress anyone can honestly report, in the place the system reserves for a
-    /// window's second line. Vision runs a single opaque request per image with no callback,
-    /// so a per-image percentage would be an animation pretending to be information.
-    private var subtitle: String {
-        guard let batch = model.batch, batch.total > 1, !model.pendingItems.isEmpty else { return "" }
-        return String(format: L.s("%1$d of %2$d done"), batch.done, batch.total)
     }
 
     @ToolbarContentBuilder private var toolbarContent: some ToolbarContent {
@@ -175,8 +172,36 @@ struct MainWindowView: View {
             Button(L.s("Add"), systemImage: "plus") { model.addImages() }
                 .help(L.s("Add images"))
         }
+        // The honest progress for a batch, where Notes and Mail put theirs: a small
+        // spinner and a count, present only while something is actually in flight.
+        if let batch = model.batch, batch.total > 1, !model.pendingItems.isEmpty {
+            ToolbarItem {
+                HStack(spacing: 6) {
+                    ProgressView()
+                        .controlSize(.small)
+                    Text(verbatim: "\(batch.done)/\(batch.total)")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
+                }
+                .accessibilityLabel(String(format: L.s("%1$d of %2$d done"), batch.done, batch.total))
+            }
+        }
         ToolbarItem {
             engineMenu
+        }
+        // One connected group, not two floating buttons — `ControlGroup` is what bridges
+        // to the `NSToolbarItemGroup` Finder and Notes use for their view switchers.
+        ToolbarItem {
+            ControlGroup {
+                Picker(L.s("View"), selection: layoutSelection) {
+                    Label(L.s("Grid"), systemImage: "square.grid.2x2").tag(GalleryLayout.grid)
+                    Label(L.s("List"), systemImage: "list.bullet").tag(GalleryLayout.list)
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+            }
+            .help(L.s("View"))
         }
         ToolbarItem {
             Button(L.s("Preview"), systemImage: "sidebar.trailing") {
@@ -184,10 +209,12 @@ struct MainWindowView: View {
             }
             .help(L.s("Show Preview"))
         }
+        // An icon, like every export/share on this machine; the words live in the tooltip
+        // and the accessibility label, where the count can change width freely.
         ToolbarItem(placement: .primaryAction) {
-            Button(exportTitle) { model.exportTargeted() }
+            Button(exportTitle, systemImage: "square.and.arrow.up") { model.exportTargeted() }
                 .disabled(model.recents.items.isEmpty)
-                .help(L.s("Export cutouts"))
+                .help(exportTitle)
         }
     }
 
@@ -241,6 +268,49 @@ struct MainWindowView: View {
     private var currentEngineName: String {
         engineChoices.first { $0.id == engineSelection.wrappedValue }?.name
             ?? EngineLabels.name(EngineCatalog.defaultEngineID)
+    }
+
+    private var layoutSelection: Binding<GalleryLayout> {
+        Binding(get: { model.layout }, set: { model.layout = $0 })
+    }
+
+    /// Finder's list view, for the batch that a grid of squares cannot hold: dozens of
+    /// rows, high information density, and `List`'s own selection machinery — ⌘, ⇧, arrow
+    /// keys and type-to-select all come with the component.
+    ///
+    /// Focused programmatically on appearance: an unfocused `List` paints its selection
+    /// grey (`unemphasized`), and a view switched in by a toolbar button — which kept the
+    /// focus — would show grey where Finder shows the accent.
+    private var list: some View {
+        List(selection: listSelection) {
+            ForEach(model.pendingItems) { item in
+                PendingRow(item: item)
+            }
+            ForEach(model.recents.items) { item in
+                ListRow(item: item, model: model)
+                    .tag(item.id)
+            }
+        }
+        .scrollContentBackground(.visible)
+        .alternatingRowBackgrounds(.enabled)
+        .focused($listFocused)
+        .task { listFocused = true }
+        .overlay {
+            if dropTarget.isTargeted {
+                RoundedRectangle(cornerRadius: Tokens.cardRadius, style: .continuous)
+                    .strokeBorder(Color.accentColor, lineWidth: 2)
+                    .background(Color.accentColor.opacity(0.08))
+                    .padding(8)
+                    .allowsHitTesting(false)
+            }
+        }
+    }
+
+    private var listSelection: Binding<Set<UUID>> {
+        Binding(
+            get: { model.selection.idSet },
+            set: { model.applyListSelection($0) }
+        )
     }
 
     private var grid: some View {
@@ -354,10 +424,9 @@ struct GalleryCard: View {
     let highlighted: Bool
 
     @State private var thumbnail: NSImage?
-    @State private var hovering = false
 
     var body: some View {
-        CutoutCard(lifted: hovering) {
+        CutoutCard {
             ZStack {
                 Checkerboard()
                 if let thumbnail {
@@ -403,10 +472,7 @@ struct GalleryCard: View {
         }
         .contentShape(RoundedRectangle(cornerRadius: Tokens.cardRadius, style: .continuous))
         .animation(.easeInOut(duration: 0.22), value: highlighted)
-        .animation(.easeOut(duration: Tokens.hoverDuration), value: isSelected)
-        .onHover { on in
-            withAnimation(.easeOut(duration: Tokens.hoverDuration)) { hovering = on }
-        }
+        .animation(.easeOut(duration: 0.15), value: isSelected)
         .onAppear { thumbnail = NSImage(data: item.thumbnailPNG) }
         // The single tap fires immediately; the double-click rides alongside as a
         // *simultaneous* gesture. `onTapGesture(count: 2)` stacked above a plain tap made
@@ -470,5 +536,115 @@ private struct SelectionBadge: View {
         .frame(width: 18, height: 18)
         .pluckShadow(Tokens.cardShadow)
         .accessibilityHidden(true)
+    }
+}
+
+
+/// Finder's two shapes for the same folder.
+enum GalleryLayout: String {
+    case grid
+    case list
+}
+
+/// A finished cutout as one line: thumbnail, name, facts. High density is the whole point —
+/// this is the view for the forty-file batch, where a wall of squares stops being scannable.
+private struct ListRow: View {
+    let item: RecentItem
+    let model: AppModel
+
+    @State private var thumbnail: NSImage?
+
+    var body: some View {
+        HStack(spacing: 10) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 5, style: .continuous)
+                    .fill(.quaternary)
+                if let thumbnail {
+                    Image(nsImage: thumbnail)
+                        .resizable()
+                        .interpolation(.medium)
+                        .scaledToFit()
+                        .padding(2)
+                }
+            }
+            .frame(width: 32, height: 32)
+            Text(verbatim: item.suggestedName)
+                .lineLimit(1)
+                .truncationMode(.middle)
+            Spacer(minLength: 8)
+            Text(verbatim: GalleryCaption.detail(
+                width: item.pixelWidth,
+                height: item.pixelHeight,
+                engine: EngineLabels.mark(item.engineID)
+            ))
+            .foregroundStyle(.secondary)
+            .monospacedDigit()
+            .lineLimit(1)
+            // The same two quick actions the grid's footer carries — a view switch must
+            // not cost the verbs.
+            CardFooterButton(symbol: "doc.on.doc", label: L.s("Copy")) { model.copy(item) }
+            CardFooterButton(symbol: "square.and.arrow.down", label: L.s("Save")) { model.save(item) }
+        }
+        .padding(.vertical, 2)
+        .onAppear { thumbnail = NSImage(data: item.thumbnailPNG) }
+        .onDrag { item.dragProvider() }
+        .contextMenu {
+            Button { model.copy(item) } label: { Label(L.s("Copy Image"), systemImage: "doc.on.doc") }
+            Button { model.save(item) } label: { Label(L.s("Save As…"), systemImage: "square.and.arrow.down") }
+            Button { model.preview(item) } label: { Label(L.s("Show Preview"), systemImage: "sidebar.trailing") }
+            Divider()
+            Button(role: .destructive) { model.discard(item) } label: { Label(L.s("Delete"), systemImage: "trash") }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(GalleryCaption.text(
+            name: item.suggestedName,
+            width: item.pixelWidth,
+            height: item.pixelHeight,
+            engine: EngineLabels.mark(item.engineID)
+        ))
+    }
+}
+
+/// A job still running, as a line. Not selectable — there is nothing to preview yet.
+private struct PendingRow: View {
+    let item: PendingItem
+
+    @State private var thumbnail: NSImage?
+
+    var body: some View {
+        HStack(spacing: 10) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 5, style: .continuous)
+                    .fill(.quaternary)
+                if let thumbnail {
+                    Image(nsImage: thumbnail)
+                        .resizable()
+                        .interpolation(.medium)
+                        .scaledToFit()
+                        .padding(2)
+                        .saturation(0)
+                        .opacity(0.55)
+                }
+            }
+            .frame(width: 32, height: 32)
+            Text(verbatim: item.name)
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .foregroundStyle(item.failure == nil ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
+            Spacer(minLength: 8)
+            if let failure = item.failure {
+                Text(failure.message)
+                    .foregroundStyle(.red)
+                    .lineLimit(1)
+            } else {
+                ProgressView()
+                    .controlSize(.small)
+            }
+        }
+        .padding(.vertical, 2)
+        .task(id: item.thumbnail) {
+            thumbnail = item.thumbnail.flatMap { NSImage(data: $0) }
+        }
+        .accessibilityLabel(item.failure?.message ?? L.s("Plucking…"))
     }
 }

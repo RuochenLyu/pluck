@@ -1,12 +1,12 @@
 import AppKit
 import SwiftUI
 
-/// The mount every grid slot sits on: a square picture area over a standing footer —
-/// CleanShot's card grammar. The footer is what answers "what is this and what do I do
-/// with it" without a hover, a hunt through a menu, or a trip to the inspector; hiding
-/// every action behind the pointer was discoverability paid for with usability.
+/// The mount every grid slot sits on: a square picture area over a standing footer. The
+/// footer is what answers "what is this and what do I do with it" without a hover, a hunt
+/// through a menu, or a trip to the inspector. The card itself is static — no lift, no
+/// hover shadow: Finder and Photos tiles do not stir under the pointer, and a card that
+/// scales past its own border reads as broken, not alive.
 struct CutoutCard<Content: View, Footer: View>: View {
-    var lifted: Bool = false
     @ViewBuilder var content: Content
     @ViewBuilder var footer: Footer
 
@@ -25,8 +25,7 @@ struct CutoutCard<Content: View, Footer: View>: View {
             Palette.cardSurface,
             in: RoundedRectangle(cornerRadius: Tokens.cardRadius, style: .continuous)
         )
-        .pluckShadow(lifted ? Tokens.cardHoverShadow : Tokens.cardShadow)
-        .scaleEffect(lifted ? Tokens.hoverLift : 1)
+        .pluckShadow(Tokens.cardShadow)
     }
 }
 

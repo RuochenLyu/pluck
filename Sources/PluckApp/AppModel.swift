@@ -197,8 +197,30 @@ final class AppModel {
 
     /// Whether the preview inspector is open. Owned here because three things toggle it —
     /// the toolbar button, a double-click on a card, and a re-pluck delivering — and the
-    /// inspector's binding has to be the same fact for all of them.
-    var showsPreview = false
+    /// inspector's binding has to be the same fact for all of them. Mirrored to
+    /// `Preferences` so it opens the way it was left, like Finder's preview column; the
+    /// default is open, which is what makes a single click *be* a preview.
+    var showsPreview = true {
+        didSet { preferences?.showsPreview = showsPreview }
+    }
+
+    /// Grid or list — Finder's two shapes for the same folder. Stored behind `Preferences`
+    /// so the choice survives a relaunch.
+    var layout: GalleryLayout {
+        get { GalleryLayout(rawValue: preferences?.layoutID ?? "grid") ?? .grid }
+        set { preferences?.layoutID = newValue.rawValue }
+    }
+
+    /// The list view hands back a whole new selection set at once (⌘, ⇧ and rubber-band
+    /// are `List`'s to implement); whatever it added most recently is what the preview
+    /// should follow.
+    func applyListSelection(_ ids: Set<UUID>) {
+        let added = ids.subtracting(selection.idSet)
+        selection.replace(ids)
+        if let focus = added.first ?? ids.first, previewedID == nil || !ids.contains(previewedID!) {
+            previewedID = focus
+        }
+    }
 
     /// The cutout the inspector is describing. Follows the last card clicked, so an open
     /// inspector reads as "details of the selection", which is what an inspector is.
@@ -233,6 +255,7 @@ final class AppModel {
         self.engines = engines
         self.process = process
         guard let preferences else { return }
+        showsPreview = preferences.showsPreview
         // Order matters: restore first, then subscribe. Seeding through `onChange` would
         // have the store rewrite the index it was just read from.
         if preferences.keepsHistory {

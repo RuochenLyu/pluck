@@ -42,16 +42,12 @@ enum Tokens {
     /// with the cutout for the eye; at 6pt and ~5% it reads as texture.
     static let checkerSquare: CGFloat = 6
 
-    /// Card elevation, at rest and under the pointer. Both are soft and short — a card
-    /// that casts a hard shadow reads as pasted on.
+    /// Card elevation. Soft and short — a card that casts a hard shadow reads as pasted
+    /// on — and constant: tiles do not stir under the pointer.
     static let cardShadow = ShadowSpec(opacity: 0.08, radius: 3, y: 1)
-    static let cardHoverShadow = ShadowSpec(opacity: 0.16, radius: 8, y: 3)
     /// Controls floating directly over content (the wipe handle), which need to separate
     /// from any picture.
     static let controlShadow = ShadowSpec(opacity: 0.20, radius: 5, y: 2)
-
-    static let hoverLift: CGFloat = 1.02
-    static let hoverDuration: Double = 0.15
 }
 
 struct ShadowSpec {

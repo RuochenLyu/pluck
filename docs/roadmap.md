@@ -3,7 +3,12 @@
 > 本文件是唯一的进度真相源：阶段推进、里程碑范围变化时更新这里。
 > 产品定义与架构见 [product-plan.md](product-plan.md)，决策记录见 [decisions.md](decisions.md)。
 
-## 当前状态（2026-08-10 晚）
+## 当前状态（2026-08-11）
+
+- **第三轮打磨（交互手感）**：单击选中延迟修复（双击改为并行手势，不再阻塞单击）；卡片去 hover 抬升/阴影（tile 静态，Finder 语义），改为**常驻 footer**（名称/尺寸 + 拷贝/存储小图标，CleanShot 的信息架构、原生实现）；**单击即预览**——inspector 默认打开、状态持久（Finder 预览栏语义）；⇧ 范围多选（锚点规则）；**列表视图**（`List` 原生选择语义 + 斑马纹 + 行尾快捷按钮 + focus 修复），toolbar 连体视图切换组（`ControlGroup`）；导出改图标按钮（`square.and.arrow.up`），批量进度移入 toolbar（spinner + n/m），窗口标题不再绘制；外观偏好（跟随系统/浅色/深色，即时生效）；对比图跟随图片比例至黄金比例 0.618。290 全绿。
+- **待办**：app 图标重设计；伪本地化复跑。
+
+## 历史状态（2026-08-10 晚）
 
 - **第二轮打磨（同日，见 decisions.md 第二条 ADR）**：最低系统升至 **macOS 26**（双写与 `Glass.swift` 全删，零 warning）；网格方形卡（1:1、adaptive 150–200）；卡上 hover 圆钮与文件名胶囊删除（右键 / inspector / 新增 ⌘C 三条路径，tooltip 载名称尺寸）；inspector 改 `Form(.grouped)` + `LabeledContent`（名称/尺寸/引擎 + 两个全宽操作行）；**预览切换卡顿修复**——`CGImageSource` 缩略解码取代"解码→重编码 PNG→再解码"，陈旧解码取消、旧图保留到新图就绪；`ModelDescriptor.version` 预留（manifest 已标 v1，更新检查进 backlog）。290 测试全绿。
 - **UI 全面回归标准组件（2026-08-10，见 decisions.md 同日）**：主窗口 = 标准 titled 窗口 + unified toolbar（Add / 默认引擎菜单 / Preview / Export）+ 卡片网格 + **`.inspector` 预览侧栏**（before/after 滑块、引擎切换、拷贝/存储/删除）；菜单栏 shelf、状态项、预览浮窗、presence 双开关**整体删除**；Settings 改为标准两 tab（General / Models），Updates 节删除、"Check for Updates…" 回到 app 菜单；珊瑚橙退出 UI，控件染色跟随系统 accent。整窗拖放注册在 `NSWindow` 本身；批量进度走 `navigationSubtitle`；⌫ 删除选中。290 测试全绿，实机验收通过。**待办**：app 图标与（已无 menubar 的）视觉识别重设计；伪本地化复跑一轮排版弹性。

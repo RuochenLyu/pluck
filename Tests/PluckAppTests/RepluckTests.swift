@@ -284,7 +284,6 @@ final class RepluckTests: XCTestCase {
         model.showEngine(first.engineID, for: first)
 
         XCTAssertNil(model.previewedID)
-        XCTAssertFalse(model.showsPreview)
         XCTAssertTrue(model.pendingItems.isEmpty)
         XCTAssertEqual(model.recents.items.count, 1)
     }

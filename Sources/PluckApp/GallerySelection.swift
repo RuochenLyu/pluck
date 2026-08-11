@@ -62,6 +62,14 @@ struct GallerySelection: Equatable {
         ids = Set(all)
     }
 
+    /// The whole set at once — what the list view hands back, having run ⌘, ⇧ and the
+    /// keyboard itself.
+    mutating func replace(_ newIDs: Set<UUID>) {
+        ids = newIDs
+    }
+
+    var idSet: Set<UUID> { ids }
+
     mutating func clear() {
         ids = []
     }

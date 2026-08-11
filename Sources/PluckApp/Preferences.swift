@@ -21,6 +21,28 @@ final class Preferences {
         static let languageID = "pluck.languageID"
         static let checksForUpdates = "pluck.checksForUpdates"
         static let appearanceID = "pluck.appearanceID"
+        static let showsPreview = "pluck.showsPreview"
+        static let layoutID = "pluck.layout"
+    }
+
+    /// Whether the preview pane is open. Persisted like Finder persists its preview
+    /// column: open by default — a single click then *is* a preview, which is the whole
+    /// discoverability answer — and staying however the user last left it.
+    var showsPreview: Bool {
+        didSet {
+            guard showsPreview != oldValue else { return }
+            defaults.set(showsPreview, forKey: Key.showsPreview)
+        }
+    }
+
+    /// How the gallery draws its contents: `"grid"` or `"list"` — Finder's icon and list
+    /// views, for the two shapes this window is used in (a handful of pictures to compare;
+    /// dozens of files to work through).
+    var layoutID: String {
+        didSet {
+            guard layoutID != oldValue else { return }
+            defaults.set(layoutID, forKey: Key.layoutID)
+        }
     }
 
     /// Which appearance the app draws in: `"system"` (default), `"light"` or `"dark"`.
@@ -141,11 +163,15 @@ final class Preferences {
             Key.engineID: EngineCatalog.defaultEngineID,
             Key.languageID: L.systemID,
             Key.checksForUpdates: true,
-            Key.appearanceID: "system"
+            Key.appearanceID: "system",
+            Key.showsPreview: true,
+            Key.layoutID: "grid"
         ])
         keepsHistory = defaults.bool(forKey: Key.keepsHistory)
         checksForUpdates = defaults.bool(forKey: Key.checksForUpdates)
         appearanceID = defaults.string(forKey: Key.appearanceID) ?? "system"
+        showsPreview = defaults.bool(forKey: Key.showsPreview)
+        layoutID = defaults.string(forKey: Key.layoutID) ?? "grid"
         engineID = defaults.string(forKey: Key.engineID) ?? EngineCatalog.defaultEngineID
         languageID = defaults.string(forKey: Key.languageID) ?? L.systemID
         // `didSet` does not run for an assignment in `init`, and this is the launch that has
