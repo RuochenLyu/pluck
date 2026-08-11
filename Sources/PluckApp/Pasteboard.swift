@@ -10,8 +10,14 @@ protocol ImagePasteboard: Sendable {
     func writePNG(_ data: Data)
 }
 
-/// Holds the pasteboard *name*, not the object: `NSPasteboard` is not `Sendable`, and the
-/// clipboard round trip deliberately runs off the main actor.
+/// Holds the pasteboard *name*, not the object — and hops to the main thread for every
+/// call. `NSPasteboard` is not merely non-`Sendable`: its *methods* are not thread-safe.
+/// `readObjectsForClasses` updates an internal type cache, and running that on a detached
+/// task while the main thread also touches the pasteboard (a ⌘C an instant before the ⌘V)
+/// corrupts the malloc heap — a real crash, `Pluck-2026-08-11-103001.ips`, aborting in
+/// `___BUG_IN_CLIENT_OF_LIBMALLOC_POINTER_BEING_FREED_WAS_NOT_ALLOCATED` under
+/// `-[NSPasteboard _updateTypeCacheIfNeeded]`. The matting stays off the main actor; the
+/// two pasteboard round trips are microseconds and belong to the thread AppKit owns.
 struct SystemPasteboard: ImagePasteboard {
     let name: NSPasteboard.Name
 
@@ -19,10 +25,23 @@ struct SystemPasteboard: ImagePasteboard {
         self.name = name
     }
 
-    private var pasteboard: NSPasteboard { NSPasteboard(name: name) }
+    /// Runs `body` on the main thread, wherever the caller happens to be. `sync` from a
+    /// background task cannot deadlock here: nothing on the main thread ever blocks
+    /// waiting for the detached pluck that calls this.
+    private func onMain<T: Sendable>(_ body: @Sendable @MainActor () -> T) -> T {
+        if Thread.isMainThread {
+            return MainActor.assumeIsolated { body() }
+        }
+        return DispatchQueue.main.sync { MainActor.assumeIsolated { body() } }
+    }
 
     func readImage() -> (data: Data, name: String)? {
-        let pasteboard = pasteboard
+        onMain { readImageOnMain() }
+    }
+
+    @MainActor
+    private func readImageOnMain() -> (data: Data, name: String)? {
+        let pasteboard = NSPasteboard(name: name)
         // File URLs first: a copied Finder item carries the original encoding and
         // a real filename, both of which the flattened bitmap flavors throw away.
         if let urls = pasteboard.readObjects(forClasses: [NSURL.self], options: nil) as? [URL],
@@ -43,9 +62,11 @@ struct SystemPasteboard: ImagePasteboard {
     }
 
     func writePNG(_ data: Data) {
-        let pasteboard = pasteboard
-        pasteboard.clearContents()
-        pasteboard.setData(data, forType: .png)
+        onMain {
+            let pasteboard = NSPasteboard(name: name)
+            pasteboard.clearContents()
+            pasteboard.setData(data, forType: .png)
+        }
     }
 }
 
