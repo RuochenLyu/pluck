@@ -1,9 +1,14 @@
 #!/usr/bin/env swift
-// Generates Pluck.app's icon from the same mark StatusIcon.swift draws.
+// Assembles Pluck.app's icon from the layered artwork in Packaging/icon/.
 //
-// Drawn in code rather than checked in as a PNG for the reason the menu bar mark is:
-// the dash rhythm has to be tuned per size, and one source for the silhouette means the
-// menu bar and the Finder icon can never drift apart. Run:
+// The layers (a warm-cream gradient ground, a photo card with a cat-shaped hole, and the
+// coral cat that stepped out of it) were generated per docs/prototypes/icon-brief.md
+// appendix 2 and picked in docs/prototypes/icon-concepts/. This script owns the flat
+// composite: layer placement tuned against the real Dock (2026-08-11), Big Sur icon grid
+// (824pt rounded rect on a 1024 canvas), every icns size from one artwork.
+//
+// The same three layers are the input for the Icon Composer version (.icon, system-
+// rendered Liquid Glass) — keep them in sync; this composite is what ships in the icns.
 //
 //     swift Scripts/make-icon.swift <output.icns>
 
@@ -17,48 +22,22 @@ let canvas: CGFloat = 1024
 let plate = NSRect(x: 100, y: 100, width: 824, height: 824)
 let plateRadius: CGFloat = 185
 
-/// The 18pt menu bar mark, blown up and centred. Same numbers as `StatusIcon.blob` callers.
-let markScale = 600.0 / 18.0
-let markOrigin: CGFloat = (canvas - 600) / 2
+let repoRoot = URL(fileURLWithPath: #filePath)
+    .deletingLastPathComponent()
+    .deletingLastPathComponent()
+let layers = repoRoot.appendingPathComponent("Packaging/icon")
 
-func marked(_ rect: NSRect) -> NSRect {
-    NSRect(
-        x: rect.minX * markScale + markOrigin,
-        y: rect.minY * markScale + markOrigin,
-        width: rect.width * markScale,
-        height: rect.height * markScale
-    )
+func layer(_ name: String) -> NSImage {
+    guard let image = NSImage(contentsOf: layers.appendingPathComponent(name)) else {
+        FileHandle.standardError.write(Data("missing layer: Packaging/icon/\(name)\n".utf8))
+        exit(1)
+    }
+    return image
 }
 
-/// Closed Catmull-Rom curve through six unevenly-radiused samples — copied deliberately
-/// from StatusIcon so both renderings are the same silhouette.
-func blob(in rect: NSRect) -> NSBezierPath {
-    let radii: [CGFloat] = [1.0, 0.80, 0.98, 0.86, 1.0, 0.82]
-    let center = NSPoint(x: rect.midX, y: rect.midY)
-    let points: [NSPoint] = radii.enumerated().map { index, factor in
-        let angle = (Double(index) / Double(radii.count)) * 2 * .pi
-        return NSPoint(
-            x: center.x + cos(angle) * rect.width / 2 * factor,
-            y: center.y + sin(angle) * rect.height / 2 * factor
-        )
-    }
-
-    let path = NSBezierPath()
-    path.move(to: points[0])
-    for i in 0..<points.count {
-        let p0 = points[(i - 1 + points.count) % points.count]
-        let p1 = points[i]
-        let p2 = points[(i + 1) % points.count]
-        let p3 = points[(i + 2) % points.count]
-        path.curve(
-            to: p2,
-            controlPoint1: NSPoint(x: p1.x + (p2.x - p0.x) / 6, y: p1.y + (p2.y - p0.y) / 6),
-            controlPoint2: NSPoint(x: p2.x - (p3.x - p1.x) / 6, y: p2.y - (p3.y - p1.y) / 6)
-        )
-    }
-    path.close()
-    return path
-}
+let background = layer("layer-background-cream.png")
+let card = layer("layer-card.png")
+let cat = layer("layer-cat.png")
 
 /// `pixels` is the final raster size; the drawing scales to it so a 16pt icon is the same
 /// artwork, not a different one.
@@ -85,27 +64,21 @@ func render(pixels: Int) -> Data {
     transform.scale(by: scale)
     transform.concat()
 
-    let shape = NSBezierPath(roundedRect: plate, xRadius: plateRadius, yRadius: plateRadius)
-    // Coral is the app's one accent (product-plan §4.7). The icon is its own "screen", so
-    // spending the whole plate on it is within the one-tint-per-screen budget.
-    NSGradient(
-        colors: [
-            NSColor(srgbRed: 1.00, green: 0.52, blue: 0.38, alpha: 1),
-            NSColor(srgbRed: 0.94, green: 0.31, blue: 0.28, alpha: 1)
-        ]
-    )?.draw(in: shape, angle: -78)
+    // Everything clips to the plate: the icns carries the icon's own rounded rect, and
+    // the layers are full-bleed artwork.
+    NSBezierPath(roundedRect: plate, xRadius: plateRadius, yRadius: plateRadius).addClip()
 
-    NSColor.white.setFill()
-    blob(in: marked(NSRect(x: 2.4, y: 9.8, width: 13.2, height: 7.0))).fill()
+    background.draw(in: NSRect(x: plate.minX, y: plate.minY, width: plate.width, height: plate.height))
 
-    let ghost = blob(in: marked(NSRect(x: 2.4, y: 1.0, width: 13.2, height: 7.0).insetBy(dx: 0.7, dy: 0.7)))
-    // The hole the subject was lifted out of. Translucent rather than white so it reads as
-    // absence; opaque white would be a second subject.
-    NSColor.white.withAlphaComponent(0.85).setStroke()
-    ghost.lineWidth = 1.4 * markScale
-    ghost.lineCapStyle = .round
-    ghost.setLineDash([3.0 * markScale, 2.2 * markScale], count: 2, phase: 0)
-    ghost.stroke()
+    // Placement tuned in the Dock, not on a canvas: the card fills most of the plate with
+    // its centre nudged low-left; the cat rides the card's upper-right edge, close enough
+    // to the hole it left that the two read as one event. The draw rects are oversized
+    // because each source PNG carries its own transparent margin.
+    let cardSide: CGFloat = canvas * 0.97
+    card.draw(in: NSRect(x: 455 - cardSide / 2, y: 465 - cardSide / 2, width: cardSide, height: cardSide))
+
+    let catSide: CGFloat = canvas * 0.74
+    cat.draw(in: NSRect(x: 668 - catSide / 2, y: 630 - catSide / 2, width: catSide, height: catSide))
 
     NSGraphicsContext.restoreGraphicsState()
 
