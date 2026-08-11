@@ -16,7 +16,7 @@ CONFIG="${1:-release}"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-SHORT_VERSION="0.1.0"
+SHORT_VERSION="1.0.0"
 # Monotonic and derivable, so two builds of the same commit produce the same bundle.
 BUILD_VERSION="$(git rev-list --count HEAD)"
 
