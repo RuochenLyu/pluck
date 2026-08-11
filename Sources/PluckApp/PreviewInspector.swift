@@ -63,15 +63,23 @@ private struct ItemInspector: View {
                 }
 
                 Section {
-                    Button { model.copy(item) } label: {
-                        Label(L.s("Copy Image"), systemImage: "doc.on.doc")
-                            .frame(maxWidth: .infinity)
+                    // One row, two equal buttons: these are a pair, and a Form separator
+                    // between them read as two unrelated settings.
+                    HStack(spacing: 8) {
+                        Button { model.copy(item) } label: {
+                            Label(L.s("Copy Image"), systemImage: "doc.on.doc")
+                                .frame(maxWidth: .infinity)
+                        }
+                        Button { model.save(item) } label: {
+                            Label(L.s("Save As…"), systemImage: "square.and.arrow.down")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .keyboardShortcut("s", modifiers: .command)
                     }
-                    Button { model.save(item) } label: {
-                        Label(L.s("Save As…"), systemImage: "square.and.arrow.down")
-                            .frame(maxWidth: .infinity)
-                    }
-                    .keyboardShortcut("s", modifiers: .command)
+                    .buttonStyle(.bordered)
+                    .controlSize(.large)
+                    .listRowInsets(EdgeInsets())
+                    .listRowBackground(Color.clear)
                 }
             }
             .formStyle(.grouped)
@@ -125,7 +133,11 @@ private struct ItemInspector: View {
 struct ComparisonSlider: View {
     let item: RecentItem
 
-    @State private var fraction: CGFloat = 0.5
+    /// Where the wipe rests: the golden section, with the cutout — the side this app is
+    /// *about* — holding the larger share. Dead centre gave both halves equal billing.
+    static let restingFraction: CGFloat = 0.382
+
+    @State private var fraction: CGFloat = Self.restingFraction
     @State private var before: NSImage?
     @State private var after: NSImage?
 
@@ -169,7 +181,7 @@ struct ComparisonSlider: View {
         // and leaves the previous picture on screen until the next one is ready — a blank
         // flash between two selections is what reads as lag.
         .task(id: item.id) {
-            fraction = 0.5
+            fraction = Self.restingFraction
             let decoded = await ImageDecode.pair(
                 before: item.originalURL,
                 after: item.fileURL,

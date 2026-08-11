@@ -178,24 +178,21 @@ struct MainWindowView: View {
             Button(L.s("Add"), systemImage: "plus") { model.addImages() }
                 .help(L.s("Add images"))
         }
-        // The honest progress for a batch, where Notes and Mail put theirs: a small
-        // spinner and a count, present only while something is actually in flight.
-        if let batch = model.batch, batch.total > 1, !model.pendingItems.isEmpty {
-            ToolbarItem {
-                HStack(spacing: 6) {
-                    ProgressView()
-                        .controlSize(.small)
-                    Text(verbatim: "\(batch.done)/\(batch.total)")
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                        .monospacedDigit()
-                }
-                .accessibilityLabel(String(format: L.s("%1$d of %2$d done"), batch.done, batch.total))
-            }
-        }
         // Everything from here rides the trailing edge — Finder's split: navigation verbs
         // on the left, the working controls on the right, air in between.
         ToolbarSpacer(.flexible)
+        // Batch progress as a small determinate ring — Photos' import grammar. The ring
+        // *is* the number; the exact count lives in the tooltip and the placeholder cards
+        // are already saying which pictures it is about.
+        if let batch = model.batch, batch.total > 1, !model.pendingItems.isEmpty {
+            ToolbarItem {
+                ProgressView(value: batch.fraction)
+                    .progressViewStyle(.circular)
+                    .controlSize(.small)
+                    .help(String(format: L.s("%1$d of %2$d done"), batch.done, batch.total))
+                    .accessibilityLabel(String(format: L.s("%1$d of %2$d done"), batch.done, batch.total))
+            }
+        }
         ToolbarItem {
             engineMenu
         }
