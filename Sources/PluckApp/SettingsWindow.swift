@@ -128,10 +128,6 @@ struct GeneralPane: View {
                         .onChange(of: preferences.checksForUpdates) { _, on in
                             updates.setAutomaticChecks(on)
                         }
-                        Text(L.s("Checks GitHub once a day for a new version. Nothing about you or your pictures is sent."))
-                            .font(.callout)
-                            .foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
                     }
                 }
             }
@@ -140,7 +136,7 @@ struct GeneralPane: View {
 
             // The one claim the whole product rests on, made once, in the place a doubting
             // user looks first.
-            Text(L.s("Your pictures never leave this Mac. Pluck has no account, no telemetry and no uploads."))
+            Text(L.s("Your pictures never leave your Mac."))
                 .font(.footnote)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -168,9 +164,9 @@ private struct HistorySection: View {
 
     private var clearTitle: String {
         guard let size = bytes.flatMap(EngineLabels.megabytes(orNothing:)) else {
-            return L.s("Clear recent cutouts")
+            return L.s("Clear History")
         }
-        return String(format: L.s("Clear recent cutouts (%@)"), size)
+        return String(format: L.s("Clear History (%@)"), size)
     }
 
     var body: some View {
@@ -183,10 +179,6 @@ private struct HistorySection: View {
                 guard !keeps else { return }
                 model.forgetStoredHistory()
             }
-            Text(L.s("Kept only on this Mac. Turn this off and cutouts are forgotten when you quit."))
-                .font(.callout)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
             Button(clearTitle) { model.clearRecents() }
                 .disabled(model.recents.items.isEmpty)
         } header: {

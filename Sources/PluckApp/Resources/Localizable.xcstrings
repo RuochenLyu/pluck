@@ -307,6 +307,40 @@
         }
       }
     },
+    "Clear History": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clear History"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "清空历史"
+          }
+        }
+      }
+    },
+    "Clear History (%@)": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clear History (%@)"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "清空历史 (%@)"
+          }
+        }
+      }
+    },
     "Clear recent cutouts": {
       "extractionState": "manual",
       "localizations": {
@@ -1902,6 +1936,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "你的图片从不离开这台 Mac。Pluck 没有账号、没有遥测、也不上传任何东西。"
+          }
+        }
+      }
+    },
+    "Your pictures never leave your Mac.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your pictures never leave your Mac."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "图片从不离开你的 Mac。"
           }
         }
       }
