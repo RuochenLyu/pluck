@@ -157,6 +157,38 @@ public struct ModelRegistry: Sendable {
         try? FileManager.default.removeItem(at: partial.appendingPathExtension("validator"))
     }
 
+    /// What was actually installed, written beside the model bundle at install time so a
+    /// later manifest can be compared against it without re-hashing 100 MB of mlpackage.
+    public struct ModelReceipt: Sendable, Codable, Equatable {
+        public let sha256: String
+        public let version: String?
+    }
+
+    func receiptURL(for id: String) -> URL {
+        directory(for: id).appendingPathComponent("receipt.json")
+    }
+
+    public func receipt(for id: String) -> ModelReceipt? {
+        guard let data = try? Data(contentsOf: receiptURL(for: id)) else { return nil }
+        return try? JSONDecoder().decode(ModelReceipt.self, from: data)
+    }
+
+    /// Installed, but from bytes the current manifest no longer points at — the fact the
+    /// Models pane and `pluck models list` surface as "update available".
+    ///
+    /// A purely local comparison: the new digest arrived inside the signed app (the
+    /// manifest ships in the bundle and changes only with an app update), so asking this
+    /// question costs no network request and keeps the offline promise intact. A model
+    /// installed before receipts existed reads as current — conservative on purpose; it
+    /// starts carrying one on its next install.
+    public func isOutdated(_ id: String) -> Bool {
+        guard isInstalled(id),
+              let descriptor = manifest[id],
+              let receipt = receipt(for: id)
+        else { return false }
+        return receipt.sha256.caseInsensitiveCompare(descriptor.sha256) != .orderedSame
+    }
+
     /// The installed model bundle, or nil when it is not on disk.
     public func localURL(for id: String) -> URL? {
         guard let descriptor = manifest[id] else { return nil }
@@ -307,6 +339,13 @@ public struct ModelRegistry: Sendable {
                 id: descriptor.id,
                 reason: "archive does not contain \(descriptor.file)"
             )
+        }
+
+        // The receipt goes into staging so it rides the same atomic rename as the model:
+        // a model directory either has both or neither.
+        let receipt = ModelReceipt(sha256: descriptor.sha256, version: descriptor.version)
+        if let encoded = try? JSONEncoder().encode(receipt) {
+            try? encoded.write(to: staging.appendingPathComponent("receipt.json"))
         }
 
         // Move the whole staging directory into place in one rename: a half-populated

@@ -102,16 +102,22 @@ struct Models: AsyncParsableCommand {
         var json = false
 
         func run() throws {
+            let registry = Engines.catalog.registry
             for engine in Engines.catalog.all {
+                let outdated = !engine.builtIn && engine.installed
+                    && registry?.isOutdated(engine.id) == true
                 if json {
                     Terminal.stdout(JSONReport.object([
                         ("id", .string(engine.id)),
                         ("summary", .string(engine.summary)),
                         ("builtIn", .bool(engine.builtIn)),
-                        ("installed", .bool(engine.installed))
+                        ("installed", .bool(engine.installed)),
+                        ("updateAvailable", .bool(outdated))
                     ]))
                 } else {
-                    let state = engine.builtIn ? "built-in" : (engine.installed ? "installed" : "available")
+                    let state = engine.builtIn ? "built-in"
+                        : outdated ? "update available"
+                        : engine.installed ? "installed" : "available"
                     Terminal.stdout("\(engine.id)\t\(state)\t\(engine.summary)")
                 }
             }

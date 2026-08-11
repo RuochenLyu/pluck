@@ -425,3 +425,10 @@
 - **inspector 重排**：对比图之下改为 `Form(.grouped)` —— `LabeledContent` 三行（名称/尺寸/引擎），操作是底部 Section 的两个全宽 `Label` 行（拷贝/存储…），删除交给 ⌫ 与右键。对比图纵横比夹到 3:4 为止，极端比例在板上留白而不是吃掉整栏。
 - **预览卡顿根因与修复**：旧路径对结果图做"读全量 PNG→解码→缩小→**再编码 PNG**→主线程**再解码**"，PNG 重编码是点击到出图延迟的大头。改为 `CGImageSource` 缩略解码（`kCGImageSourceThumbnailMaxPixelSize`，1120px）直接从两个文件出 `CGImage`，一次解码零编码；`task(id:)` 取消陈旧解码，切换时旧图保留到新图就绪（空白闪烁才是"卡"的观感来源）。`ItemInspector` 不再 `.id()` 整体重建。
 - **模型更新的预留**：`ModelDescriptor.version: String?`（可选解码，旧 manifest 兼容），语义是"我们转换资产的版本"；manifest 两条各标 `"version": "1"`，Settings 行尾显示 `· v1`。更新检查机制（对比 manifest 与已装版本、Sparkle 带来新 manifest 后提示重新下载）记入 backlog，不在本期。
+
+## 2026-08-11 — 模型更新：收据比对，App 更新驱动，零新增网络行为
+
+- **决策**：模型更新检查 = **本地文件比对**。`ModelRegistry` 安装时把 `receipt.json`（安装物的 sha256 + version）写进 staging、随模型目录一次原子改名落盘；`isOutdated(id)` = 已安装 && 收据 sha ≠ manifest sha。新字节由**app 更新**带来（manifest 打包在签名 bundle 内，随 Sparkle 更新），下载仍由用户显式点击（Settings 行的 Update 按钮 = `install(force:)`，同一条下载/校验/原子替换管线）。CLI `models list` 显示 `update available`，JSON 加 `updateAvailable`。
+- **为什么不做远程 manifest**：§4.8 的信任链不变——签名背书 manifest、manifest 钉死 URL 和哈希。独立的远程清单是第二条需要自己签名机制的信任通道，还破坏"默认零网络"。收据比对让"有没有更新"这个问题一个请求都不用发。
+- **无收据 = 视为当前版**：收据机制之前装的模型保守处理，下次安装起自带收据。对着 100 MB mlpackage 重算哈希来补判定，代价与收益不成比例。
+- **`isOutdated` 不是第五个状态**：`ModelRow` 里它是 `installed` 旁边的一个标志——过期的模型仍然安装着、仍然能抠图，所有对 state 的 switch 继续把它当已安装处理；它只是把行尾按钮换成 Update + Delete。

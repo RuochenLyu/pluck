@@ -372,6 +372,13 @@ private struct ModelRowView: View {
                     .frame(width: 90)
                 Button(L.s("Cancel")) { store.cancel(row.id) }
             }
+        case .installed where row.isOutdated:
+            // The new bytes arrived with the app update; fetching them is still the
+            // user's click, like every other download in this app.
+            HStack(spacing: 8) {
+                Button(L.s("Update")) { store.download(row.id, force: true) }
+                Button(L.s("Delete")) { store.delete(row.id, preferences: preferences) }
+            }
         case .installed:
             Button(L.s("Delete")) { store.delete(row.id, preferences: preferences) }
         case .available, .failed:

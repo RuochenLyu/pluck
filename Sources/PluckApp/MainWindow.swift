@@ -596,6 +596,11 @@ private struct ListRow: View {
             CardFooterButton(symbol: "doc.on.doc", label: L.s("Copy")) { model.copy(item) }
             CardFooterButton(symbol: "square.and.arrow.down", label: L.s("Save")) { model.save(item) }
         }
+        // The whole row, Spacer included, or the double-click only lands on the text.
+        .contentShape(Rectangle())
+        // Simultaneous, like the grid card: `List` owns the single click for selection,
+        // and this rides alongside instead of stealing it.
+        .simultaneousGesture(TapGesture(count: 2).onEnded { model.preview(item) })
         .onAppear { thumbnail = NSImage(data: item.thumbnailPNG) }
         .onDrag { item.dragProvider() }
         .contextMenu {

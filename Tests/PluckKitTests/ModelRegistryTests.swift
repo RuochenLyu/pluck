@@ -187,14 +187,16 @@ final class ModelRegistryTests: XCTestCase {
         try? FileManager.default.removeItem(at: root.deletingLastPathComponent())
     }
 
-    private func manifest(sha: String? = nil, bytes: Int64? = nil) throws -> ModelManifest {
-        try ModelManifest(data: Data("""
+    private func manifest(sha: String? = nil, bytes: Int64? = nil, version: String? = nil) throws -> ModelManifest {
+        let versionLine = version.map { "\"version\": \"\($0)\"," } ?? ""
+        return try ModelManifest(data: Data("""
             {
               "version": 1,
               "models": [{
                 "id": "fake",
                 "displayName": "Fake",
                 "file": "Fake.mlpackage",
+                \(versionLine)
                 "url": "https://example.invalid/Fake.mlpackage.zip",
                 "sha256": "\(sha ?? digest)",
                 "bytes": \(bytes ?? size),
@@ -377,5 +379,63 @@ final class ModelRegistryTests: XCTestCase {
         let expected = SHA256.hash(data: try Data(contentsOf: archive))
             .map { String(format: "%02x", $0) }.joined()
         XCTAssertEqual(digest, expected)
+    }
+
+    /// The receipt is what a later manifest is compared against — no receipt, no update
+    /// check, so it has to land with the install itself.
+    func testInstallWritesAReceiptAndTheModelReadsCurrent() async throws {
+        let downloader = StubDownloader(response: .file(archive))
+        let registry = ModelRegistry(manifest: try manifest(version: "1"), root: root, downloader: downloader)
+        _ = try await registry.install("fake")
+
+        let receipt = try XCTUnwrap(registry.receipt(for: "fake"))
+        XCTAssertEqual(receipt.sha256, digest)
+        XCTAssertEqual(receipt.version, "1")
+        XCTAssertFalse(registry.isOutdated("fake"))
+    }
+
+    /// The whole update mechanism: a newer app ships a manifest whose digest no longer
+    /// matches what the receipt says was installed. Purely local — no request is made to
+    /// find this out.
+    func testAManifestWithNewBytesMarksTheInstallOutdated() async throws {
+        let downloader = StubDownloader(response: .file(archive))
+        let registry = ModelRegistry(manifest: try manifest(version: "1"), root: root, downloader: downloader)
+        _ = try await registry.install("fake")
+
+        let newer = ModelRegistry(
+            manifest: try manifest(sha: String(repeating: "c", count: 64), version: "2"),
+            root: root,
+            downloader: downloader
+        )
+        XCTAssertTrue(newer.isOutdated("fake"))
+        // Still installed and still usable — outdated is an offer, not a failure state.
+        XCTAssertTrue(newer.isInstalled("fake"))
+    }
+
+    /// A model installed before receipts existed reads as current: conservative on
+    /// purpose, and it starts carrying a receipt on its next install.
+    func testAnInstallWithoutAReceiptReadsAsCurrent() async throws {
+        let downloader = StubDownloader(response: .file(archive))
+        let registry = ModelRegistry(manifest: try manifest(), root: root, downloader: downloader)
+        _ = try await registry.install("fake")
+        try FileManager.default.removeItem(at: root.appendingPathComponent("fake/receipt.json"))
+
+        XCTAssertFalse(registry.isOutdated("fake"))
+    }
+
+    /// Updating is `install(force:)` — the same download, verify and atomic swap, ending
+    /// with a receipt that matches the new manifest.
+    func testForceInstallRefreshesTheReceipt() async throws {
+        let downloader = StubDownloader(response: .file(archive))
+        let registry = ModelRegistry(manifest: try manifest(version: "1"), root: root, downloader: downloader)
+        _ = try await registry.install("fake")
+
+        // The "new" release happens to be the same bytes in this test; what matters is
+        // that the receipt is rewritten from the manifest being installed from.
+        let newer = ModelRegistry(manifest: try manifest(version: "2"), root: root, downloader: downloader)
+        _ = try await newer.install("fake", force: true)
+
+        XCTAssertEqual(newer.receipt(for: "fake")?.version, "2")
+        XCTAssertFalse(newer.isOutdated("fake"))
     }
 }

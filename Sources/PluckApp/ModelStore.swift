@@ -22,6 +22,10 @@ struct ModelRow: Identifiable, Equatable {
 
     let descriptor: ModelDescriptor
     var state: State
+    /// Installed, but from bytes the current manifest no longer points at. Carried beside
+    /// `state` rather than as a fifth case: an outdated model is still installed — it
+    /// loads, it plucks — and every switch over `state` should keep treating it that way.
+    var isOutdated = false
     /// What the unpacked model is really costing on this disk, once someone has looked.
     ///
     /// Not `descriptor.bytes`: that is the size of the **zip** the manifest pins, which is
@@ -93,7 +97,8 @@ final class ModelStore {
             }
             return ModelRow(
                 descriptor: descriptor,
-                state: registry.isInstalled(descriptor.id) ? .installed : .available
+                state: registry.isInstalled(descriptor.id) ? .installed : .available,
+                isOutdated: registry.isOutdated(descriptor.id)
             )
         }
     }
@@ -118,7 +123,9 @@ final class ModelStore {
         }
     }
 
-    func download(_ id: String) {
+    /// `force` is the update path: `ModelRegistry.install` returns an installed model
+    /// untouched unless told otherwise, and an update is precisely "fetch it again".
+    func download(_ id: String, force: Bool = false) {
         guard let registry, tasks[id] == nil else { return }
         setState(.downloading(fraction: nil), for: id)
         // Hoisted out of the progress closure: a `[weak self]` binding is implicitly
@@ -130,7 +137,7 @@ final class ModelStore {
         tasks[id] = Task { [weak self] in
             let outcome: Result<Void, any Error>
             do {
-                try await registry.install(id) { progress in
+                try await registry.install(id, force: force) { progress in
                     guard progress.phase == .downloading else { return }
                     let fraction = progress.fraction
                     Task { @MainActor in apply(.downloading(fraction: fraction)) }
@@ -152,6 +159,9 @@ final class ModelStore {
         switch outcome {
         case .success:
             setState(.installed, for: id)
+            if let index = rows.firstIndex(where: { $0.id == id }) {
+                rows[index].isOutdated = registry?.isOutdated(id) ?? false
+            }
             NotificationCenter.default.post(name: .pluckModelsDidChange, object: nil)
             await measureInstalled()
         case .failure where cancelled:
