@@ -29,19 +29,19 @@ fake upscaling).
 
 ## Styled (non-photographic) fixtures — 2026-08-11
 
-Five fixtures cover the input styles the photo set left blind: flat illustration,
-line art, pixel art, sticker. All are **original output of this repository** —
-drawn by `Scripts/make-styled-fixtures.swift` (deterministic, re-runnable), with
-`illo-01` compositing this repo's own ImageGen icon layer
-(`Packaging/icon/layer-cat.png`). No external sources, no license to verify.
+Six fixtures cover the input styles the photo set left blind: anime, simple
+cartoon, ink drawing, photographed watercolor, ukiyo-e. Same sourcing policy
+and verification method as the photo set — CC0 via the Openverse API
+(`license=cc0`), normalized with `sips` to JPEG, longest side capped at 2000px.
 
-| File | Category | Origin |
-|---|---|---|
-| illo-01.jpg | Flat illustration, subject on scene | Repo ImageGen layer + programmatic dusk scene |
-| illo-02.jpg | Flat illustration, geometric character | Programmatic |
-| lineart-01.jpg | Line art, strokes only on white | Programmatic |
-| pixel-01.jpg | Pixel art, sprite on patterned ground | Programmatic |
-| sticker-01.jpg | Sticker style, white-stroked shape on flat ground | Programmatic |
+| File | Category | Source URL | Author | License | Downloaded |
+|---|---|---|---|---|---|
+| anime-01.jpg | Anime character | https://www.rawpixel.com/image/6673082/image-public-domain-woman-person | unknown | CC0 1.0 | 2026-08-11 |
+| anime-02.jpg | Anime character with animal | https://www.rawpixel.com/image/6726226/image-heart-public-domain-woman | unknown | CC0 1.0 | 2026-08-11 |
+| watercolor-01.jpg | Photographed watercolor painting | https://www.flickr.com/photos/70145031@N03/24225215355 | peha2217 | CC0 1.0 | 2026-08-11 |
+| cartoon-01.jpg | Simple cartoon character | https://www.rawpixel.com/image/6430241/image-public-domain-kid-person | unknown | CC0 1.0 | 2026-08-11 |
+| ink-01.jpg | Ink drawing | https://www.rawpixel.com/image/6288519/image-vintage-public-domain-nature | unknown | CC0 1.0 | 2026-08-11 |
+| ukiyoe-01.jpg | Ukiyo-e print, multiple figures | https://commons.wikimedia.org/w/index.php?curid=77578859 | Okumura Masanobu | CC0 1.0 | 2026-08-11 |
 
 ## Notes
 
