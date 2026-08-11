@@ -24,7 +24,6 @@ macOS 原生离线抠图（remove background）应用。免费开源，GitHub �
 Sources/PluckKit/    核心引擎库，无 UI 依赖 —— 唯一的真相源
 Sources/PluckCLI/    命令行（swift-argument-parser），PluckKit 薄壳
 Sources/PluckApp/    SwiftUI app（菜单栏 + 主窗口 + 结果浮层），PluckKit 薄壳
-Extensions/          Finder Quick Action
 skills/pluck/        agent skill（SKILL.md）
 models/manifest.json 可下载模型清单
 ```

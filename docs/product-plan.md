@@ -9,7 +9,7 @@
 三条产品原则（对应需求）：
 
 1. **不联网、隐私好、免费**——默认路径零网络请求（模型下载除外，且是用户显式触发）；代码开源可审计。
-2. **UI 好、交互好**——原生 SwiftUI，拖拽 / Finder 右键 / 剪贴板全链路，模型可扩展但默认零配置。
+2. **UI 好、交互好**——原生 SwiftUI，拖拽 / 剪贴板全链路，模型可扩展但默认零配置。
 3. **CLI + Agent skill**——同一个引擎暴露为命令行工具和 agent skill，是**第一个明确面向 AI agent 设计的抠图工具**（差异化卖点，现有竞品全部没有）。
 
 ## 2. 命名
@@ -31,7 +31,7 @@
 
 1. **100% 离线**——你的照片从不离开这台 Mac。无账号、无上传、无遥测，开源代码可验证。
 2. **秒出结果**——系统级模型（与 Finder「移除背景」同源），无需下载任何东西，装完即用。
-3. **原生体验**——标准单窗口：拖入/⌘V（位图粘贴即抠即回剪贴板，不落盘闭环）、before/after 对比 inspector、逐图换引擎、网格/列表双视图、批量进度；Finder 右键（规划中）。
+3. **原生体验**——标准单窗口：拖入/⌘V（位图粘贴即抠即回剪贴板，不落盘闭环）、before/after 对比 inspector、逐图换引擎、网格/列表双视图、批量进度。
 4. **可扩展的高质量模式**——按需下载 MIT 协议的高精度模型（发丝级边缘），不满意随时切回。
 5. **为 AI agent 而生**——自带 CLI 和 agent skill，Claude Code / 任何 agent 一行命令抠图。
 6. **免费，永远免费**——没有订阅、没有"预览高清下载低清"、没有水印。
@@ -53,15 +53,13 @@ pluck/
 │   │   └── Compositor.swift         # mask → 透明 PNG / 纯色 / 自定义背景合成
 │   ├── PluckCLI/            # 命令行（swift-argument-parser）
 │   └── PluckApp/            # SwiftUI app（单窗口：toolbar + 网格/列表 + 预览 inspector）
-├── Extensions/
-│   └── FinderQuickAction/   # Action Extension（右键「Pluck 移除背景」）
 ├── skills/
 │   └── pluck/SKILL.md       # agent skill，随仓库分发
 ├── models/manifest.json     # 可下载模型清单（名称/URL/SHA256/license/体积）
 └── homebrew/                # cask (app) + formula (cli)
 ```
 
-核心设计：**PluckKit 是唯一引擎，App、CLI、Finder 扩展都是它的薄壳。** 保证三个入口行为一致，也让第三方能直接依赖 PluckKit。
+核心设计：**PluckKit 是唯一引擎，App 与 CLI 都是它的薄壳。** 保证入口行为一致，也让第三方能直接依赖 PluckKit。
 
 "薄壳"由 PluckKit 的入口 API 界定——壳只负责 I/O、命名、进度与错误呈现，从字节到合成图之间的一切归 PluckKit：
 
@@ -110,7 +108,7 @@ protocol MattingEngine {
 - **处理中反馈**：Recent 网格头部占位卡（输入图缩略图去饱和 + 扫光，>250ms 才出 spinner，完成原地交叉淡出）；面板关闭时由菜单栏图标呼吸脉冲承担。
 - **主窗口**：大拖放区；多文件/文件夹拖入进批量队列，逐张进度 + 失败标记；处理前后对比（滑块）；导出格式与目的地记忆。
 - **结果浮层**（CleanShot X 式）：处理完弹小浮层，可直接拖去别的 app / 复制 / 存到指定文件夹 / 换背景色，不强制保存对话框。
-- ~~**Finder 右键**：Action Extension 注册 Quick Action，选中多张图右键即批量处理，输出 `xxx.png` 到原目录（可配置）。~~ **2026-08-11 落地修正**（见 decisions.md 同日）：Quick Action 为**转发桥**——收集选中文件唤起主 app，走与拖放同一条 `handleDrop` 管线。"静默输出到原目录"被沙盒否决：扩展必须沙盒化，user-selected 只读授权覆盖不到"在旁边新建 xxx.png"。
+- ~~**Finder 右键**：Action Extension 注册 Quick Action。~~ **2026-08-11 移除**（见 decisions.md 同日）：落地为转发桥后实测体验不达标，整体删除。
 - **设置**：默认引擎、模型管理（下载/删除/各自 license 展示）、输出格式、快捷键。默认值全部开箱可用，设置是"出口"不是"门槛"。
 
 ### 4.4 CLI（面向人类 + agent 双模式）

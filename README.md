@@ -22,8 +22,7 @@ Your photos never leave your Mac — no account, no upload, no subscription, no 
   not marketed — see the [audit](docs/research.md).
 - **Native and zero-config.** One standard window: drag images in (or ⌘V straight from
   the clipboard), compare before/after side by side, switch engines per image, export the
-  batch. Grid and list views, history that survives relaunches. A Finder Quick Action is
-  planned.
+  batch. Grid and list views, history that survives relaunches.
 - **Built for AI agents too.** The same engine ships as a `pluck` CLI: `--json` NDJSON
   output, semantic exit codes, no GUI, no TTY assumptions.
 - **Free forever.** No "HD behind a paywall", no weekly subscription.

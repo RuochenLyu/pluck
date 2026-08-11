@@ -449,3 +449,10 @@
 - **为什么 swiftc 直编而非 SwiftPM target**：扩展入口需要 `-e _NSExtensionMain`，SwiftPM 只能用 `unsafeFlags` 表达——会让 PluckKit 无法被任何下游包依赖（与 Sparkle rpath 同一笔账，2026-07-29 已拒付过一次）。`bundle.sh` 用 `xcrun swiftc` 单文件编译、拼 `PlugIns/PluckQuickAction.appex`、带沙盒 entitlements 在 app 之前签名（由内向外的既有顺序）。**依旧没有 Xcode 工程**——当初"推迟到 Finder 扩展需要它"的判断到期后，实际答案是根本不需要。
 - **激活规则**：`NSExtensionActivationSupportsImageWithMaxCount = 100`（只对图片出现，上限对齐导出重名策略的 999 之内的现实批量）。菜单名 "Remove Background / 移除背景"（appex 的 InfoPlist.strings 双语）。
 - **验证**：ad-hoc 构建通过 `codesign --verify --strict`；`pluginkit` 注册可见、entitlements 落章。Finder 菜单出现与端到端转发需人工验证（系统设置 ▸ 通用 ▸ 登录项与扩展 ▸ Finder 可能需要手动启用一次）；Developer ID 签名 + 公证下的加载验证并入 release.sh 流程。
+
+
+## 2026-08-11 — Finder Quick Action 移除
+
+- **决策**：整体删除（`Extensions/`、bundle.sh 的 appex 构建与签名段、文档相关内容）。同日早间的落地 ADR 保留为历史记录。
+- **理由**（维护者实测后判断）：沙盒把它限制成"转发桥"——右键之后等于换了个姿势打开 app，比拖拽/⌘V 没有增益；加上与系统自带"移除背景"快速操作同场竞争（macOS 26 Finder 原生就有这个功能，且不用弹窗），这个入口的存在价值不成立。**系统自带同名功能本身就是删除它的最好理由**——用户在同一个菜单里有更顺手的选择。
+- **保留的教训**：appex 可以 swiftc 直编、无需 Xcode 工程（该结论已验证，将来任何扩展都适用）；`com.apple.ui-services` 要求 principal 是 NSViewController。
