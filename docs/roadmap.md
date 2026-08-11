@@ -19,9 +19,8 @@ CLI `models list` 报 `updateAvailable`。
 
 ### 发布清单（按序）
 
-1. **Sparkle 密钥（维护者，唯一硬阻塞）**：`generate_keys` → 私钥进 Keychain（备份！）→
-   公钥写 `Packaging/sparkle_public_key.txt` → `SPARKLE_BIN=... ./Scripts/release.sh` 出签名 appcast。
-2. **Finder Quick Action**：Xcode appex 壳 + 签名/公证链路验证（唯一剩余功能项）。
+1. ~~Sparkle 密钥~~ ✅ 2026-08-11：维护者已生成，公钥落 `Packaging/sparkle_public_key.txt`，bundle 实测带更新器。发布时 `SPARKLE_BIN=~/Sparkle-2.9.4/bin ./Scripts/release.sh` 出签名 appcast。
+2. ~~Finder Quick Action~~ ✅ 2026-08-11：转发桥方案落地（见 decisions.md 同日）——swiftc 直编 appex、无 Xcode 工程、bundle.sh 拼装签名。**维护者待办**：Finder 右键实测一次（可能需在 系统设置 ▸ 扩展 里启用）；release.sh 公证链路带 appex 复验。
 3. **skills/pluck/SKILL.md**：已定稿（含 `-o` 语义、`--json` 契约、`updateAvailable`）。✅
 4. ~~边缘 decontamination~~ **维护者裁定不做（2026-08-11）**：decontamination = 抠图边缘的背景色渗透清理（如绿背景在发丝边缘留下的绿边），非去水印。裁定连同 1.1 一起移出计划；如未来用户反馈边缘偏色再重新评估。
 5. **营销物料**：发丝 before/after 素材；"画的翻拍"双引擎语义分歧图（A.7 实测样本）；README 已更新。

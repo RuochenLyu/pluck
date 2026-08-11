@@ -88,6 +88,30 @@ python3 -c 'import json,sys; json.load(open(sys.argv[1]))' "$RESOURCES/manifest.
 echo "==> drawing the icon"
 swift "$ROOT/Scripts/make-icon.swift" "$RESOURCES/AppIcon.icns"
 
+# The Finder Quick Action. Compiled with bare swiftc rather than a SwiftPM target for two
+# reasons: the extension entry point needs `-e _NSExtensionMain`, which SwiftPM only
+# expresses as unsafeFlags (poisoning PluckKit for every downstream consumer — the same
+# trade rejected for Sparkle's rpath), and the extension is deliberately one file with no
+# dependencies: it forwards the selected files to the app and exits. See the header of
+# ActionRequestHandler.swift for why it must not matte anything itself.
+echo "==> building the Finder Quick Action"
+APPEX="$CONTENTS/PlugIns/PluckQuickAction.appex"
+mkdir -p "$APPEX/Contents/MacOS" "$APPEX/Contents/Resources"
+xcrun swiftc -O \
+    -module-name PluckQuickAction \
+    -target arm64-apple-macos26.0 \
+    -framework AppKit \
+    -Xlinker -e -Xlinker _NSExtensionMain \
+    -o "$APPEX/Contents/MacOS/PluckQuickAction" \
+    "$ROOT/Extensions/FinderQuickAction/ActionRequestHandler.swift"
+sed -e "s/__SHORT_VERSION__/$SHORT_VERSION/" \
+    -e "s/__BUILD_VERSION__/$BUILD_VERSION/" \
+    "$ROOT/Extensions/FinderQuickAction/Info.plist" > "$APPEX/Contents/Info.plist"
+plutil -lint -s "$APPEX/Contents/Info.plist"
+cp -R "$ROOT/Extensions/FinderQuickAction/en.lproj" \
+      "$ROOT/Extensions/FinderQuickAction/zh-Hans.lproj" \
+      "$APPEX/Contents/Resources/"
+
 # Sparkle is a framework, and a framework in an .app has to be carried inside it — SwiftPM
 # leaves it beside the binary in `.build/<config>/`, which is a build directory nobody
 # ships. `ditto` rather than `cp -R`: the framework is a versioned bundle held together by
@@ -156,6 +180,12 @@ for nested in \
 do
     sign "$nested"
 done
+
+# The extension seals before the app that carries it, and it must carry its sandbox
+# entitlements even ad-hoc: an unsandboxed extension is one the system refuses to load,
+# and that refusal should surface on today's build, not on release day.
+sign --entitlements "$ROOT/Extensions/FinderQuickAction/PluckQuickAction.entitlements" \
+    "$CONTENTS/PlugIns/PluckQuickAction.appex"
 
 sign --identifier "$BUNDLE_ID" "$APP"
 codesign --verify --strict --verbose=2 "$APP"

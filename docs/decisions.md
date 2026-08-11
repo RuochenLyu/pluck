@@ -440,3 +440,12 @@
 - **弃案及理由**：棋盘格底（被误读为图标本身透明）、深青底（macOS 26 默认外观以亮底为主，深色由系统 dark 变体派生）、鸟（同类图标过多）、果实（讲了 pluck 字面义没讲去背景）、拨片（脱离琴弦读作芒果）。
 - **产线**：三张图层定稿于 `Packaging/icon/`（cream 渐变底 / 照片卡含洞 / 珊瑚猫，均 1024 透明底）；`Scripts/make-icon.swift` 持有构图参数（对着真实 Dock 调的：卡 0.97 绘制尺寸中心 (455,465)，猫 0.74 中心 (668,630)），合成 → Big Sur 网格圆角 → 全尺寸 icns。`bundle.sh` 调用不变。
 - **待办（backlog）**：Icon Composer 玻璃版（.icon）——工具已在（Xcode 26 内），三图层直接可用，摆位照 make-icon.swift 的参数；产出后 bundle.sh 需要同时带 icns（旧系统兼容无需——最低 26，届时评估 icns 是否可退役）。
+
+
+## 2026-08-11 — Finder Quick Action：转发桥，不在扩展内抠图；swiftc 直编，不建 Xcode 工程
+
+- **决策**：Quick Action（`Extensions/FinderQuickAction/`）只做一件事：收集选中的图片文件，`NSWorkspace.open(_:withApplicationAt:)` 唤起**按相对路径定位的**宿主 app（上溯三级，不查 bundle id——Downloads 里的副本应该启动它自己），走 `application(_:open:)` 既有管线。扩展自身零依赖、一个源文件。
+- **为什么不在扩展内抠图**：扩展必须沙盒化（否则系统拒载）；沙盒的 user-selected 只读授权只覆盖被选中的文件本身，覆盖不到"在同目录新建 `xxx.png`"——product-plan 原设想的静默输出在这块礁石上撞死。转发的代价是弹一次主窗口，买到的是完整产品：占位卡、对比 inspector、逐图换引擎、诚实的失败句子，以及管线只有一份实现。
+- **为什么 swiftc 直编而非 SwiftPM target**：扩展入口需要 `-e _NSExtensionMain`，SwiftPM 只能用 `unsafeFlags` 表达——会让 PluckKit 无法被任何下游包依赖（与 Sparkle rpath 同一笔账，2026-07-29 已拒付过一次）。`bundle.sh` 用 `xcrun swiftc` 单文件编译、拼 `PlugIns/PluckQuickAction.appex`、带沙盒 entitlements 在 app 之前签名（由内向外的既有顺序）。**依旧没有 Xcode 工程**——当初"推迟到 Finder 扩展需要它"的判断到期后，实际答案是根本不需要。
+- **激活规则**：`NSExtensionActivationSupportsImageWithMaxCount = 100`（只对图片出现，上限对齐导出重名策略的 999 之内的现实批量）。菜单名 "Remove Background / 移除背景"（appex 的 InfoPlist.strings 双语）。
+- **验证**：ad-hoc 构建通过 `codesign --verify --strict`；`pluginkit` 注册可见、entitlements 落章。Finder 菜单出现与端到端转发需人工验证（系统设置 ▸ 通用 ▸ 登录项与扩展 ▸ Finder 可能需要手动启用一次）；Developer ID 签名 + 公证下的加载验证并入 release.sh 流程。
