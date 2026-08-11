@@ -93,3 +93,61 @@ no borders, no watermark
   3. 卡内场景元素 ≤3 个，无碎细节；
   4. 不含棋盘格 / 文字 / AI 味过重的过度光影。
 - 选中 1-2 张后：按本文上半部分的分层 SVG 规范重建（矢量化时允许对形状做简化，以 32px 可读为准），或位图直接精修出 icns（放弃 Liquid Glass 分层，接受平面图标）。
+
+---
+
+## 附二：Icon Composer 分层素材任务书（cat-1 定稿后的正式产线）
+
+> cat-1 的构图与叙事已定稿；本节产出它的**分层版**，供 Icon Composer 组装、由系统渲染
+> Liquid Glass 光效。关键事实：Icon Composer 接受 **PNG 图层**，不要求矢量——所以用
+> ImageGen 直接生成透明底的单元素图即可，不必手写 SVG。
+
+### 要生成的素材（各自独立、透明背景）
+
+每张 1024×1024、**背景完全透明**（模型需支持 transparent background 输出）、元素居中、
+四周留 ≥15% 透明边距。风格统一：现代扁平 + 柔和渐变，**比 cat-1 更简**——这是给系统
+玻璃渲染的素材，细节越少玻璃质感越好。
+
+**L1 `layer-card.png` — 照片卡**
+
+```
+a single warm-white photo card, standing upright with a very slight
+tilt (about -5 degrees), flat modern illustration. Inside the card a
+minimal sunset scene: ONE smooth sky gradient (peach to soft orange)
+and ONE simple dune-shaped hill band, plus a small pale sun disc.
+Punched clean through the card is a cat-shaped hole (sitting cat
+silhouette, upright ears, tail curled) shown as flat warm-white
+#FCFAF6 negative space. No cat inside — only the hole. Transparent
+background, nothing outside the card, no shadows, no outlines, no
+text. 1024x1024, centered, 15% transparent margin.
+```
+
+**L2 `layer-cat.png` — 珊瑚猫**
+
+```
+a sitting cat silhouette, upright ears, tail curled around the body,
+filled with a smooth coral gradient #FF8C66 to #EE4B45, flat modern
+illustration, completely solid single shape with clean crisp edges.
+The pose matches a cat that could have stepped out of a photo.
+Transparent background, no shadows, no outlines, no text, no face
+details. 1024x1024, centered, 15% transparent margin.
+```
+
+**背景层不生成**：纯渐变，组装时在 Icon Composer 里直接做（或由脚本出一张
+1024 渐变 PNG）。主版本用亮底：**珊瑚系 `#FFB38A → #FF7A5C` 或暖奶油
+`#FFF4EA → #FFE3D2`，二选一各出一版对比**；深青底弃用——macOS 26 图标的
+default 外观以亮底为主，深色由系统的 dark 变体自动派生。
+
+### 组装规格（Icon Composer 内）
+
+- 图层顺序（底→顶）：渐变背景 → `layer-card`（约占画布 62%，中心略偏左下）→
+  `layer-cat`（约占 48%，右上方压卡片边缘，与卡内的洞形成"走出来"的错位）。
+- 猫与洞不要求逐像素同形——错位本身就是叙事；但姿态必须同款（坐姿、卷尾）。
+- 玻璃、高光、dark/clear/tinted 变体全部交给系统，素材上**不要**自带光效。
+
+### 验收
+
+- [ ] 两张素材均为真透明底（放在任意颜色上查边缘，无白边/黑边/半透明杂色）
+- [ ] 猫与洞姿态同款可配对
+- [ ] 组装后 32px：亮底 / 白卡 / 珊瑚猫三层可辨
+- [ ] 素材本身无阴影、无高光、无描边、无文字
