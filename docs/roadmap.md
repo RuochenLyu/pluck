@@ -3,6 +3,13 @@
 > 本文件是唯一的进度真相源：阶段推进、里程碑范围变化时更新这里。
 > 产品定义与架构见 [product-plan.md](product-plan.md)，决策记录见 [decisions.md](decisions.md)。
 
+## 🚀 已发布：v1.0.0（2026-08-11）
+
+- **Release**: https://github.com/RuochenLyu/pluck/releases/tag/v1.0.0 — Pluck.zip（签名+公证+stapled，Gatekeeper `Notarized Developer ID`）、CLI zip（签名+公证）、签名 appcast.xml、checksums.txt。
+- **官网**: https://pluck.aix4u.com （GitHub Pages Actions 部署，自定义域名已绑定，DNS 已解析；HTTPS 证书由 GitHub 自动签发中）。
+- **Homebrew**: `RuochenLyu/homebrew-pluck` tap（cask + formula）已上线。
+- **发布后待办**: ①HTTPS 证书就绪后开 `https_enforced`；②1.0.1 起 appcast 的 download URL 需按版本固定（当前 `latest/download` 前缀在多版本时会让旧条目指向新资产）；③HN/少数派/V2EX 发帖（营销素材：发丝对比图、"画的翻拍"双引擎图）；④伪本地化复跑。
+
 ## 当前状态（2026-08-11）— 1.0 发布准备
 
 **产品形态已定稿**：纯 Dock app，单标准窗口（unified toolbar：Add / 引擎菜单 / 网格·列表切换 /

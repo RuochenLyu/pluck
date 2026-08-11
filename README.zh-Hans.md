@@ -7,8 +7,11 @@
 Pluck 是一个原生 macOS 应用（附带 CLI），完全在设备端移除图片背景。
 你的照片从不离开你的 Mac——没有账号、没有上传、没有订阅、没有水印。
 
-> 🚧 开发中。今天就可以从源码构建运行（`swift build`、`./Scripts/bundle.sh`），
-> 但 1.0 之前不提供安装包——我们不发布半成品。
+## 安装
+
+- **直接下载**：从[最新 Release](https://github.com/RuochenLyu/pluck/releases/latest) 下载 `Pluck.zip`，解压后拖入「应用程序」。已签名并公证。
+- **Homebrew**：`brew tap RuochenLyu/pluck && brew install --cask pluck`（应用）· `brew install RuochenLyu/pluck/pluck`（命令行）
+- 需要 macOS 26+（Apple 芯片）。
 
 ## 为什么又做一个抠图工具？
 
