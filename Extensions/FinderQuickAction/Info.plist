@@ -5,7 +5,9 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-	<string>Remove Background</string>
+	<string>Remove Background with Pluck</string>
+	<key>CFBundleIconFile</key>
+	<string>AppIcon</string>
 	<key>CFBundleExecutable</key>
 	<string>PluckQuickAction</string>
 	<key>CFBundleIdentifier</key>
@@ -27,7 +29,7 @@
 		<key>NSExtensionPointIdentifier</key>
 		<string>com.apple.ui-services</string>
 		<key>NSExtensionPrincipalClass</key>
-		<string>PluckQuickAction.ActionRequestHandler</string>
+		<string>PluckQuickAction.ActionViewController</string>
 		<key>NSExtensionAttributes</key>
 		<dict>
 			<key>NSExtensionActivationRule</key>
@@ -37,8 +39,6 @@
 			</dict>
 			<key>NSExtensionServiceAllowsFinderPreviewItem</key>
 			<true/>
-			<key>NSExtensionServiceFinderPreviewIconName</key>
-			<string>NSTouchBarRemoveTemplate</string>
 		</dict>
 	</dict>
 </dict>

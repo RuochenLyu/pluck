@@ -111,6 +111,7 @@ plutil -lint -s "$APPEX/Contents/Info.plist"
 cp -R "$ROOT/Extensions/FinderQuickAction/en.lproj" \
       "$ROOT/Extensions/FinderQuickAction/zh-Hans.lproj" \
       "$APPEX/Contents/Resources/"
+cp "$RESOURCES/AppIcon.icns" "$APPEX/Contents/Resources/AppIcon.icns"
 
 # Sparkle is a framework, and a framework in an .app has to be carried inside it — SwiftPM
 # leaves it beside the binary in `.build/<config>/`, which is a build directory nobody

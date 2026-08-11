@@ -13,8 +13,23 @@ import UniformTypeIdentifiers
 /// Bridging to the app costs one window appearing, and buys the full product: batch
 /// placeholders, the comparison inspector, engine switching, honest failure sentences,
 /// and exactly one implementation of the pipeline.
-final class ActionRequestHandler: NSObject, NSExtensionRequestHandling {
-    func beginRequest(with context: NSExtensionContext) {
+/// An `NSViewController`, not a bare request handler: `com.apple.ui-services` is the *UI*
+/// action extension point — the only one Finder's Quick Actions menu accepts — and ShareKit
+/// asserts on `viewController` at load time (crashed with "未能与帮助应用程序通信",
+/// PluckQuickAction-2026-08-11-161430.ips). The view is empty and the request completes in
+/// `viewDidLoad`, so nothing ever actually appears.
+final class ActionViewController: NSViewController {
+    override func loadView() {
+        view = NSView()
+    }
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        guard let context = extensionContext else { return }
+        forward(context)
+    }
+
+    private func forward(_ context: NSExtensionContext) {
         let providers = (context.inputItems as? [NSExtensionItem] ?? [])
             .flatMap { $0.attachments ?? [] }
             .filter { $0.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier) }
