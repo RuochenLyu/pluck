@@ -38,6 +38,12 @@ enum Tokens {
     /// out, fixed tiles reflow without rescaling — the rescale was the judder.
     static let tileWidth: CGFloat = 160
 
+    /// The list view's single row height. Content is sized to fit *inside* it, because the
+    /// alternating background stripes are drawn at exactly this height and a taller row
+    /// puts the whole bottom of the list out of step.
+    static let listRowHeight: CGFloat = 36
+    static let listThumbSide: CGFloat = 26
+
     /// Checkerboard: small squares, low contrast. At 8pt and 13% the board was competing
     /// with the cutout for the eye; at 6pt and ~5% it reads as texture.
     static let checkerSquare: CGFloat = 6

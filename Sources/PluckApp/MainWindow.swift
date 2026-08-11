@@ -187,6 +187,9 @@ struct MainWindowView: View {
                 .accessibilityLabel(String(format: L.s("%1$d of %2$d done"), batch.done, batch.total))
             }
         }
+        // Everything from here rides the trailing edge — Finder's split: navigation verbs
+        // on the left, the working controls on the right, air in between.
+        ToolbarSpacer(.flexible)
         ToolbarItem {
             engineMenu
         }
@@ -209,10 +212,11 @@ struct MainWindowView: View {
             }
             .help(L.s("Show Preview"))
         }
-        // An icon, like every export/share on this machine; the words live in the tooltip
-        // and the accessibility label, where the count can change width freely.
+        // A word, not the share glyph: `square.and.arrow.up` promises the share sheet,
+        // and this button writes PNG files into a folder. The count stays in the tooltip
+        // so the button's width never jumps with the selection.
         ToolbarItem(placement: .primaryAction) {
-            Button(exportTitle, systemImage: "square.and.arrow.up") { model.exportTargeted() }
+            Button(L.s("Export")) { model.exportTargeted() }
                 .disabled(model.recents.items.isEmpty)
                 .help(exportTitle)
         }
@@ -293,6 +297,10 @@ struct MainWindowView: View {
         }
         .scrollContentBackground(.visible)
         .alternatingRowBackgrounds(.enabled)
+        // One height for real rows and the empty stripes below them: the stripes are drawn
+        // at the table's row height, so a row whose content exceeds it leaves the bottom of
+        // the list visibly out of step.
+        .environment(\.defaultMinListRowHeight, Tokens.listRowHeight)
         .focused($listFocused)
         .task { listFocused = true }
         .overlay {
@@ -567,7 +575,7 @@ private struct ListRow: View {
                         .padding(2)
                 }
             }
-            .frame(width: 32, height: 32)
+            .frame(width: Tokens.listThumbSide, height: Tokens.listThumbSide)
             Text(verbatim: item.suggestedName)
                 .lineLimit(1)
                 .truncationMode(.middle)
@@ -585,7 +593,6 @@ private struct ListRow: View {
             CardFooterButton(symbol: "doc.on.doc", label: L.s("Copy")) { model.copy(item) }
             CardFooterButton(symbol: "square.and.arrow.down", label: L.s("Save")) { model.save(item) }
         }
-        .padding(.vertical, 2)
         .onAppear { thumbnail = NSImage(data: item.thumbnailPNG) }
         .onDrag { item.dragProvider() }
         .contextMenu {
@@ -626,7 +633,7 @@ private struct PendingRow: View {
                         .opacity(0.55)
                 }
             }
-            .frame(width: 32, height: 32)
+            .frame(width: Tokens.listThumbSide, height: Tokens.listThumbSide)
             Text(verbatim: item.name)
                 .lineLimit(1)
                 .truncationMode(.middle)
@@ -641,7 +648,6 @@ private struct PendingRow: View {
                     .controlSize(.small)
             }
         }
-        .padding(.vertical, 2)
         .task(id: item.thumbnail) {
             thumbnail = item.thumbnail.flatMap { NSImage(data: $0) }
         }
