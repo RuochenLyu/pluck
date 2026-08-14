@@ -1,5 +1,9 @@
 # Pluck
 
+<p align="center">
+  <img src="site/assets/icon-192.png" width="128" height="128" alt="Pluck app icon">
+</p>
+
 **Lift subjects out of photos. Offline, free, open source.**
 
 English · [简体中文](README.zh-Hans.md)

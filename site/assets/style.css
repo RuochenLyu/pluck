@@ -1,6 +1,6 @@
 /* Pluck landing — one stylesheet, no build step.
    The palette is the app icon's: cream ground, coral subject.
-   Display type is SF Rounded (ui-rounded) — the same friendliness as the cat,
+   Display type is SF Rounded (ui-rounded) — the same friendliness as the mascot,
    with a Mac pedigree and zero font requests. Dark mode follows the system. */
 
 :root {

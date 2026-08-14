@@ -456,3 +456,10 @@
 - **决策**：整体删除（`Extensions/`、bundle.sh 的 appex 构建与签名段、文档相关内容）。同日早间的落地 ADR 保留为历史记录。
 - **理由**（维护者实测后判断）：沙盒把它限制成"转发桥"——右键之后等于换了个姿势打开 app，比拖拽/⌘V 没有增益；加上与系统自带"移除背景"快速操作同场竞争（macOS 26 Finder 原生就有这个功能，且不用弹窗），这个入口的存在价值不成立。**系统自带同名功能本身就是删除它的最好理由**——用户在同一个菜单里有更顺手的选择。
 - **保留的教训**：appex 可以 swiftc 直编、无需 Xcode 工程（该结论已验证，将来任何扩展都适用）；`com.apple.ui-services` 要求 principal 是 NSViewController。
+
+
+## 2026-08-14 — App 图标切换为 Icon Composer 吉祥物资产
+
+- **决策**：用珊瑚色照片吉祥物的真实 `AppIcon.icon` 替换 2026-08-11 的珊瑚猫三层合成图标。源文件固定在 `Packaging/AppIcon.icon`；`bundle.sh` 直接调用 Xcode 26 的 `actool`，一次生成 `AppIcon.icns` 与 `Assets.car`。
+- **理由**：项目最低系统已经是 macOS 26，原生 Icon Composer 资产能由系统承担不同尺寸与表面效果；保留 `.icns` 让现有 `CFBundleIconFile` 和 Finder/Dock 读取路径继续成立，`Assets.car` 则保留 Icon Composer 的新图标表现。
+- **清理**：删除旧的 `Packaging/icon/` 三张分层 PNG 与 `Scripts/make-icon.swift`，避免仓库里并存两套互相竞争的图标真相源。

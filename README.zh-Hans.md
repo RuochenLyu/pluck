@@ -1,5 +1,9 @@
 # Pluck
 
+<p align="center">
+  <img src="site/assets/icon-192.png" width="128" height="128" alt="Pluck 应用图标">
+</p>
+
 **把主体从照片里拎出来。离线、免费、开源。**
 
 [English](README.md) · 简体中文

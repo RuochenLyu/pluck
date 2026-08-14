@@ -49,6 +49,7 @@ echo "==> identity: $IDENTITY"
 # outer .app here would leave four pieces bearing sparkle-project's signature inside one
 # bearing ours, which `codesign --verify --strict` accepts and Gatekeeper does not.
 CODESIGN_IDENTITY="$IDENTITY" "$ROOT/Scripts/bundle.sh" release
+VERSION="$(plutil -extract CFBundleShortVersionString raw "$APP/Contents/Info.plist")"
 
 # ditto, not zip: it is the only archiver that preserves the bundle's symlinks and
 # extended attributes, and notarytool rejects an archive that lost them.
@@ -124,11 +125,12 @@ echo "==> generating and signing the appcast"
 # generate_appcast works on a directory of archives and emits one feed describing all of
 # them, so previous releases have to be beside this one or the feed forgets they existed.
 # `--download-url-prefix` is what turns local filenames into the GitHub Release URLs the
-# feed has to point at; `latest/download/<name>` is the redirect that never goes stale.
+# feed has to point at. Pin it to this version: a historical appcast must never redirect an
+# old enclosure to bytes from a newer release that happen to share the same filename.
 mkdir -p "$APPCAST_DIR"
 cp "$ZIP" "$APPCAST_DIR/"
 "$SPARKLE_BIN/generate_appcast" \
-    --download-url-prefix "https://github.com/RuochenLyu/pluck/releases/latest/download/" \
+    --download-url-prefix "https://github.com/RuochenLyu/pluck/releases/download/v$VERSION/" \
     "$APPCAST_DIR"
 
 echo "==> $APPCAST_DIR/appcast.xml"

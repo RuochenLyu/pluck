@@ -1,0 +1,28 @@
+{
+  "fill": {
+    "automatic-gradient": "extended-srgb:0.03137,0.41961,0.90196,1.00000"
+  },
+  "groups": [
+    {
+      "layers": [
+        {
+          "image-name": "10-subject.png",
+          "name": "10-subject"
+        }
+      ],
+      "name": "Pluck Bold Flat",
+      "shadow": {
+        "kind": "neutral",
+        "opacity": 0.5
+      },
+      "specular": false,
+      "translucency": {
+        "enabled": false,
+        "value": 0.5
+      }
+    }
+  ],
+  "supported-platforms": {
+    "squares": "shared"
+  }
+}

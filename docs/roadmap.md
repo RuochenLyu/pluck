@@ -3,6 +3,12 @@
 > 本文件是唯一的进度真相源：阶段推进、里程碑范围变化时更新这里。
 > 产品定义与架构见 [product-plan.md](product-plan.md)，决策记录见 [decisions.md](decisions.md)。
 
+## 🚀 准备发布：v1.0.1（2026-08-14）
+
+- 用 macOS 26 Icon Composer 吉祥物资产替换首发版图标，App bundle 同时携带 `AppIcon.icns` 与 `Assets.car`。
+- README 与官网 favicon、导航、Hero、Open Graph 图同步新图标。
+- Sparkle appcast 的 enclosure URL 从 `latest/download` 改为版本固定路径，避免历史 feed 指向未来同名资产。
+
 ## 🚀 已发布：v1.0.0（2026-08-11）
 
 - **Release**: https://github.com/RuochenLyu/pluck/releases/tag/v1.0.0 — Pluck.zip（签名+公证+stapled，Gatekeeper `Notarized Developer ID`）、CLI zip（签名+公证）、签名 appcast.xml、checksums.txt。
@@ -16,8 +22,8 @@
 预览开关 / 导出；内容区卡片网格或列表；预览 = `.inspector` 侧栏，before/after 滑块停在黄金分割、
 逐图换引擎、拷贝/存储）。单击即预览（inspector 默认开、状态持久），⇧/⌘ 多选，⌘C/⌘V/⌘A/⌫ 全键盘路径。
 Settings 两 tab（General：外观/语言/历史/更新开关；Models：默认引擎 + 模型管理含 Update）。
-外观跟随系统或手选，控件全走系统 accent。图标 = 珊瑚猫走出照片卡（`Packaging/icon/` 三图层，
-`make-icon.swift` 合成）。最低系统 macOS 26。**294 测试全绿，零 warning。**
+外观跟随系统或手选，控件全走系统 accent。图标 = 珊瑚色照片吉祥物（
+`Packaging/AppIcon.icon`，由 `actool` 编译）。最低系统 macOS 26。**294 测试全绿，零 warning。**
 
 **模型链路已定稿**：Vision（默认，唯一会拒绝无主体）+ BiRefNet lite（利落边）+ lite-matting
 （柔细边，独有真透明玻璃）。发布前 18×3 实测（research.md A.7）：anime/卡通/墨绘全引擎合格，
@@ -32,7 +38,7 @@ CLI `models list` 报 `updateAvailable`。
 4. ~~边缘 decontamination~~ **维护者裁定不做（2026-08-11）**：decontamination = 抠图边缘的背景色渗透清理（如绿背景在发丝边缘留下的绿边），非去水印。裁定连同 1.1 一起移出计划；如未来用户反馈边缘偏色再重新评估。
 5. **营销物料**：发丝 before/after 素材；"画的翻拍"双引擎语义分歧图（A.7 实测样本）；README 已更新。
 6. **发布工程**：CI 化 release.sh、GitHub Release（DMG + CLI 二进制）、Homebrew tap、HN/少数派/V2EX。
-7. **收尾验证**：伪本地化复跑一轮（文案在 8 月多轮改动后）；Icon Composer 玻璃版图标（非阻塞，素材已备）。
+7. **收尾验证**：伪本地化复跑一轮（文案在 8 月多轮改动后）；Icon Composer 图标已接入。
 
 ## 历史状态（2026-08-10 晚）
 

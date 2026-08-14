@@ -4,7 +4,7 @@
 #
 # There is deliberately no Xcode project (decisions.md 2026-07-27). Everything an .app
 # needs that `swift build` does not do is done here, in ~60 readable lines: an Info.plist,
-# a compiled String Catalog, an icon, and an ad-hoc signature. Signing for distribution
+# a compiled String Catalog, a compiled Icon Composer asset, and an ad-hoc signature. Signing for distribution
 # and notarizing are `codesign`/`notarytool` on top of this output — neither needs a
 # project file either.
 #
@@ -16,7 +16,7 @@ CONFIG="${1:-release}"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-SHORT_VERSION="1.0.0"
+SHORT_VERSION="1.0.1"
 # Monotonic and derivable, so two builds of the same commit produce the same bundle.
 BUILD_VERSION="$(git rev-list --count HEAD)"
 
@@ -59,6 +59,7 @@ if [ -z "$SPARKLE_PUBLIC_ED_KEY" ]; then
     echo "    no Sparkle public key — this build will not check for updates"
 fi
 plutil -lint -s "$CONTENTS/Info.plist"
+BUNDLE_ID="$(plutil -extract CFBundleIdentifier raw "$CONTENTS/Info.plist")"
 
 # The reason this script exists at all. SwiftPM copies `Localizable.xcstrings` into its
 # resource bundle verbatim and never runs xcstringstool, so every lookup misses and falls
@@ -85,8 +86,24 @@ cp "$ROOT/models/manifest.json" "$RESOURCES/manifest.json"
 # parse would leave the shipped app silently offering no models at all.
 python3 -c 'import json,sys; json.load(open(sys.argv[1]))' "$RESOURCES/manifest.json"
 
-echo "==> drawing the icon"
-swift "$ROOT/Scripts/make-icon.swift" "$RESOURCES/AppIcon.icns"
+echo "==> compiling the Icon Composer asset"
+ICON_PARTIAL_PLIST="$ROOT/.build/AppIcon-partial.plist"
+xcrun actool "$ROOT/Packaging/AppIcon.icon" \
+    --compile "$RESOURCES" \
+    --output-format human-readable-text \
+    --notices \
+    --warnings \
+    --output-partial-info-plist "$ICON_PARTIAL_PLIST" \
+    --app-icon AppIcon \
+    --enable-on-demand-resources NO \
+    --development-region en \
+    --target-device mac \
+    --minimum-deployment-target 26.0 \
+    --platform macosx \
+    --bundle-identifier "$BUNDLE_ID"
+[ -f "$RESOURCES/AppIcon.icns" ] || { echo "actool did not produce AppIcon.icns" >&2; exit 1; }
+[ -f "$RESOURCES/Assets.car" ] || { echo "actool did not produce Assets.car" >&2; exit 1; }
+plutil -lint -s "$ICON_PARTIAL_PLIST"
 
 # Sparkle is a framework, and a framework in an .app has to be carried inside it — SwiftPM
 # leaves it beside the binary in `.build/<config>/`, which is a build directory nobody
@@ -142,8 +159,6 @@ if [ "$SIGN_IDENTITY" = "-" ]; then
 else
     echo "==> signing ($SIGN_IDENTITY)"
 fi
-BUNDLE_ID="$(plutil -extract CFBundleIdentifier raw "$CONTENTS/Info.plist")"
-
 # Inside out. Sparkle is four pieces of nested code — two XPC services, the relaunch helper
 # and the progress app — and each seals into the framework, which seals into the app.
 SPARKLE_VERSION="$FRAMEWORKS/Sparkle.framework/Versions/B"
