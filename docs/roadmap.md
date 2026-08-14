@@ -3,11 +3,13 @@
 > 本文件是唯一的进度真相源：阶段推进、里程碑范围变化时更新这里。
 > 产品定义与架构见 [product-plan.md](product-plan.md)，决策记录见 [decisions.md](decisions.md)。
 
-## 🚀 准备发布：v1.0.1（2026-08-14）
+## 🚀 已发布：v1.0.1（2026-08-14）
 
+- **Release**: https://github.com/RuochenLyu/pluck/releases/tag/v1.0.1 — App 与 CLI 均签名、公证；App 已 stapled 且 Gatekeeper 判定 `Notarized Developer ID`；签名 appcast 与 checksums 同步发布。
 - 用 macOS 26 Icon Composer 吉祥物资产替换首发版图标，App bundle 同时携带 `AppIcon.icns` 与 `Assets.car`。
 - README 与官网 favicon、导航、Hero、Open Graph 图同步新图标。
 - Sparkle appcast 的 enclosure URL 从 `latest/download` 改为版本固定路径，避免历史 feed 指向未来同名资产。
+- Homebrew tap 的 cask 与 formula 均已更新至 1.0.1；GitHub Pages 部署完成并通过线上浏览器验收。
 
 ## 🚀 已发布：v1.0.0（2026-08-11）
 
@@ -16,7 +18,7 @@
 - **Homebrew**: `RuochenLyu/homebrew-pluck` tap（cask + formula）已上线。
 - **发布后待办**: ①HTTPS 证书就绪后开 `https_enforced`；②1.0.1 起 appcast 的 download URL 需按版本固定（当前 `latest/download` 前缀在多版本时会让旧条目指向新资产）；③HN/少数派/V2EX 发帖（营销素材：发丝对比图、"画的翻拍"双引擎图）；④伪本地化复跑。
 
-## 当前状态（2026-08-11）— 1.0 发布准备
+## 当前状态（2026-08-14）— v1.0.1 已发布
 
 **产品形态已定稿**：纯 Dock app，单标准窗口（unified toolbar：Add / 引擎菜单 / 网格·列表切换 /
 预览开关 / 导出；内容区卡片网格或列表；预览 = `.inspector` 侧栏，before/after 滑块停在黄金分割、
